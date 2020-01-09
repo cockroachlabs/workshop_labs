@@ -1,7 +1,7 @@
 # Lab1 Geo Partitioning
 
 In this lab we will experiment with Geo Partitioning to best 
-undstand how to observe and partition and pin the data.
+understand how to observe and partition and pin the data.
 
 
 ## Connecting to CRDB
@@ -29,7 +29,7 @@ https://github.com/glennfawcett/roachcrib
 
 
 
-## Questions
+## Activities & Questions
 
 --  Q1 
 --
