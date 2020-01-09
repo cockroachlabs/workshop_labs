@@ -38,7 +38,7 @@ https://github.com/glennfawcett/roachcrib
 
 -- Q2
 --
-Connect the the `movr_follower` database.  Do this by using the `west`, `east`, and `europe` connections.
+Connect the the `movr_follower` database in three separate sessions. Connect to the `west`, `east`, and `europe` connections.
 
 Run the following queries in all regions to measure the performance.
 
