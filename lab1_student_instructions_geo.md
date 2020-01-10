@@ -73,13 +73,13 @@ What is the repsonse time of the following queries?
 ```
 SELECT locality, rides.* 
 FROM rides, [show locality] 
-WHERE id = '2ce831ad-2135-4a00-8000-00000001569d' 
-AND city = 'boston';
+WHERE id = '60b65237-0479-4c00-8000-00000002e1db' 
+AND city = 'seattle';
 
 SELECT locality, rides.* 
 FROM rides, [show locality] 
-WHERE id = '60b65237-0479-4c00-8000-00000002e1db' 
-AND city = 'seattle';
+WHERE id = '2ce831ad-2135-4a00-8000-00000001569d' 
+AND city = 'boston';
 
 SELECT locality, rides.* 
 FROM rides, [show locality] 
