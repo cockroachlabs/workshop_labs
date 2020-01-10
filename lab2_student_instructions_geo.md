@@ -78,7 +78,7 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
-#### with `as of system time '-4h' `
+#### with `as of system time interval '-4h' `
 ```
 SELECT locality, rides.* 
 FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-4h' 
