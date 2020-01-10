@@ -71,11 +71,20 @@ Query within all regions
 What is the repsonse time of the following queries?
 
 ```
-select locality, rides.* from rides, [show locality] where id = '2ce831ad-2135-4a00-8000-00000001569d' and city = 'boston';
+SELECT locality, rides.* 
+FROM rides, [show locality] 
+WHERE id = '2ce831ad-2135-4a00-8000-00000001569d' 
+AND city = 'boston';
 
-select locality, rides.* from rides, [show locality] where id = '60b65237-0479-4c00-8000-00000002e1db' and city = 'seattle';
+SELECT locality, rides.* 
+FROM rides, [show locality] 
+WHERE id = '60b65237-0479-4c00-8000-00000002e1db' 
+AND city = 'seattle';
 
-select locality, rides.* from rides, [show locality] where id = 'c71d6063-1726-4000-8000-00000005ef20' and city = 'paris';
+SELECT locality, rides.* 
+FROM rides, [show locality] 
+WHERE id = 'c71d6063-1726-4000-8000-00000005ef20' 
+AND city = 'paris';
 ```
 
 -- Q4b
