@@ -1,6 +1,6 @@
 # Lab2 Query Tuning Workshop
 
-In this lab we will experiment with recovering data from a live running cluster without downtime.
+In this lab we will experiment we will explore how to use the admin user interface and show how to time travel.
 
 
 ## Connecting to CRDB
