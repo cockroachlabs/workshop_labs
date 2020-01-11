@@ -60,11 +60,13 @@ What can be done to improve the performance of this Query so that it runs in les
 
 -- Q2
 --
+```
 SELECT w_name, w_city, sum(ol_amount) 
 FROM order_line
 INNER JOIN warehouse ON (w_id = ol_supply_w_id) 
 WHERE ol_supply_w_id > 40
 GROUP BY 1,2;
+```
 
 -- Q2a
 --
