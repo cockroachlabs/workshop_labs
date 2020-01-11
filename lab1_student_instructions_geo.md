@@ -55,10 +55,6 @@ Pin the partitions such that the database can survive a region failure.
 * How are the ranges distributed after *pinning*?
 
 -- Q3c
---
-How do you force re-distribution?
-
--- Q3d
 -- 
 How are the ranges distributed in the `rides` table after 10 minutes?
 
