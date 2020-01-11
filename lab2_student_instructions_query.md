@@ -56,3 +56,28 @@ How can you run the query to retrieve data that has been deleted?
 --
 Can you restore the data without restoring a backup?
 
+-- Q2
+--
+Connect to the adminurl for the cluster.  The exact URL should be saved as a bookmark or the instructor will display them.
+
+something link this:
+   http://99.99.99.99:26258/
+
+Once connected answer the following questions.
+
+-- Q2a
+--
+How big is your database?
+
+
+-- Q2b
+--
+Which query is taking the most time?
+
+-- Q2c
+--
+How much memory is being used on each node of the cluster?
+
+-- Q2d
+--
+What is the log commit latency?
