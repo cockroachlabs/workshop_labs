@@ -142,4 +142,4 @@ SELECT id from jflat where myflat::JSONB @> '{"c_sattr19": "momjzdfu"}';
 
 -- Q6a
 --
-Is it faster to use an `INVERTED INDEX` or create a *computed* column on this value and create an index?
+Is it faster to use an `INVERTED INDEX` or create a *computed* column on this value with an index?
