@@ -70,7 +70,7 @@ Create a query that counts the number of values of the same `c_base_ap_id` and s
 
 -- Q2c
 --
-Create a query that sums the `r_price` value by `c_base_ap_id`
+Create a query that sums the `r_price` value by `c_base_ap_id` to show the TOP 10 sum of `r_price`.
 
 
 -- Q3
