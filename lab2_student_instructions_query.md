@@ -52,10 +52,6 @@ Run the report query again to show the missing data.
 How can you run the query to retrieve data that has been deleted?
 
 
--- Q1b
---
-Can you restore the data without restoring a backup?
-
 -- Q2
 --
 Connect to the adminurl for the cluster.  The exact URL should be saved as a bookmark or the instructor will display them.
