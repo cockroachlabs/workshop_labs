@@ -109,7 +109,7 @@ WHERE id = '60b65237-0479-4c00-8000-00000002e1db'
 AND city = 'seattle';
 
 SELECT locality, rides.* 
-FORM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-10s' 
+FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-10s' 
 WHERE id = 'c71d6063-1726-4000-8000-00000005ef20' 
 AND city = 'paris';
 ```
