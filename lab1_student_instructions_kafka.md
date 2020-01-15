@@ -45,7 +45,7 @@ CREATE CHANGEFEED FOR TABLE students
   WITH updated, resolved;
 ```
 
-Instructor will create runn a sink that will reall ALL messages from the Kafka stream and topic for the `students` table.  This will be monitored while the students input data.
+Instructor will create run a sink that will reall ALL messages from the Kafka stream and topic for the `students` table.  This will be monitored while the students input data.
 
 ## Student Activity
 
@@ -57,6 +57,6 @@ INSERT INTO students (name, email, pets) VALUES ('your_name', 'your_email@corelo
 
 Feel free to insert other persons if you wish.  Feel free to UPDATE your pets as you get more critters.
 ```
-UPDATE students set pets='digger_diego_maverick_max' where name='yourname';
+UPDATE students set pets='digger_diego_maverick_max' where name='your_name';
 ```
 
