@@ -22,6 +22,11 @@ The lab cluster is configured in Google Clould using the following zones:
 * us-east4-b
 * europe-west2-a 
 
+## Admin URL
+* http://35.247.90.172:26258/
+* http://35.233.132.13:26258/
+* http://35.230.25.236:26258/
+
 
 ## Command Crib Sheet
 
