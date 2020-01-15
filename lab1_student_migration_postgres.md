@@ -9,7 +9,7 @@ Connect to your `tpcc` database.
 ...
 * Student#21 : tpcc21
 
-Change you database context and run the IMPORT like so:
+Change your database context and run the IMPORT like so:
 
 ```
 
