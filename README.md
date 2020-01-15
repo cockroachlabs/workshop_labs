@@ -17,6 +17,6 @@ This repository contains instructions for the various labs that are part of  the
 
 * [Lab #1](lab1_student_instructions_kafka.md)
 
-## Migration Postgres
+## Migrate Postgres
 
 * [Lab #1](lab1_student_migration_postgres.md)
