@@ -57,11 +57,11 @@ How can you run the query to retrieve data that has been deleted?
 Connect to the adminurl for the cluster.  The exact URL should be saved as a bookmark or the instructor will display them.
 
 something link this:
-* http://35.229.108.252:26258/
-* http://35.229.77.176:26258/
-* http://35.237.22.93:26258/
-* http://34.73.204.148:26258/
-* http://35.243.228.219:26258/
+* http://99.99.99.91:26258/
+* http://99.99.99.92:26258/
+* http://99.99.99.93:26258/
+* http://99.99.99.94:26258/
+* http://99.99.99.95:26258/
 
 
 Once connected answer the following questions.
