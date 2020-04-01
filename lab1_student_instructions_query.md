@@ -49,7 +49,11 @@ GROUP BY ol_number
 ORDER BY ol_number;
 ```
 
-This query must run in 12ms or less to be able to keep up with the SLAs for the company dashboard.
+This query must run in less than 1 second!   Note the the location of the client program will effect performance. 
+For instance, the following times should be achieved
+* DBeaver::  < 200ms
+* cockroach (laptop-to-cloud):: < 200ms
+* roachprod sql glenn-querylabs:3 --insecure::  < 12ms
 
 -- Q1a
 --
