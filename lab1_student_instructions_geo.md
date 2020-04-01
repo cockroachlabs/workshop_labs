@@ -23,9 +23,15 @@ The lab cluster is configured in Google Clould using the following zones:
 * europe-west2-a 
 
 ## Admin URL
-* http://35.247.90.172:26258/
-* http://35.233.132.13:26258/
-* http://35.230.25.236:26258/
+* http://34.82.33.3:26258/
+* http://34.82.249.99:26258/
+* http://35.247.53.68:26258/
+* http://35.245.197.200:26258/
+* http://35.199.18.12:26258/
+* http://35.199.7.40:26258/
+* http://35.246.11.178:26258/
+* http://34.89.38.36:26258/
+* http://34.89.110.238:26258/
 
 
 ## Command Crib Sheet
