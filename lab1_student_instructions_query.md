@@ -21,11 +21,10 @@ The lab cluster is configured in Google Clould in a singe zone:
 * us-east4-b
 
 ## AdminURL
-* http://34.74.77.192:26258/
-* http://34.74.212.182:26258/
-* http://35.231.13.30:26258/
-* http://34.73.172.194:26258/
-* http://35.243.192.30:26258/
+* http://34.74.42.167:26258
+* http://35.190.131.2:26258
+* http://34.73.131.208:26258
+* http://35.231.148.130:26258
 
 
 ## Command Crib Sheet
