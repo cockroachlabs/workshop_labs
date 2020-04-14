@@ -64,7 +64,7 @@ How do you analyze how the query performs when running?
 
 -- Q1c
 --
-What can be done to improve the performance of this Query so that it runs in less than 12ms?
+What can be done to improve the performance of this Query so that it runs in less than 170ms?
 
 
 

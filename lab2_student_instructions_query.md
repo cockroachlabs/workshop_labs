@@ -30,7 +30,7 @@ https://github.com/glennfawcett/roachcrib
 
 --  Q1
 --
-The following report query is run by a dashboard.  Please run this query and record the results.
+The following report query is run the application dashboard.  Please run this query and record the results.
 
 ```
 SELECT h_w_id, count(*) 
@@ -57,11 +57,10 @@ How can you run the query to retrieve data that has been deleted?
 Connect to the adminurl for the cluster.  The exact URL should be saved as a bookmark or the instructor will display them.
 
 something link this:
-* http://99.99.99.91:26258/
-* http://99.99.99.92:26258/
-* http://99.99.99.93:26258/
-* http://99.99.99.94:26258/
-* http://99.99.99.95:26258/
+* http://34.74.42.167:26258
+* http://35.190.131.2:26258
+* http://34.73.131.208:26258
+* http://35.231.148.130:26258
 
 
 Once connected answer the following questions.
