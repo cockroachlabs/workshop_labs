@@ -1,4 +1,4 @@
-# Lab1 Query Tuning Workshop
+# Lab1b Query Tuning Workshop
 
 In this lab we will experiment query tuning techniques to best 
 understand how to observe and improve performance.
