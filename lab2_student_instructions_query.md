@@ -56,11 +56,7 @@ How can you run the query to retrieve data that has been deleted?
 --
 Connect to the adminurl for the cluster.  The exact URL should be saved as a bookmark or the instructor will display them.
 
-something link this:
-* http://34.74.42.167:26258
-* http://35.190.131.2:26258
-* http://34.73.131.208:26258
-* http://35.231.148.130:26258
+* http://glenn-haproxy-0001.roachprod.crdb.io:26258
 
 
 Once connected answer the following questions.
