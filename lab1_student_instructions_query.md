@@ -53,13 +53,17 @@ For instance, the following times should be achieved
 
 -- Q1a
 --
-How do you show the query plan for this query?
+How do you show the query plan for this query?  
 
 -- Q1b
 --
-How do you analyze how the query performs when running?
+How to you gather an explain plan /w statistics used by the optimizer?
 
 -- Q1c
+--
+How do you analyze how the query performs when running?
+
+-- Q1d
 --
 What can be done to improve the performance of this Query so that it runs in less than 170ms?
 

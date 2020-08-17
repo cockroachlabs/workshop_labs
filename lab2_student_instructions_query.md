@@ -40,16 +40,15 @@ GROUP BY 1
 ORDER BY 1;
 ```
 
-When experimenting, someone accidently deleted some data.  Please run the following query:
+When experimenting, someone accidently uploaded some old data with todays date.  Please run the following query:
 ```
-delete from history where h_w_id = 2;
-```
+insert into history (h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, h_date, h_amount, h_data) select h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, now(), h_amount, h_data from history where h_w_id = 0;```
 
-Run the report query again to show the missing data.
+Run the report query again to show the additional data.
 
 -- Q1a
 --
-How can you run the query to retrieve data that has been deleted?
+How can you run the query to exclude the recently added data?
 
 
 -- Q2
@@ -65,15 +64,49 @@ Once connected answer the following questions.
 --
 How big is your database?
 
-
 -- Q2b
 --
-Which query is taking the most time?
+How many ranges deoes the order_line table have?
 
 -- Q2c
 --
-How much memory is being used on each node of the cluster?
+Which query is taking the most time?
 
--- Q2d
+
+-- Q3
 --
-What is the log commit latency?
+Run the following the history query again:
+
+```
+SELECT h_w_id, count(*) 
+FROM history 
+WHERE h_w_id < 10 
+GROUP BY 1 
+ORDER BY 1;
+```
+
+-- Q3a
+-- 
+How do you enable tracing on this query?
+
+-- Q3b
+--
+Active the tracing on the *history* query and run it again.
+
+```
+SELECT h_w_id, count(*) 
+FROM history 
+WHERE h_w_id < 10 
+GROUP BY 1 
+ORDER BY 1;
+```
+
+Collect the *stmt-bundle* from the AdminUI.
+
+Explore the data gathered for query execution.  This data will be helpful if you
+you are experiencing a problem and need advise from Cockroach Labs.
+
+-- Extra Credit
+--
+Use the Jaeger UI to view the trace-jaeger.json file collected in the statement bundle.
+
