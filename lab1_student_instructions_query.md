@@ -55,13 +55,16 @@ For instance, the following times should be achieved
 --
 How do you show the query plan for this query?  
 
+
 -- Q1b
 --
 How to you gather an explain plan /w statistics used by the optimizer?
 
+
 -- Q1c
 --
-How do you analyze how the query performs when running?
+How do you analyze details of the query runtime performance?
+
 
 -- Q1d
 --
@@ -71,6 +74,8 @@ What can be done to improve the performance of this Query so that it runs in les
 
 -- Q2
 --
+Run the following query:
+
 ```
 SELECT w_name, w_city, sum(ol_amount) 
 FROM order_line
