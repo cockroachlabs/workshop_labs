@@ -55,7 +55,7 @@ How can you run the query to exclude the recently added data?
 --
 Connect to the adminurl for the cluster.  The exact URL should be saved as a bookmark or the instructor will display them.
 
-* http://glenn-haproxy-0001.roachprod.crdb.io:26258
+* http://glenn-querylabs-0002.roachprod.crdb.io:26258/
 
 
 Once connected answer the following questions.
