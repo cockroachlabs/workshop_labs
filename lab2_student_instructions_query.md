@@ -1,6 +1,6 @@
 # Lab2 Query Tuning Workshop
 
-In this lab we will experiment we will explore how to use the admin user interface and show how to time travel.
+In this lab we will explore how to use the admin user interface and use time travel queries.
 
 
 ## Connecting to CRDB
@@ -30,7 +30,7 @@ https://github.com/glennfawcett/roachcrib
 
 --  Q1
 --
-The following report query is run the application dashboard.  Please run this query and record the results.
+The following report query is run to populate a dashboard within your application.  Please run this query and record the results.
 
 ```
 SELECT h_w_id, count(*) 
@@ -66,7 +66,7 @@ How big is your database?
 
 -- Q2b
 --
-How many ranges deoes the order_line table have?
+How many ranges does the `order_line` table have?
 
 -- Q2c
 --
@@ -103,8 +103,7 @@ ORDER BY 1;
 
 Collect the *stmt-bundle* from the AdminUI.
 
-Explore the data gathered for query execution.  This data will be helpful if you
-you are experiencing a problem and need advise from Cockroach Labs.
+Explore the data gathered for query execution.  This data will be helpful if you are experiencing a performance issues and need advise from Cockroach Labs.
 
 -- Extra Credit
 --
