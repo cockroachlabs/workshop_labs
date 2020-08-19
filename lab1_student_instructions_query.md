@@ -1,7 +1,6 @@
 # Lab1 Query Tuning Workshop
 
-In this lab we will experiment query tuning techniques to best 
-understand how to observe and improve performance.
+The following labs will take you through various query tuning scenarios and allow you to discover various ways to observe, diagnose, and optimize query performance with CockroachDB.
 
 
 ## Connecting to CRDB
