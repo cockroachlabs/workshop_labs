@@ -20,7 +20,7 @@ The lab cluster is configured in Google Clould in a singe zone:
 * us-east4-b
 
 ## AdminURL
-* http://glenn-haproxy-0001.roachprod.crdb.io:26258
+* http://glenn-querylabs-0002.roachprod.crdb.io:26258/
 
 
 ## Command Crib Sheet
