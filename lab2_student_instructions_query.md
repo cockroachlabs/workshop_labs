@@ -42,7 +42,8 @@ ORDER BY 1;
 
 When experimenting, someone accidently uploaded some old data with todays date.  Please run the following query:
 ```
-insert into history (h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, h_date, h_amount, h_data) select h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, now(), h_amount, h_data from history where h_w_id = 0;```
+insert into history (h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, h_date, h_amount, h_data) select h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, now(), h_amount, h_data from history where h_w_id = 0;
+```
 
 Run the report query again to show the additional data.
 
