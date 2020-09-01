@@ -1,7 +1,6 @@
 # Lab2 Geo Partitioning
 
-In this lab we will experiment with Geo Partitioning to best 
-understand how to observe and improve performance with Follower Reads and Local Indexes.
+In this lab we will experiment with Geo Partitioning to best understand how to observe and improve performance with Follower Reads and Local Indexes.
 
 
 ## Connecting to CRDB
@@ -16,11 +15,11 @@ understand how to observe and improve performance with Follower Reads and Local 
 
 
 ## Cluster Configuration
-The lab cluster is configured in Google Clould using the following zones:
+The lab cluster is configured in Google Clould using the following regions:
 
-* us-west1-b
-* us-east4-b
-* europe-west2-a 
+* us-west1
+* us-east4
+* europe-west2
 
 
 ## Command Crib Sheet
@@ -31,16 +30,19 @@ https://github.com/glennfawcett/roachcrib
 
 ## Activities & Questions
 
---  Q1 
---
+### A1 --  Follower Reads
+
+#### Q1
 * Are follower reads enabled on your cluster?
+#### Q2
 * If not, how do you enable follower reads?
 
--- Q2
---
-Connect the the `movr_follower` database in three separate sessions. Connect to the `west`, `east`, and `europe` connections.
 
-Run the following queries in all regions to measure the performance.
+### A2 -- Optimizing Multi-Region Performance
+
+Connect to your database in three separate sessions accross all three regions `us_west`, `us_east`, and `europe_west`.  Refer to the sheet to see which MOVR database is yours.... `movr1`, `movr2`, `movr3`, ....
+
+Run the following queries in all regions and measure the performance.
 
 #### without follower reads
 ```
@@ -96,37 +98,42 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
-#### with `as of system time '-10s' `
+#### with `as of system time '-2s' `
 ```
 SELECT locality, rides.* 
-FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-10s' 
+FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-2s' 
 WHERE id = '2ce831ad-2135-4a00-8000-00000001569d'  
 AND city = 'boston';
 
 SELECT locality, rides.* 
-FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-10s' 
+FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-2s' 
 WHERE id = '60b65237-0479-4c00-8000-00000002e1db' 
 AND city = 'seattle';
 
 SELECT locality, rides.* 
-FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-10s' 
+FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-2s' 
 WHERE id = 'c71d6063-1726-4000-8000-00000005ef20' 
 AND city = 'paris';
 ```
 
-* Why does the `as of system time interval '-10s'` query not get good response time across all regions?
+#### Q3
+* Why does the `as of system time interval '-2s'` query not get good response time across all regions?
 
-* How do you ensure queries to use follower reads with the lease amount of time difference?
+#### Q4
+* How do you ensure queries using **follower reads** use local ranges with the least time difference?
 
--- Q3
---
+
+#### A3 -- Optimizing Performance with regional objects
+
 Run the following query in all regions:
 
-```
+```sql
 SELECT vehicle_city, vehicle_id, count(*) 
 FROM rides 
-WHERE city='paris' GROUP BY 1,2;
+WHERE city='paris' 
+GROUP BY 1,2;
 ```
 
-* How do you get this query to perform the same in all regions?
+#### Q5
+* How do you get this query to perform similar in all regions **without** using follower reads?
 

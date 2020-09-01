@@ -16,22 +16,15 @@ understand how to observe and partition and pin the data.
 
 
 ## Cluster Configuration
-The lab cluster is configured in Google Clould using the following zones:
+The lab cluster is configured in Google Clould using the following regions:
 
-* us-west1-b
-* us-east4-b
-* europe-west2-a 
+* us-west1
+* us-east4
+* europe-west2
 
 ## Admin URL
-* http://34.82.33.3:26258/
-* http://34.82.249.99:26258/
-* http://35.247.53.68:26258/
-* http://35.245.197.200:26258/
-* http://35.199.18.12:26258/
-* http://35.199.7.40:26258/
-* http://35.246.11.178:26258/
-* http://34.89.38.36:26258/
-* http://34.89.110.238:26258/
+
+* See the sheet providied for connectivity information
 
 
 ## Command Crib Sheet
@@ -67,15 +60,15 @@ Pin the partitions such that the database can survive a region failure.
 
 -- Q3c  
 -- 
-How are the ranges distributed in the `rides` table after 10 minutes?
+How are the ranges distributed in the `rides` table after 5 minutes?
 
 -- Q4
 --
-Query within all regions
+Experiment running the same queries in **ALL** regions
 
 -- Q4a
 --
-What is the repsonse time of the following queries?
+Connect to **us_west1** region and run the following queries:
 
 ```
 SELECT locality, rides.* 
@@ -94,9 +87,11 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
+What is the repsonse time of the above queries?
+
 -- Q4b
 --
-Connect to multiple localities and run the SAME query from each region.
+Connect to **us_east4** and **europe_west2** localities and run the queries from Q4a again.
 
 * How do the response times compare?
 
