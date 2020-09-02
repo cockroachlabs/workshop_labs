@@ -28,23 +28,22 @@ https://github.com/glennfawcett/roachcrib
 
 
 
-## Activities & Questions
+## Activity #1 --  Configuring "follower reads"
 
-### A1 --  Follower Reads
-
-#### Q1
+### Q1
 * Are follower reads enabled on your cluster?
-#### Q2
+
+### Q2
 * If not, how do you enable follower reads?
 
 
-### A2 -- Optimizing Multi-Region Performance
+## Activy #2 -- Observing Multi-Region Performance with "follower reads"
 
 Connect to your database in three separate sessions accross all three regions `us_west`, `us_east`, and `europe_west`.  Refer to the sheet to see which MOVR database is yours.... `movr1`, `movr2`, `movr3`, ....
 
 Run the following queries in all regions and measure the performance.
 
-#### without follower reads
+**without follower reads:**
 ```
 SELECT locality, rides.* 
 FROM rides, [show locality]  
@@ -62,7 +61,7 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
-#### with follower reads
+**using experimental_follower_read_timestamp():**
 ```
 SELECT locality, rides.* 
 FROM rides, [show locality] AS OF SYSTEM TIME experimental_follower_read_timestamp() 
@@ -80,7 +79,7 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
-#### with `as of system time interval '-4h' `
+**using `as of system time interval '-4h' `**
 ```
 SELECT locality, rides.* 
 FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-4h' 
@@ -98,7 +97,7 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
-#### with `as of system time '-2s' `
+**using `as of system time '-2s' `**
 ```
 SELECT locality, rides.* 
 FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-2s' 
@@ -116,14 +115,14 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
-#### Q3
-* Why does the `as of system time interval '-2s'` query not get good response time across all regions?
+### Q3
+* Why does the `as of system time interval '-2s'` query not get good response times across all regions?
 
-#### Q4
-* How do you ensure queries using **follower reads** use local ranges with the least time difference?
+### Q4
+* How do you ensure **follower reads** queries use local ranges with the least time difference?
 
 
-#### A3 -- Optimizing Performance with regional objects
+## Activty #3 -- Optimizing Performance with regional objects
 
 Run the following query in all regions:
 
@@ -134,6 +133,12 @@ WHERE city='paris'
 GROUP BY 1,2;
 ```
 
-#### Q5
+### Q5
 * How do you get this query to perform similar in all regions **without** using follower reads?
+
+### Q6
+* How do you show which objects are used for the above query?  (objects can be tables or indexes)
+
+### Q7
+* How do you identify which regions a specific object resides?
 
