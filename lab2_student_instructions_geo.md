@@ -119,7 +119,7 @@ AND city = 'paris';
 * Why does the `as of system time interval '-2s'` query not get good response times across all regions?
 
 ### Q4
-* How do you ensure **follower reads** queries use local ranges with the least time difference?
+* How do you ensure **follower reads** queries use local ranges with the least time lag?
 
 
 ## Activty #3 -- Optimizing Performance with regional objects
@@ -137,8 +137,8 @@ GROUP BY 1,2;
 * How do you get this query to perform similar in all regions **without** using follower reads?
 
 ### Q6
-* How do you show which objects are used for the above query?  (objects can be tables or indexes)
+* How do you show which objects are used for the above query? 
 
 ### Q7
-* How do you identify which regions a specific object resides?
+* How do you identify which regions a lease holder resides for the above query?
 
