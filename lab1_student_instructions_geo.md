@@ -22,10 +22,6 @@ The lab cluster is configured in Google Clould using the following regions:
 * us-east4
 * europe-west2
 
-## Admin URL
-
-* See the sheet providied for connectivity information
-
 
 ## Command Crib Sheet
 
@@ -33,42 +29,40 @@ https://github.com/glennfawcett/roachcrib
 
 
 
-## Activities & Questions
+## Activity #1 -- Explore Range distribution
+Connect via SQL to answer the questions regarding the **RANGE** distribution of various objects.
 
---  Q1 
---
-How are the ranges distributed in the "rides" table?
+### Q1 
+* How are the ranges distributed in the "rides" table?
 
--- Q2
---
-What Cities are part of the "movr" application?  
-What are the count of the RIDES from each city in the rides table?
+### Q2
+* How are indexes on the "rides" distributed?
 
--- Q3a
---
-Partition the "rides" table in your database
+## Activity #2 -- Partition the rides table
+Partition the "rides" table in your database by **city** to the approiate regions.
 
-* What is the DDL? 
+### Q3
+* What is the DDL used to partition the "rides" table? 
+
+### Q4
 * How are ranges distributed after *partitioning*?
 
--- Q3b
---
-Pin the partitions such that the database can survive a region failure.
+## Activity #3 -- Pin partitions to survive region failure
+This activity will have you using `ALTER PARTITION` to pin partitions to regions to match the cities.  The `lease_preferences` will be set to the target region and the `constaints` will be set to require **one** replica in the same region as the lease holder.
 
-* What is the DDL?
-* How are the ranges distributed after *pinning*?
+### Q5
+* What is the DDL used to Pin the partitions?
 
--- Q3c  
--- 
-How are the ranges distributed in the `rides` table after 5 minutes?
+### Q6
+* How are the ranges distributed in the `rides` table after *pinning*?
 
--- Q4
---
-Experiment running the same queries in **ALL** regions
+### Q7
+* How are the ranges distributed in the `rides` table after 5 minutes?
 
--- Q4a
---
-Connect to **us_west1** region and run the following queries:
+## Activity #4 -- Run Queries across ALL regions
+Experiment running the same queries in **ALL** regions and observe the behaviour.
+
+Connect to with separate SQL connections to **us_west1**, **us_east4** and **europe_west2** regions.  Run the following queries in each:
 
 ```
 SELECT locality, rides.* 
@@ -87,13 +81,11 @@ WHERE id = 'c71d6063-1726-4000-8000-00000005ef20'
 AND city = 'paris';
 ```
 
-What is the repsonse time of the above queries?
+### Q8
+What do the repsonse times compare?
 
--- Q4b
---
-Connect to **us_east4** and **europe_west2** localities and run the queries from Q4a again.
-
-* How do the response times compare?
+### Q9
+* How do you show the expected time differences due to Network Latency?
 
 
 
