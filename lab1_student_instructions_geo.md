@@ -32,6 +32,14 @@ https://github.com/glennfawcett/roachcrib
 ## Activity #1 -- Explore Range distribution
 Connect via SQL to answer the questions regarding the **RANGE** distribution of various objects.
 
+SQL to show **range** distribution and showing only needed data: 
+```sql
+SELECT start_key, lease_holder, lease_holder_locality, replicas
+  FROM [SHOW RANGES FROM TABLE rides]
+    WHERE "start_key" IS NOT NULL
+    AND "start_key" NOT LIKE '%Prefix%';
+```
+
 ### Q1 
 * How are the ranges distributed in the "rides" table?
 
@@ -64,7 +72,7 @@ Experiment running the same queries in **ALL** regions and observe the behaviour
 
 Connect to with separate SQL connections to **us_west1**, **us_east4** and **europe_west2** regions.  Run the following queries in each:
 
-```
+```sql
 SELECT locality, rides.* 
 FROM rides, [show locality] 
 WHERE id = '60b65237-0479-4c00-8000-00000002e1db' 
@@ -82,7 +90,7 @@ AND city = 'paris';
 ```
 
 ### Q8
-What do the repsonse times compare?
+How do the repsonse times compare?
 
 ### Q9
 * How do you show the expected time differences due to Network Latency?

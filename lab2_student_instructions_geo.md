@@ -37,14 +37,14 @@ https://github.com/glennfawcett/roachcrib
 * If not, how do you enable follower reads?
 
 
-## Activy #2 -- Observing Multi-Region Performance with "follower reads"
+## Activity #2 -- Observing Multi-Region Performance with "follower reads"
 
 Connect to your database in three separate sessions accross all three regions `us_west`, `us_east`, and `europe_west`.  Refer to the sheet to see which MOVR database is yours.... `movr1`, `movr2`, `movr3`, ....
 
 Run the following queries in all regions and measure the performance.
 
 **without follower reads:**
-```
+```sql
 SELECT locality, rides.* 
 FROM rides, [show locality]  
 WHERE id = '2ce831ad-2135-4a00-8000-00000001569d'  
@@ -62,7 +62,7 @@ AND city = 'paris';
 ```
 
 **using experimental_follower_read_timestamp():**
-```
+```sql
 SELECT locality, rides.* 
 FROM rides, [show locality] AS OF SYSTEM TIME experimental_follower_read_timestamp() 
 WHERE id = '2ce831ad-2135-4a00-8000-00000001569d'  
@@ -80,7 +80,7 @@ AND city = 'paris';
 ```
 
 **using `as of system time interval '-4h' `**
-```
+```sql
 SELECT locality, rides.* 
 FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-4h' 
 WHERE id = '2ce831ad-2135-4a00-8000-00000001569d'  
@@ -98,7 +98,7 @@ AND city = 'paris';
 ```
 
 **using `as of system time '-2s' `**
-```
+```sql
 SELECT locality, rides.* 
 FROM rides, [show locality] AS OF SYSTEM TIME INTERVAL '-2s' 
 WHERE id = '2ce831ad-2135-4a00-8000-00000001569d'  
@@ -122,7 +122,7 @@ AND city = 'paris';
 * How do you ensure **follower reads** queries use local ranges with the least time lag?
 
 
-## Activty #3 -- Optimizing Performance with regional objects
+## Activity #3 -- Optimizing Performance with regional objects
 
 Run the following query in all regions:
 
