@@ -124,7 +124,7 @@ AND city = 'paris';
 
 ## Activity #3 -- Optimizing Performance with regional objects
 
-Usefule SQL to show **range** distribution and showing only needed data: 
+Useful SQL to show **range** distribution and showing only needed data: 
 ```sql
 SELECT start_key, lease_holder, lease_holder_locality, replicas
   FROM [SHOW RANGES FROM TABLE rides]
