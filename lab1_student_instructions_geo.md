@@ -44,7 +44,7 @@ SELECT start_key, lease_holder, lease_holder_locality, replicas
 * How are the ranges distributed in the "rides" table?
 
 ### Q2
-* How are indexes on the "rides" distributed?
+* How are indexes on the "rides" table distributed?
 
 ## Activity #2 -- Partition the rides table
 Partition the "rides" table in your database by **city** to the approiate regions.
@@ -90,7 +90,7 @@ AND city = 'paris';
 ```
 
 ### Q8
-How do the repsonse times compare?
+* How do the repsonse times compare?
 
 ### Q9
 * How do you show the expected time differences due to Network Latency?
