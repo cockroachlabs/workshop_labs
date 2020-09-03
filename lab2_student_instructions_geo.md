@@ -124,6 +124,14 @@ AND city = 'paris';
 
 ## Activity #3 -- Optimizing Performance with regional objects
 
+Usefule SQL to show **range** distribution and showing only needed data: 
+```sql
+SELECT start_key, lease_holder, lease_holder_locality, replicas
+  FROM [SHOW RANGES FROM TABLE rides]
+    WHERE "start_key" IS NOT NULL
+    AND "start_key" NOT LIKE '%Prefix%';
+```
+
 Run the following query in all regions:
 
 ```sql
