@@ -26,13 +26,11 @@ https://github.com/glennfawcett/roachcrib
 
 
 
-## Activities & Questions
+## Activity #1 -- Import TABLE with big JSON object
 
---  Q1
---
 Create a table by importing a CSV file from a cloud storage bucket.
 
-```
+```sql
 IMPORT TABLE jblob (
     id INT PRIMARY KEY,
     myblob JSONB
@@ -41,17 +39,17 @@ WITH
     delimiter = e'\t';
 ```
 
--- Q1a
--- 
-How many rows were imported?  How useful is this within a database?
+### Q1
+* How many json objects were imported?  
+* How useful is this within a database?
 
 
--- Q2
---
+## Activity #2 -- Import Table with Flattened JSON objects
+
 Create a table with FLATTENED JSONB objects by importing a CSV file from a cloud storage bucket.  This CSV file was created by a python3 script to read the JSON
 file and extract all values into rows.
 
-```
+```sql
 IMPORT TABLE jflat (
     id INT PRIMARY KEY,
     myflat JSONB
@@ -60,23 +58,21 @@ WITH
     delimiter = e'\t';
 ```
 
--- Q2a
---
-How many json object were imported?
+### Q2
+* How many json objects were imported?
 
--- Q2b
---
-Create a query that counts the number of values of the same `c_base_ap_id` and show the SQL.
+### Q3
+* Create a query that counts the number with the same `c_base_ap_id`.
 
--- Q2c
---
-Create a query that sums the `r_price` value by `c_base_ap_id` to show the TOP 10 sum of `r_price`.
+### Q4
+* Create a query that sums the `r_price` values by `c_base_ap_id` showing the TOP 10 sums of `r_price`.
 
 
--- Q3
---
+## Activity #3 -- Import more data into jflat table
+
 Import more data into the `jflat` table:
-```
+
+```sql
 IMPORT INTO jflat (id, myflat)
 CSV DATA (
     'gs://crdb_json/raw/test_flat2.tsv'
@@ -85,27 +81,22 @@ WITH
     delimiter = e'\t';
 ```
 
--- Q3a
---
-How many rows are in the table now?
+### Q5
+* How many json objects are in the table now?
 
--- Q4
---
+## Activity #4 -- Optimize Query Performance
+
 Run the following query:
-```
+```sql
 SELECT id FROM jflat WHERE myflat::JSONB @> '{"c_sattr19": "momjzdfu"}';
 ```
 
--- Q4a
---
-How can you improve the performance of the above query?
+### Q6
+* How much can you improve the performance of the above query?  Show the query, DDL and amount of improvement.
 
--- Q4b
---
-What is the performance difference after tuning?
 
--- Q5
---
+## Activity #5 -- Observe and Optimize Aggregrate Performance
+
 Run the following query:
 ```
 select myflat::JSONB->>'c_sattr19' as attr19, 
@@ -117,29 +108,35 @@ where myflat::JSONB->>'c_sattr19' like '%mom%'
 group by 1,2;
 ```
 
--- Q5a
---
-What is the response time of the above query?
+### Q6
+* What is the response time of the above query?
 
--- Q5b
---
-Does the above query use any indexes?
+### Q7
+* Does the above query use any indexes?
 
--- Q5c
---
+### Q8
 Tune the above query.  You can add Indexes and/or columns to the table.  Feel free to create a new table as well and poplulate from the original table.
 
-What is the DDL?
+* How much can you improve the performance of the above query?  Show the query, DDL and amount of improvement.
 
-What improvements were made?
+## Activity #6 -- 
 
--- Q6
---
 Consider the following query:
-```
+```sql
 SELECT id from jflat where myflat::JSONB @> '{"c_sattr19": "momjzdfu"}';
 ```
 
--- Q6a
---
-Is it faster to use an `INVERTED INDEX` or create a *computed* column on this value with an index?
+### Q9
+Is it faster to use an `INVERTED INDEX` or create a *computed* column with an index?
+
+
+## Extra Credit 
+
+Using the [companies.json](https://raw.githubusercontent.com/ozlerhakan/mongodb-json-files/master/datasets/companies.json) file, create a table in CockroachDB to include the JSON object.  Modify the table to create the most performant queries possible to calculate the following:
+
+* Top 10 highest aquisition prices by Year and Aquiring Company in USD.  Include the aquiring company name, aquisition year, and SUM of the total amount spent that year.
+
+* Explore multiple methods to improve performance
+* * Raw JSON
+* * JSON with Computed Columns
+* * JSON with Inverted Indexes
