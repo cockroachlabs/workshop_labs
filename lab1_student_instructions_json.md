@@ -31,12 +31,14 @@ https://github.com/glennfawcett/roachcrib
 Create a table by importing a CSV file from a cloud storage bucket.
 
 ```sql
+
 IMPORT TABLE jblob (
     id INT PRIMARY KEY,
     myblob JSONB
-) CSV DATA ('gs://crdb_json/raw/test_blob.tsv')
+) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/data/raw_test_blob.tsv')
 WITH
     delimiter = e'\t';
+
 ```
 
 ### Q1
@@ -50,12 +52,14 @@ Create a table with FLATTENED JSONB objects by importing a CSV file from a cloud
 file and extract all values into rows.
 
 ```sql
+
 IMPORT TABLE jflat (
     id INT PRIMARY KEY,
     myflat JSONB
-) CSV DATA ('gs://crdb_json/raw/test_flat.tsv')
+) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/data/raw_test_flat.tsv')
 WITH
     delimiter = e'\t';
+
 ```
 
 ### Q2
@@ -73,12 +77,14 @@ WITH
 Import more data into the `jflat` table:
 
 ```sql
+
 IMPORT INTO jflat (id, myflat)
 CSV DATA (
-    'gs://crdb_json/raw/test_flat2.tsv'
+    'https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/data/raw_test_flat2.tsv'
 )
 WITH
     delimiter = e'\t';
+
 ```
 
 ### Q5
@@ -98,7 +104,7 @@ SELECT id FROM jflat WHERE myflat::JSONB @> '{"c_sattr19": "momjzdfu"}';
 ## Activity #5 -- Observe and Optimize Aggregrate Performance
 
 Run the following query:
-```
+```sql
 select myflat::JSONB->>'c_sattr19' as attr19, 
        myflat::JSONB->>'r_seat' as seat, 
        count(*), 
