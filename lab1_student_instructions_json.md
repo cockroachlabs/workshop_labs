@@ -100,7 +100,6 @@ SELECT id FROM jflat WHERE myflat::JSONB @> '{"c_sattr19": "momjzdfu"}';
 ### Q6
 * How much can you improve the performance of the above query?  Show the query, DDL and amount of improvement.
 
-
 ## Activity #5 -- Observe and Optimize Aggregrate Performance
 
 Run the following query:
