@@ -1,3 +1,5 @@
+# Simulating a Multi-Region CockroachDB Cluster on localhost with Docker
+
 Following are instructions to simulate the deployment of a 9 nodes [CockroachDB](https://www.cockroachlabs.com/product/) cluster across 3 regions on localhost using Docker. This is especially useful for testing, training and development work.
 
 The instructions assume you are running Linux or macOS, although it should work on Windows using [Cygwin](https://www.cygwin.com/), and have Docker installed.
