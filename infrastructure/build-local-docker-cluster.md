@@ -115,7 +115,7 @@ listen psql
     server cockroach8 roach-london-2:26257 check port 8080
     server cockroach9 roach-london-3:26257 check port 8080
 EOF
-``` 
+```
 
 Create the docker containers
 
@@ -190,7 +190,7 @@ done
 
 You will require an Enterprise license to unlock some of the features described below, like the Map view. You can [request a Trial license](https://www.cockroachlabs.com/get-cockroachdb/enterprise/) or, alternatively, just skip the license registration step - the deployment will still succeed.
 
-Open a SQL shell. You can [download the `cockroachdb` binary](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux) which includes a built in SQL client or, thanks to CockroachDB's compliance with the PostgreSQL wire protocol, you can use the `psql` client. 
+Open a SQL shell. You can [download the `cockroachdb` binary](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux) which includes a built in SQL client or, thanks to CockroachDB's compliance with the PostgreSQL wire protocol, you can use the `psql` client.
 
 ```bash
 # ----------------------------
@@ -244,7 +244,6 @@ Congratulations, you are now ready to start your dev work on a simulated multi-r
 [HAProxy Docs](https://cbonte.github.io/haproxy-dconv/)
 
 [HAProxy docker image](https://hub.docker.com/_/haproxy)
-
 
 ## Clean up
 
