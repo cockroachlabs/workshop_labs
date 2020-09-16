@@ -1,4 +1,4 @@
-# Lab1 Kafa Usage Workshop
+# Lab Kafka Changefeed Usage Workshop
 
 In this lab we will experiment with Kafka Changefeed out of CockroachDB using Confluent.
 
