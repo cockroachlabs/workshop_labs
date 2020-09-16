@@ -162,7 +162,7 @@ This activity will have you cancel the changefeed and restart without the **befo
 This activity will have you cancel the changefeed and restart without the **before** values.  Additionally, the changefeed will be restarted such that changes made before the current timestamp are NOT included.
 
 ### Q11
-* Show the `CREATE CHANGEFEED` statement such that changes before the current timestamp are NOT included and **before** values are not included.
+* Show the `CREATE CHANGEFEED` statement such that changes before the current timestamp are NOT included and **before** values are not included.  Test the `CHANGEFEED` by updating and inserting rows to the table.
 
 
 
