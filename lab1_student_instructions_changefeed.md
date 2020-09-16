@@ -87,7 +87,7 @@ CREATE CHANGEFEED FOR TABLE pets
 ```bash
 ## Start a Avro consumer in a SHELL on the kafka cluster
 ##
-roachprod ssh `whoami`-confluent:1
+ssh -i ./bench-ssh-key bench@35.243.252.96
 cd confluent-5.5.0
 ./bin/kafka-avro-console-consumer --bootstrap-server localhost:9092 --topic student99_pets
 ```
