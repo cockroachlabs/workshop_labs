@@ -60,6 +60,9 @@ CREATE TABLE pets (
 );
 ```
 
+### Q1
+* How do you verify the CHANGEFEED is running?
+
 **Create the changefeed but make sure to change topic_prefix to your database name:**
 ```sql
 -- Connect to your Database
@@ -70,7 +73,7 @@ use student99;
 --
 CREATE CHANGEFEED FOR TABLE pets
   INTO 'kafka://10.142.0.109:9092?topic_prefix=student99_'
-  WITH updated, resolved='30s',
+  WITH updated, resolved='20s',
      confluent_schema_registry = 'http://10.142.0.109:8081',
      format = 'experimental_avro',
      diff,
@@ -102,13 +105,13 @@ INSERT INTO pets (person_name, email, pet_name) VALUES ('Walt', 'walt@disney.com
 
 ```
 
-### Q1
+### Q2
 * What does `{"before": null,` mean?
 
-### Q2
+### Q3
 * What columns are sent to the changefeed?
 
-### Q3
+### Q4
 * What does the `{"resolved":` timestamp mean?
 
 ## Activity #3 -- Add Column for City
@@ -120,7 +123,7 @@ ALTER TABLE pets ADD COLUMN city STRING;
 
 ```
 
-### Q4
+### Q5
 * What values are submitted to the CHANGEFEED?
 
 
@@ -133,13 +136,13 @@ UPDATE pets SET city='Anaheim' where person_name='Walt';
 
 ```
 
-### Q5
+### Q6
 * What values for **EACH** row are sent to the CHANGEFEED?
 
-### Q6
+### Q7
 * What is the `"updated":` value?
 
-### Q7
+### Q8
 * How do you create the CHANGEFEED so the **before** value isn't sent?
 
 
@@ -147,10 +150,10 @@ UPDATE pets SET city='Anaheim' where person_name='Walt';
 
 This activity will have you cancel the changefeed and restart without the **before** values. 
 
-### Q8
+### Q9
 * How do you cancel the running CHANGEFEED?
 
-### Q9
+### Q10
 * Show the `CREATE CHANGEFEED` statement such that the **before** values are not included.
 
 
@@ -158,7 +161,7 @@ This activity will have you cancel the changefeed and restart without the **befo
 
 This activity will have you cancel the changefeed and restart without the **before** values.  Additionally, the changefeed will be restarted such that changes made before the current timestamp are NOT included.
 
-### Q10
+### Q11
 * Show the `CREATE CHANGEFEED` statement such that changes before the current timestamp are NOT included and **before** values are not included.
 
 
