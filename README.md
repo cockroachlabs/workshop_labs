@@ -4,7 +4,7 @@ This repository contains instructions for the various labs that are part of  the
 
 ## Infrastructure
 
-- [Build local cluster using Docker](infrastructure/build-local-docker-cluster.md)
+- [Build CRDB cluster on localhost using Docker](infrastructure/build-local-docker-cluster.md)
 
 ## Query Tuning
 
@@ -27,3 +27,7 @@ This repository contains instructions for the various labs that are part of  the
 ## Migrate Postgres
 
 - [Lab #1](lab1_student_migration_postgres.md)
+
+## Topology Patterns
+
+- [Labs](/topology-patterns/labs.md)
