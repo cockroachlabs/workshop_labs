@@ -32,7 +32,7 @@ There are 6 recommended topology patterns:
 Connect to any node and run the workload simulator. Please note that loading the data can take up to 5 minutes.
 
 ```bash
-docker exec -it roach-newyork-1 cockroach workload init movr --drop --db movr postgres://root@127.0.0.1:26257?sslmode=disable --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100
+docker exec -it roach-newyork-1 bash -c "./cockroach workload init movr --drop --db movr postgres://root@127.0.0.1:26257?sslmode=disable --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100"
 ```
 
 Connect to the database to confirm it loaded successfully
