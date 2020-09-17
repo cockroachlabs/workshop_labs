@@ -32,13 +32,7 @@ There are 6 recommended topology patterns:
 Connect to any node and run the workload simulator. Please note that loading the data can take up to 5 minutes.
 
 ```bash
-docker exec -it roach-newyork-1 ./cockroach init --insecure
-```
-
-Run the command to build the database
-
-```bash
-./cockroach workload init movr --drop --db movr postgres://root@127.0.0.1:26257?sslmode=disable --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100
+docker exec -it roach-newyork-1 cockroach workload init movr --drop --db movr postgres://root@127.0.0.1:26257?sslmode=disable --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100
 ```
 
 Connect to the database to confirm it loaded successfully
@@ -700,7 +694,8 @@ Simulate region failure. Ensure to run all following `docker` commands on a new 
 docker stop haproxy-seattle roach-seattle-1 roach-seattle-2 roach-seattle-3
 ```
 
-Check the Admin UI. In 2 minutes, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
+Check the Admin UI - you might have to use a different port as the host bound to port 8080 died. Use port 8180 instead.
+In 2 minutes, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
 
 ![dead-nodes](/media/dead-nodes.png)
 
@@ -948,7 +943,7 @@ CONFIGURE ZONE USING
 Wait few minutes, then confirm the leaseholder has moved to EU West and that 1 replica is in EU West.
 
 ```sql
-SELECT start_key, lease_holder, lease_holder_locality, replicas, replica_localities
+SELECT start_key, lease_holder_locality, replica_localities
 FROM [SHOW RANGES FROM TABLE rides]
 WHERE "start_key" IS NOT NULL
 AND "start_key" NOT LIKE '%Prefix%';
@@ -980,9 +975,9 @@ AND "start_key" NOT LIKE '%Prefix%';
 Good job! Let's review the latency. We now expect latency for reads to be the sum of the SQL client rooundtrip (180ms) and just millis as leaseholder is in region, for a total of ~180ms.
 
 ```sql
-select * from rides where city = 'seattle' limit 1;
-select * from rides where city = 'san francisco' limit 1;
-select * from rides where city = 'los angeles' limit 1;
+SELECT * FROM rides WHERE city = 'seattle' LIMIT 1;
+SELECT * FROM rides WHERE city = 'san francisco' LIMIT 1;
+SELECT * FROM rides WHERE city = 'los angeles' LIMIT 1;
 ```
 
 ```bash
@@ -1014,9 +1009,9 @@ Let's test with writes. We expect latency to be the sum of the SQL client roundt
 
 ```sql
 -- we use different UUIDs from before...
-insert into rides values ('5555c52e-72da-4400-8888-160000125845', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-insert into rides values ('5555c52e-72da-4400-8888-160000135846', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-insert into rides values ('5555c52e-72da-4400-8888-160000135847', 'san francisco', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000125845', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135846', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135847', 'san francisco', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 ```
 
 ```bash
