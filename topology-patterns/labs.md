@@ -176,7 +176,7 @@ SHOW PARTITIONS FROM TABLE rides;
                 |            |                |                  |              |               |                                                 |             | lease_preferences = '[]'
 ```
 
-Perfect! Let us assume we have a regulatory EU requirement that imposes EU data to stay within the EU (inlucing UK).
+Perfect! Let us assume we have a regulatory EU requirement that imposes EU data to stay within the EU (inluding the UK).
 Currently we are not compliant as Rome, Paris and Amsterdam data is replicated in the US East and US West regions.
 
 With the [Geo-Partitioned Replicas](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-replicas.html) topology pattern, we can pin all replicas to a particular region/area.
