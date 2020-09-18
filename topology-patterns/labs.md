@@ -8,12 +8,12 @@ There are 6 recommended topology patterns:
 
 | topology | description | pros | cons|
 |-|-|-|-|
-| [Basic Production](https://www.cockroachlabs.com/docs/stable/topology-basic-production.html) | Single region deployment | fast r/w | can't survive region failure|
-| [Geo-Partitioned Replicas](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-replicas.html) | multi region deployment, however data is partitioned and pinned to a specific region | GDPR or similar legal compliance, fast r/w if client is connected to the region which holds the data is querying | locked data can't survive region failure - it would require multiple regions in the same country|
-| [Geo-Partitioned Leaseholders](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-leaseholders.html) | multi-region deployment where leaseholder is pinned to a specific region | fast reads if client connects to region which holds the data; can survive region failure | slighly slower writes as leasholder has to seek consensus outsite its region |
-| [Duplicate Indexes](https://www.cockroachlabs.com/docs/stable/topology-duplicate-indexes.html) | Most used indeces are duplicated by the amount of regions and the leaseholders are pinned 1 per region; ideal for data that doesn't frequently updates  | fast reads from every region the client connects to | slower writes as transactions need to also update every index; duplicate data increases storage |
-| [Follower Reads](https://www.cockroachlabs.com/docs/stable/topology-follower-reads.html) | special feature that enables reading from any of the replicas | fast reads as the closest replica can be queried instead of the leaseholder, which can be in another region | data read can be slightly historical |
-| [Follow-the-Workload](https://www.cockroachlabs.com/docs/stable/topology-follow-the-workload.html) | default setup when no other topology pattern has been implemented | - | - |
+| [Basic Production](https://www.cockroachlabs.com/docs/stable/topology-basic-production.html) | Single region deployment | Fast r/w | Can't survive region failure |
+| [Geo-Partitioned Replicas](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-replicas.html) | Multi=-region deployment where data is partitioned and pinned to a specific region, ideal for GDPR or similar legal compliance | Fast r/w if client is connected to the region which holds the data is querying | Locked data can't survive region failure - it would require multiple regions in the same country|
+| [Geo-Partitioned Leaseholders](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-leaseholders.html) | Multi-region deployment where leaseholder is pinned to a specific region | Fast reads if client connects to region which holds the data; can survive region failure | Slighly slower writes as leasholder has to seek consensus outsite its region |
+| [Duplicate Indexes](https://www.cockroachlabs.com/docs/stable/topology-duplicate-indexes.html) | Most used indexes are duplicated by the amount of regions and the index leaseholders are pinned 1 per region; ideal for data that doesn't frequently updates  | Fast reads from any region | Slower writes as every index needs to be updated; duplicate data increases storage |
+| [Follower Reads](https://www.cockroachlabs.com/docs/stable/topology-follower-reads.html) | Special feature that enables reading from any of the replicas | fast reads as the closest replica can be queried instead of the leaseholder, which can be in another region; no added storage cost | data can be slightly historical |
+| [Follow-the-Workload](https://www.cockroachlabs.com/docs/stable/topology-follow-the-workload.html) | Default topology. Leaseholder moves automatically to the region where most of the queries originate | - | - |
 
 ## Labs Prerequisites
 
@@ -41,17 +41,11 @@ Connect to the database to confirm it loaded successfully
 # use cockroach sql, defaults to localhost:26257
 cockroach sql --insecure -d movr
 
-# or use the --url param for another host:
+# or use the --url param for any another host:
 cockroach sql --url "postgresql://localhost:26258/movr?sslmode=disable"
 
 # or use psql
 psql -h localhost -p 26257 -U root movr
-
-# example using cockroach sql client
-cockroach sql --url "postgresql://localhost:26257/movr?sslmode=disable"
-
-# example using psql
-psql "postgresql://root@localhost:26258/movr?sslmode=disable"
 ```
 
 ```sql
@@ -74,29 +68,28 @@ Time: 133.429ms
 
 ## Lab 1 - Explore Range distribution
 
-Now that you have imported the data, review how the ranges are distributed in the `rides` table
-
-TODO
+Now that you have imported the data, review how the ranges are distributed in the `rides` table. We create our own view to only project columns of interest. Feel free to modify as you see fit.
 
 ```sql
-SHOW RANGES FROM TABLE rides;
+CREATE VIEW ridesranges AS
+  SELECT SUBSTRING(start_key, 2, 15) AS start_key, SUBSTRING(end_key, 2, 15) AS end_key, lease_holder AS lh, lease_holder_locality, replicas, replica_localities
+  FROM [SHOW RANGES FROM TABLE rides]
+  WHERE start_key IS NOT NULL AND start_key NOT LIKE '%Prefix%';
+
+SELECT * FROM ridesranges;
 ```
 
-```bash
-                                start_key                                |                                end_key                                 | range_id | range_size_mb | lease_holder |   lease_holder_locality    | replicas |                                replica_localities
--------------------------------------------------------------------------+------------------------------------------------------------------------+----------+---------------+--------------+----------------------------+----------+-----------------------------------------------------------------------------------
-  NULL                                                                   | /"amsterdam"/"\xc7\x17X\xe2\x19eH\x00\x80\x00\x00\x00\x00\x00\x97\xe5" |       56 |       0.95766 |            3 | region=us-east4,zone=b     | {3,4,8}  | {"region=us-east4,zone=b","region=us-west2,zone=c","region=eu-west2,zone=a"}
-  /"amsterdam"/"\xc7\x17X\xe2\x19eH\x00\x80\x00\x00\x00\x00\x00\x97\xe5" | /"boston"/"8\xe2\x19e+\xd3D\x00\x80\x00\x00\x00\x00\x00+f"             |       71 |      0.926262 |            3 | region=us-east4,zone=b     | {3,4,8}  | {"region=us-east4,zone=b","region=us-west2,zone=c","region=eu-west2,zone=a"}
-  /"boston"/"8\xe2\x19e+\xd3D\x00\x80\x00\x00\x00\x00\x00+f"             | /"los angeles"/"\xaa\xa6L/\x83{H\x00\x80\x00\x00\x00\x00\x00\x822"     |       69 |      0.980734 |            2 | region=us-east4,zone=c     | {2,4,8}  | {"region=us-east4,zone=c","region=us-west2,zone=c","region=eu-west2,zone=a"}
-  /"los angeles"/"\xaa\xa6L/\x83{H\x00\x80\x00\x00\x00\x00\x00\x822"     | /"new york"/"\x1cq\f\xb2\x95\xe9B\x00\x80\x00\x00\x00\x00\x00\x15\xb3" |       68 |      0.947365 |            3 | region=us-east4,zone=b     | {3,4,9}  | {"region=us-east4,zone=b","region=us-west2,zone=c","region=eu-west2,zone=c"}
-  /"new york"/"\x1cq\f\xb2\x95\xe9B\x00\x80\x00\x00\x00\x00\x00\x15\xb3" | /"paris"/"\xe3\x88e\x94\xafO@\x00\x80\x00\x00\x00\x00\x00\xad\x98"     |      133 |      0.914187 |            3 | region=us-east4,zone=b     | {3,5,9}  | {"region=us-east4,zone=b","region=us-west2,zone=a","region=eu-west2,zone=c"}
-  /"paris"/"\xe3\x88e\x94\xafO@\x00\x80\x00\x00\x00\x00\x00\xad\x98"     | /"san francisco"/"\x8e5?|\xed\x91H\x00\x80\x00\x00\x00\x00\x00l\u007f" |       66 |      1.907463 |            4 | region=us-west2,zone=c     | {2,4,8}  | {"region=us-east4,zone=c","region=us-west2,zone=c","region=eu-west2,zone=a"}
-  /"san francisco"/"\x8e5?|\xed\x91H\x00\x80\x00\x00\x00\x00\x00l\u007f" | /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc"         |       70 |      0.937071 |            4 | region=us-west2,zone=c     | {2,4,8}  | {"region=us-east4,zone=c","region=us-west2,zone=c","region=eu-west2,zone=a"}
-  /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc"         | /"washington dc"/"US&\x17\xc1\xbdD\x00\x80\x00\x00\x00\x00\x00A\x19"   |       67 |      1.003183 |            9 | region=eu-west2,zone=c | {1,4,9}  | {"region=us-east4,zone=a","region=us-west2,zone=c","region=eu-west2,zone=c"}
-  /"washington dc"/"US&\x17\xc1\xbdD\x00\x80\x00\x00\x00\x00\x00A\x19"   | NULL                                                                   |      143 |      8.888912 |            9 | region=eu-west2,zone=c | {3,4,9}  | {"region=us-east4,zone=b","region=us-west2,zone=c","region=eu-west2,zone=c"}
-(9 rows)
-
-Time: 1.534383s
+```text
+     start_key    |     end_key     | lh | lease_holder_locality  | replicas |                              replica_localities
+------------------+-----------------+----+------------------------+----------+-------------------------------------------------------------------------------
+  "seattle"/"q\xc | "washington dc" |  1 | region=us-east4,zone=a | {1,6,7}  | {"region=us-east4,zone=a","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  "washington dc" | NULL            |  1 | region=us-east4,zone=a | {1,6,7}  | {"region=us-east4,zone=a","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  "amsterdam"/"\x | "boston"/"8\xe2 |  4 | region=us-west2,zone=a | {2,4,7}  | {"region=us-east4,zone=b","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "boston"/"8\xe2 | "los angeles"/" |  4 | region=us-west2,zone=a | {1,4,7}  | {"region=us-east4,zone=a","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "paris"/"\xe3\x | "san francisco" |  6 | region=us-west2,zone=b | {3,6,8}  | {"region=us-east4,zone=c","region=us-west2,zone=b","region=eu-west2,zone=b"}
+  "san francisco" | "seattle"/"q\xc |  6 | region=us-west2,zone=b | {3,6,7}  | {"region=us-east4,zone=c","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  "los angeles"/" | "new york"/"\x1 |  7 | region=eu-west2,zone=a | {1,5,7}  | {"region=us-east4,zone=a","region=us-west2,zone=c","region=eu-west2,zone=a"}
+  "new york"/"\x1 | "paris"/"\xe3\x |  7 | region=eu-west2,zone=a | {1,4,7}  | {"region=us-east4,zone=a","region=us-west2,zone=a","region=eu-west2,zone=a"}
 ```
 
 Each range has been replicated in each region, check the `replicas` and `replica_localities` columns.
@@ -149,7 +142,7 @@ Again, the index replicas are also spread across regions.
 
 Read how you can tune the performance of the database using [partitioning](https://www.cockroachlabs.com/docs/v20.1/performance-tuning.html#step-13-partition-data-by-city). [Here](https://www.cockroachlabs.com/docs/v20.1/configure-replication-zones.html#create-a-replication-zone-for-a-partition) you can find information on replication zones with some examples.
 
-Partition the `movr.rides` table by column `movr.city` to the appropriate regions (`us-west1`, `us-east4`, `eu-west2`).
+Partition the `rides` table by column `city` to the appropriate regions (`us-west2`, `us-east4`, `eu-west2`).
 
 ```sql
 ALTER TABLE rides PARTITION BY LIST (city) (
@@ -192,7 +185,7 @@ Perfect!
 
 ## Lab 3 - Geo-Partitioned Leaseholders
 
-In this lab, we implement the [Geo Partitioned Leaseholder](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-leaseholders.html) topology pattern, where we pin the leaseholder to the region to match the cities.
+In this lab, we implement the [Geo Partitioned Leaseholder](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-leaseholders.html) topology pattern, where we pin the leaseholder to the region to match the cities, as we anticipate majority of the queries involving these cities originate from the region itself.
 
 Pros:
 
@@ -227,45 +220,37 @@ CONFIGURE ZONE USING
 
 This job will take about 5 minutes to complete, as ranges are shuffled around the cluster to land on the requested `ZONE` i.e. region.
 
-Review how the ranges are distributed in the `movr.rides` table after pinning. Confirm the leaseholder for each city is in the same region of the city itself.
+Review how the ranges are distributed in the `rides` table after pinning. Confirm the leaseholder for each city is in the same region of the city itself.
   
-TODO
-
 ```sql
-SELECT start_key, lease_holder, lease_holder_locality, replicas, replica_localities
-FROM [SHOW RANGES FROM TABLE rides]
-WHERE "start_key" IS NOT NULL
-AND "start_key" NOT LIKE '%Prefix%';
+SELECT * FROM ridesranges;
 ```
 
-```bash
-                                start_key                                |   lease_holder_locality
--------------------------------------------------------------------------+-----------------------------
-  /"washington dc"                                                       | region=us-east4,zone=a
-  /"boston"/"8\xe2\x19e+\xd3D\x00\x80\x00\x00\x00\x00\x00+f"             | region=us-east4,zone=c
-  /"boston"                                                              | region=us-east4,zone=b
-  /"new york"                                                            | region=us-east4,zone=b
-  /"new york"/"\x1cq\f\xb2\x95\xe9B\x00\x80\x00\x00\x00\x00\x00\x15\xb3" | region=us-east4,zone=b
-  /"washington dc"/"US&\x17\xc1\xbdD\x00\x80\x00\x00\x00\x00\x00A\x19"   | region=us-east4,zone=b
-
-  /"los angeles"/"\xaa\xa6L/\x83{H\x00\x80\x00\x00\x00\x00\x00\x822"     | region=us-west2,zone=c
-  /"san francisco"                                                       | region=us-west2,zone=c
-  /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc"         | region=us-west2,zone=c
-  /"san francisco"/"\x8e5?|\xed\x91H\x00\x80\x00\x00\x00\x00\x00l\u007f" | region=us-west2,zone=a
-  /"seattle"                                                             | region=us-west2,zone=a
-  /"los angeles"                                                         | region=us-west2,zone=b
-
-  /"amsterdam"                                                           | region=eu-west2,zone=b
-  /"paris"/"\xe3\x88e\x94\xafO@\x00\x80\x00\x00\x00\x00\x00\xad\x98"     | region=eu-west2,zone=b
-  /"amsterdam"/"\xc7\x17X\xe2\x19eH\x00\x80\x00\x00\x00\x00\x00\x97\xe5" | region=eu-west2,zone=a
-  /"rome"                                                                | region=eu-west2,zone=a
-  /"paris"                                                               | region=eu-west2,zone=c
-(17 rows)
-
-Time: 1.484839s
+```text
+     start_key    |     end_key     | lh | lease_holder_locality  | replicas |                              replica_localities
+------------------+-----------------+----+------------------------+----------+-------------------------------------------------------------------------------
+  "new york"      | "new york"/"\x1 |  1 | region=us-east4,zone=a | {1,5,7}  | {"region=us-east4,zone=a","region=us-west2,zone=c","region=eu-west2,zone=a"}
+  "washington dc" | "washington dc" |  1 | region=us-east4,zone=a | {1,6,7}  | {"region=us-east4,zone=a","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  "boston"        | "boston"/"8\xe2 |  2 | region=us-east4,zone=b | {2,4,7}  | {"region=us-east4,zone=b","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "boston"/"8\xe2 | "boston"/Prefix |  2 | region=us-east4,zone=b | {2,4,7}  | {"region=us-east4,zone=b","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "new york"/"\x1 | "new york"/Pref |  2 | region=us-east4,zone=b | {2,4,7}  | {"region=us-east4,zone=b","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "washington dc" | "washington dc" |  2 | region=us-east4,zone=b | {2,6,7}  | {"region=us-east4,zone=b","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  
+  "los angeles"   | "los angeles"/" |  4 | region=us-west2,zone=a | {1,4,7}  | {"region=us-east4,zone=a","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "los angeles"/" | "los angeles"/P |  5 | region=us-west2,zone=c | {1,5,7}  | {"region=us-east4,zone=a","region=us-west2,zone=c","region=eu-west2,zone=a"}
+  "san francisco" | "san francisco" |  6 | region=us-west2,zone=b | {3,6,8}  | {"region=us-east4,zone=c","region=us-west2,zone=b","region=eu-west2,zone=b"}
+  "san francisco" | "san francisco" |  6 | region=us-west2,zone=b | {3,6,7}  | {"region=us-east4,zone=c","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  "seattle"       | "seattle"/"q\xc |  6 | region=us-west2,zone=b | {3,6,7}  | {"region=us-east4,zone=c","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  "seattle"/"q\xc | "seattle"/Prefi |  6 | region=us-west2,zone=b | {1,6,7}  | {"region=us-east4,zone=a","region=us-west2,zone=b","region=eu-west2,zone=a"}
+  
+  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west2,zone=a | {1,4,7}  | {"region=us-east4,zone=a","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "paris"         | "paris"/"\xe3\x |  7 | region=eu-west2,zone=a | {1,4,7}  | {"region=us-east4,zone=a","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "paris"/"\xe3\x | "paris"/PrefixE |  8 | region=eu-west2,zone=b | {3,6,8}  | {"region=us-east4,zone=c","region=us-west2,zone=b","region=eu-west2,zone=b"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=b | {3,6,8}  | {"region=us-east4,zone=c","region=us-west2,zone=b","region=eu-west2,zone=b"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  9 | region=eu-west2,zone=c | {2,4,9}  | {"region=us-east4,zone=b","region=us-west2,zone=a","region=eu-west2,zone=c"}
 ```
 
-Good, as expected! Let's see next what happens when we run queries against each region.
+Good, as expected! The leaseholder is now located in the same region the cities belong to. Let's see next what happens when we run queries against each region.
 
 Experiment running the same queries in **all** regions and observe the **Time**, printed at the bottom.
 
@@ -289,7 +274,7 @@ WHERE city = 'rome'
 LIMIT 1;
 ```
 
-```bash
+```text
          locality
 --------------------------
   region=us-east4,zone=a
@@ -319,9 +304,11 @@ Time: 1.921ms
 Time: 128.969ms
 ```
 
-As expected, when from a `us-east4` based node I query data in the region, I get a fast response, but the delay is noticeable when the node has to reach out to the leaseholder in the other regions to get the data for the other regions.
+As expected, we get fast responses when we query local data, but the delay is noticeable when the gateway node has to reach out to leaseholders in other regions to get their data.
 
 Connect to the Admin UI and go to the **Network Latency** tab on the left. Compare the latency measured with your findings running SQL queries.
+
+With the Geo-Partitioned Leaseholders topology you were able to achieve fast local reads and still be able to survive a region failure.
 
 ## Lab 4 - Follower Reads
 
@@ -357,7 +344,7 @@ WHERE city = 'rome'
 LIMIT 1;
 ```
 
-```bash
+```text
          locality
 --------------------------
   region=us-east4,zone=b
@@ -410,9 +397,11 @@ LIMIT 1;
 
 You should see that the response times for each city is comparable to the local city response time (single digit ms response time). What is happening, the database is querying the local replica of that range - remember each region has a replica of every range.
 
-Try using with an interval of `-2s`. Response times will go back the same as prior to using Follower Reads. This is because the time interval is not long enough to pickup the copy at that interval.
+Try using with an interval of `-2s`. Response times will go back the same as prior to using Follower Reads. This is because the time interval is not long enough to pickup the copy at that interval and the query is therefore routed to the leaseholder.
 
 You can use `AS OF SYSTEM TIME experimental_follower_read_timestamp()` to ensure Follower Reads queries use local ranges with the least time lag.
+
+With the Follower Read topology, albeit slightly historical, you get fast reads cheaply. This is ideal for some scheduled reporting, for examples, sales in the past hour/minutes, etc.
 
 ## Lab 5 - Duplicate Indexes
 
@@ -549,7 +538,7 @@ WHERE city='rome'
 GROUP BY 1,2;
 ```
 
-```bash
+```text
   vehicle_city |              vehicle_id              | count
 ---------------+--------------------------------------+--------
   seattle      | 6b851eb8-51eb-4400-8000-00000000002a |   491
@@ -610,13 +599,13 @@ In below example, we are in the US East region and the optimizer is leveraging t
 ```sql
 SHOW LOCALITY;
 
-EXPLAIN SELECT vehicle_city, vehicle_id, count(*)
+EXPLAIN SELECT vehicle_city, vehicle_id, COUNT(*)
 FROM rides
 WHERE city='rome'
 GROUP BY 1,2;
 ```
 
-```bash
+```text
          locality
 --------------------------
   region=us-east4,zone=a
@@ -642,10 +631,10 @@ Time: 2.115ms
 You can always check the index ranges to find out where the leaseholder is located
 
 ```sql
-show ranges from index idx_us_east_rides;
+SHOW RANGES FROM INDEX idx_us_east_rides;
 ```
 
-```bash
+```text
   start_key | end_key | range_id | range_size_mb | lease_holder | lease_holder_locality  | replicas |                                replica_localities
 ------------+---------+----------+---------------+--------------+------------------------+----------+-----------------------------------------------------------------------------------
   NULL      | NULL    |      141 |      4.244041 |            3 | region=us-east4,zone=b | {3,4,9}  | {"region=us-east4,zone=b","region=us-west2,zone=c","region=eu-west2,zone=c"}
@@ -659,6 +648,8 @@ DROP INDEX idx_us_west_rides;
 DROP INDEX idx_us_east_rides;
 DROP INDEX idx_eu_west_rides;
 ```
+
+The Duplicate Indexes topology is ideal for data that is used very frequently (for joins for example) but doesn't change much. Think ZIP codes, national IDs, warehouse location information, etc..
 
 ## Lab 6 - Survive region failure and scale out
 
@@ -680,12 +671,12 @@ The total latency for the query is 180 + 125 + 125 = 430ms.
 To temporarely remedy this problem and decrease the overall response time, we have 2 options:
 
 - move all former US West ranges from region US East to region EU West - but that means we can't survive if EU West goes down as we'd have all replicas in that region;
-- scale out the Cockroach cluster and deploy nodes on a **new** datacenter close to EU West, so that the Raft consensus is achieved quicker and can still survive should US East region become unavailable.
+- scale out the Cockroach cluster and deploy nodes on a **new** datacenter close to EU West, so that the Raft consensus is achieved quicker and we can still survive another region failure.
 
-Reduce the time CRDB considers nodes dead down from 5 to 2 minutes
+In this lab we decide for the second option, being the safest. First, reduce the time CRDB considers nodes dead down from 5 to 1.15 minutes, the lowest.
 
 ```sql
-SET CLUSTER SETTING server.time_until_store_dead = '2m';
+SET CLUSTER SETTING server.time_until_store_dead = '75s';
 ```
 
 Simulate region failure. Ensure to run all following `docker` commands on a new terminal, on localhost.
@@ -695,7 +686,7 @@ docker stop haproxy-seattle roach-seattle-1 roach-seattle-2 roach-seattle-3
 ```
 
 Check the Admin UI - you might have to use a different port as the host bound to port 8080 died. Use port 8180 instead.
-In 2 minutes, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
+In a little over a minute, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
 
 ![dead-nodes](/media/dead-nodes.png)
 
@@ -706,7 +697,7 @@ WHERE "start_key" IS NOT NULL
 AND "start_key" NOT LIKE '%Prefix%';
 ```
 
-```bash
+```text
                                 start_key                                | lease_holder | lease_holder_locality  | replicas |                              replica_localities
 -------------------------------------------------------------------------+--------------+------------------------+----------+-------------------------------------------------------------------------------
   /"boston"                                                              |            1 | region=us-east4,zone=a | {1,7,9}  | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
@@ -770,13 +761,15 @@ Time: 182.096ms
 
 Very good, you can now simulate an App in Seattle that is routed to the London endpoint due to the unavailable US West region.
 
-Let's do some testing: reading Seattle data will incour the client roundtrip from US West to EU West, ~180ms, plus the roundtrip from EU West to US East (~125ms) for the leaseholder read for a total of ~305ms.
+Reading Seattle data will incour the client roundtrip from US West to EU West, ~180ms, plus the roundtrip from EU West to US East (~125ms) for the leaseholder read for a total of ~305ms.
 
 ```sql
-select * from rides where city = 'seattle' limit 1;
+-- Please note*: depending on how your cluster replicated the ranges, you might not be able to replicate the result for below commands.
+-- I thus suggest you just read along.
+SELECT * FROM rides WHERE city = 'seattle' LIMIT 1;
 ```
 
-```bash
+```text
                    id                  |  city   | vehicle_city |               rider_id               |              vehicle_id              |    start_address    |    end_address    |        start_time         |         end_time          | revenue
 ---------------------------------------+---------+--------------+--------------------------------------+--------------------------------------+---------------------+-------------------+---------------------------+---------------------------+----------
   5555c52e-72da-4400-8000-00000000411b | seattle | seattle      | 63958106-24dd-4000-8000-000000000185 | 6147ae14-7ae1-4800-8000-000000000026 | Cockroach Street 50 | 65529 Krystal Via | 2018-12-04 03:04:05+00:00 | 2018-12-04 04:04:05+00:00 |   22.00
@@ -801,11 +794,13 @@ So we can expect the latency for an `INSERT` to be
 - for Los Angeles: client roundtrip 180ms + gateway-leaseholder roundtrip 125ms + Raft consensus 125ms = ~430ms. As the closest replica is in another region, you need to factor that latency in.
 
 ```sql
-insert into rides values ('5555c52e-72da-4400-8888-000000125882', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-insert into rides values ('5555c52e-72da-4400-8888-000000135882', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+-- Please note*: depending on how your cluster replicated the ranges, you might not be able to replicate the result for below commands.
+-- I thus suggest you just read along.
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-000000125882', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-000000135882', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 ```
 
-```bash
+```text
 INSERT 1
 
 Time: 309.8142ms
@@ -821,7 +816,7 @@ SHOW RANGE FROM TABLE rides FOR ROW ('5555c52e-72da-4400-8888-000000125882', 'se
 SHOW RANGE FROM TABLE rides FOR ROW ('5555c52e-72da-4400-8888-000000135882', 'los angeles', null, null, null, null,null, null,null, null);
 ```
 
-```bash
+```text
   start_key  |                            end_key                             | range_id | lease_holder | lease_holder_locality  | replicas |                              replica_localities
 -------------+----------------------------------------------------------------+----------+--------------+------------------------+----------+-------------------------------------------------------------------------------
   /"seattle" | /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc" |       75 |            1 | region=us-east4,zone=a | {1,3,9}  | {"region=us-east4,zone=a","region=us-east4,zone=c","region=eu-west2,zone=c"}
@@ -837,7 +832,7 @@ Time: 1.8095131s
 Time: 1.7808906s
 ```
 
-We now understand the ramification of a failed region and the toll it takes on the overall latency. We understand that region US West will take several hours to become operational again and we decide to remedy by scaling out the cluster, also because we are afraid another region might go down and the Cockroach cluster would become unavailable, too, as quorum can't be reached with 1 out of 3 ranges being available.
+We now understand the ramification of a failed region and the toll it takes on the overall latency. We understand that region US West will take several hours to become operational again and we decide to remedy by scaling out the cluster, also because we are afraid another region might go down and the Cockroach cluster would become unavailable, too, as quorum can't be reached with only 1 out of 3 ranges being available.
 
 Provision the datacenter in Frankfurt, Germany. We call this region EU Central
 
@@ -854,7 +849,7 @@ docker run -d --name=roach-frankfurt-1 --hostname=roach-frankfurt-1 --ip=172.26.
 docker run -d --name=roach-frankfurt-2 --hostname=roach-frankfurt-2 --ip=172.26.0.12 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8481:8080 -v "roach-frankfurt-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=b
 docker run -d --name=roach-frankfurt-3 --hostname=roach-frankfurt-3 --ip=172.26.0.13 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8482:8080 -v "roach-frankfurt-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=c
 
-# attach networks and latency
+# attach networks and add latency
 # Frankfurt
 for j in 1 2 3
 do
@@ -898,7 +893,7 @@ Ranges have been automatically shuffled around to the new datacenter. Check what
 SHOW RANGES FROM TABLE rides;
 ```
 
-```bash
+```text
                                 start_key                                |                                end_key                                 | range_id | range_size_mb | lease_holder |  lease_holder_locality   | replicas |                               replica_localities
 -------------------------------------------------------------------------+------------------------------------------------------------------------+----------+---------------+--------------+--------------------------+----------+---------------------------------------------------------------------------------
   NULL                                                                   | /"amsterdam"                                                           |       39 |             0 |            9 | region=eu-west2,zone=c   | {1,9,11} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=c"}
@@ -943,36 +938,33 @@ CONFIGURE ZONE USING
 Wait few minutes, then confirm the leaseholder has moved to EU West and that 1 replica is in EU West.
 
 ```sql
-SELECT start_key, lease_holder_locality, replica_localities
-FROM [SHOW RANGES FROM TABLE rides]
-WHERE "start_key" IS NOT NULL
-AND "start_key" NOT LIKE '%Prefix%';
+SELECT * FROM ridesranges;
 ```
 
-```bash
-                                start_key                                | lease_holder | lease_holder_locality  | replicas |                               replica_localities
--------------------------------------------------------------------------+--------------+------------------------+----------+---------------------------------------------------------------------------------
-  /"boston"                                                              |            1 | region=us-east4,zone=a | {1,7,11} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=c"}
-  /"boston"/"8\xe2\x19e+\xd3D\x00\x80\x00\x00\x00\x00\x00+f"             |            1 | region=us-east4,zone=a | {1,8,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=a"}
-  /"new york"/"\x1cq\f\xb2\x95\xe9B\x00\x80\x00\x00\x00\x00\x00\x15\xb3" |            1 | region=us-east4,zone=a | {1,9,12} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"new york"                                                            |            2 | region=us-east4,zone=b | {2,7,10} | {"region=us-east4,zone=b","region=eu-west2,zone=b","region=eu-central,zone=a"}
-  /"washington dc"                                                       |            3 | region=us-east4,zone=c | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"washington dc"/"US&\x17\xc1\xbdD\x00\x80\x00\x00\x00\x00\x00A\x19"   |            3 | region=us-east4,zone=c | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  
-  /"amsterdam"/"\xc7\x17X\xe2\x19eH\x00\x80\x00\x00\x00\x00\x00\x97\xe5" |            7 | region=eu-west2,zone=b | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
-  /"los angeles"/"\xaa\xa6L/\x83{H\x00\x80\x00\x00\x00\x00\x00\x822"     |            7 | region=eu-west2,zone=b | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
-  /"paris"                                                               |            7 | region=eu-west2,zone=b | {3,7,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
-  /"paris"/"\xe3\x88e\x94\xafO@\x00\x80\x00\x00\x00\x00\x00\xad\x98"     |            7 | region=eu-west2,zone=b | {2,7,11} | {"region=us-east4,zone=b","region=eu-west2,zone=b","region=eu-central,zone=c"}
-  /"amsterdam"                                                           |            8 | region=eu-west2,zone=a | {1,8,11} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
-  /"san francisco"                                                       |            8 | region=eu-west2,zone=a | {2,8,12} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=b"}
-  /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc"         |            8 | region=eu-west2,zone=a | {2,8,11} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=c"}
-  /"los angeles"                                                         |            9 | region=eu-west2,zone=c | {1,9,10} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=a"}
-  /"rome"                                                                |            9 | region=eu-west2,zone=c | {2,9,12} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"san francisco"/"\x8e5?|\xed\x91H\x00\x80\x00\x00\x00\x00\x00l\u007f" |            9 | region=eu-west2,zone=c | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=a"}
-  /"seattle"                                                             |            9 | region=eu-west2,zone=c | {1,9,12} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=b"}
+```text
+     start_key    |     end_key     | lh | lease_holder_locality  | replicas |                               replica_localities
+------------------+-----------------+----+------------------------+----------+---------------------------------------------------------------------------------
+  "boston"        | "boston"/"8\xe2 |  2 | region=us-east4,zone=b | {2,7,11} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=a"}
+  "boston"/"8\xe2 | "boston"/Prefix |  2 | region=us-east4,zone=b | {2,7,12} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=c"}
+  "new york"/"\x1 | "new york"/Pref |  2 | region=us-east4,zone=b | {2,7,12} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=c"}
+  "washington dc" | "washington dc" |  2 | region=us-east4,zone=b | {2,7,10} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "new york"      | "new york"/"\x1 |  3 | region=us-east4,zone=c | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=a"}
+  "washington dc" | "washington dc" |  3 | region=us-east4,zone=c | {3,7,10} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=b"}
+
+  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west2,zone=a | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "los angeles"   | "los angeles"/" |  7 | region=eu-west2,zone=a | {1,7,12} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
+  "los angeles"/" | "los angeles"/P |  7 | region=eu-west2,zone=a | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "paris"         | "paris"/"\xe3\x |  7 | region=eu-west2,zone=a | {2,7,10} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "san francisco" | "san francisco" |  7 | region=eu-west2,zone=a | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=a"}
+  "seattle"       | "seattle"/"q\xc |  7 | region=eu-west2,zone=a | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=a"}
+  "seattle"/"q\xc | "seattle"/Prefi |  7 | region=eu-west2,zone=a | {2,7,11} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=a"}
+  "paris"/"\xe3\x | "paris"/PrefixE |  8 | region=eu-west2,zone=b | {3,8,10} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=b | {3,8,11} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=a"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  9 | region=eu-west2,zone=c | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=b"}
+  "san francisco" | "san francisco" |  9 | region=eu-west2,zone=c | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=c"}
 ```
 
-Good job! Let's review the latency. We now expect latency for reads to be the sum of the SQL client rooundtrip (180ms) and just millis as leaseholder is in region, for a total of ~180ms.
+Good job! Let's review the latency. We now expect latency for reads to be the sum of the SQL client rooundtrip (180ms) and just millis as leaseholder is in region.
 
 ```sql
 SELECT * FROM rides WHERE city = 'seattle' LIMIT 1;
@@ -1029,3 +1021,5 @@ Time: 197.0458ms
 ```
 
 Awesome! Not too bad for an other-side-of-the-world ACID transaction!
+
+
