@@ -23,7 +23,7 @@ There are 6 recommended topology patterns:
 
     - a modern web browser,
     - a SQL client:
-      - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux))
+      - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux)
       - `psql`
       - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
 
