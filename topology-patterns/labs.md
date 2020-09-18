@@ -23,7 +23,7 @@ There are 6 recommended topology patterns:
 
     - a modern web browser,
     - a SQL client:
-      - [Cockroach SQL client]((https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux))
+      - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux))
       - `psql`
       - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
 
@@ -950,7 +950,7 @@ SELECT * FROM ridesranges;
   "seattle"/"q\xc | "seattle"/Prefi |  9 | region=eu-west2,zone=b | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=b","region=eu-central,zone=c"}
 ```
 
-Good job! Let's review the latency. We now expect latency for reads to be the sum of the SQL client rooundtrip (180ms) and just millis as leaseholder is in region.
+Good job! Let's review the latency. We now expect latency for reads to be the sum of the SQL client rooundtrip (180ms) and just millis as the leaseholder is in region.
 
 ```sql
 SELECT * FROM rides WHERE city = 'seattle' LIMIT 1;
@@ -981,7 +981,7 @@ Time: 180.5738ms
 Time: 181.8124ms
 ```
 
-Very nice! We have reduced overall read latency from ~305ms to ~180ms as we moved the leaseholder from US East and EU Central to the region where the client endpoint connects!
+Very nice! We have reduced overall read latency from ~305ms to ~180ms as we moved the leaseholder from US East and EU Central to the region where the client endpoint connects.
 
 Let's test with writes. We expect latency to be the sum of the SQL client roundtrip (~180ms), the Raft consensus roundtrip (15ms - to Frankfurt) for a total of ~195ms. Remember the leaseholder has been pinned to the region the client app connects to and Frankfurt is very close.
 
