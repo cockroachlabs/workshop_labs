@@ -666,9 +666,7 @@ Imagine that region `us-west2` becomes unavailable due to a power outage:
 - The node in EU West realizes the leaseholder for the range the client is querying has moved to US East: 125ms roundtrip.
 - the leaseholder node in US East seek for Raft consensus from the EU West replica: 125ms rountrip.
 
-The total latency for the query is 180 + 125 + 125 = 430ms.
-
-To temporarely remedy this problem and decrease the overall response time, we have 2 options:
+The total latency for the query is 180 + 125 + 125 = 430ms. To temporarely remedy this problem and decrease the overall response time, we have 2 options:
 
 - move all former US West ranges from region US East to region EU West - but that means we can't survive if EU West goes down as we'd have all replicas in that region;
 - scale out the Cockroach cluster and deploy nodes on a **new** datacenter close to EU West, so that the Raft consensus is achieved quicker and we can still survive another region failure.
@@ -716,7 +714,7 @@ SELECT * FROM ridesranges;
   "san francisco" | "san francisco" |  9 | region=eu-west2,zone=b | {3,8,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-west2,zone=b"}
 ```
 
-From above table we can see that the Seattle data was replicated to US East. We will therefore try to update a row in those ranges so the EU West gateway node will pass the write request to the US East based leaseholder, and thus get the highest possible latency for our transaction.
+From above table we can see that the US West data was successfully and evenly replicated to across the remaining regions.
 
 Create a new running docker container using the `cockroachdb` image. This will be our SQL client app connecting from Seattle.
 
@@ -760,7 +758,8 @@ Very good, you can now simulate an App in Seattle that is routed to the London e
 Reading Seattle data will incour the client roundtrip from US West to EU West, ~180ms, plus the roundtrip from EU West to US East (~125ms) for the leaseholder read for a total of ~305ms.
 
 ```sql
--- Please note*: depending on how your cluster replicated the ranges, you might not be able to replicate the result for below commands.
+-- Please note: depending on how your cluster replicated the ranges
+-- you might not be able to replicate the result for below commands.
 -- I thus suggest you just read along.
 SELECT * FROM rides WHERE city = 'seattle' LIMIT 1;
 ```
@@ -790,7 +789,8 @@ So we can expect the latency for an `INSERT` to be
 - for Los Angeles: client roundtrip 180ms + gateway-leaseholder roundtrip 125ms + Raft consensus 125ms = ~430ms. As the closest replica is in another region, you need to factor that latency in.
 
 ```sql
--- Please note*: depending on how your cluster replicated the ranges, you might not be able to replicate the result for below commands.
+-- Please note: depending on how your cluster replicated the ranges
+-- you might not be able to replicate the result for below commands.
 -- I thus suggest you just read along.
 INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-000000125882', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-000000135882', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -886,39 +886,29 @@ Confirm the latency in the Network Latency page is ~12ms between London and Fran
 Ranges have been automatically shuffled around to the new datacenter. Check what it looks like:
 
 ```sql
-SHOW RANGES FROM TABLE rides;
+SELECT * FROM ridesranges;
 ```
 
 ```text
-                                start_key                                |                                end_key                                 | range_id | range_size_mb | lease_holder |  lease_holder_locality   | replicas |                               replica_localities
--------------------------------------------------------------------------+------------------------------------------------------------------------+----------+---------------+--------------+--------------------------+----------+---------------------------------------------------------------------------------
-  NULL                                                                   | /"amsterdam"                                                           |       39 |             0 |            9 | region=eu-west2,zone=c   | {1,9,11} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=c"}
-  /"amsterdam"                                                           | /"amsterdam"/"\xc7\x17X\xe2\x19eH\x00\x80\x00\x00\x00\x00\x00\x97\xe5" |       82 |       0.95766 |            8 | region=eu-west2,zone=a   | {1,8,11} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
-  /"amsterdam"/"\xc7\x17X\xe2\x19eH\x00\x80\x00\x00\x00\x00\x00\x97\xe5" | /"amsterdam"/PrefixEnd                                                 |       59 |      0.000695 |            7 | region=eu-west2,zone=b   | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
-  /"amsterdam"/PrefixEnd                                                 | /"boston"                                                              |      133 |             0 |            1 | region=us-east4,zone=a   | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
-  /"boston"                                                              | /"boston"/"8\xe2\x19e+\xd3D\x00\x80\x00\x00\x00\x00\x00+f"             |       79 |      0.925567 |            1 | region=us-east4,zone=a   | {1,7,11} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=c"}
-  /"boston"/"8\xe2\x19e+\xd3D\x00\x80\x00\x00\x00\x00\x00+f"             | /"boston"/PrefixEnd                                                    |       58 |      0.000592 |            2 | region=us-east4,zone=b   | {2,8,10} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=a"}
-  /"boston"/PrefixEnd                                                    | /"los angeles"                                                         |       78 |             0 |           12 | region=eu-central,zone=b | {3,7,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
-  /"los angeles"                                                         | /"los angeles"/"\xaa\xa6L/\x83{H\x00\x80\x00\x00\x00\x00\x00\x822"     |       73 |      0.982539 |           10 | region=eu-central,zone=a | {1,9,10} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=a"}
-  /"los angeles"/"\xaa\xa6L/\x83{H\x00\x80\x00\x00\x00\x00\x00\x822"     | /"los angeles"/PrefixEnd                                               |       56 |      0.000709 |           10 | region=eu-central,zone=a | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
-  /"los angeles"/PrefixEnd                                               | /"new york"                                                            |       72 |             0 |            7 | region=eu-west2,zone=b   | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=c"}
-  /"new york"                                                            | /"new york"/"\x1cq\f\xb2\x95\xe9B\x00\x80\x00\x00\x00\x00\x00\x15\xb3" |       77 |      0.946656 |            2 | region=us-east4,zone=b   | {2,7,12} | {"region=us-east4,zone=b","region=eu-west2,zone=b","region=eu-central,zone=b"}
-  /"new york"/"\x1cq\f\xb2\x95\xe9B\x00\x80\x00\x00\x00\x00\x00\x15\xb3" | /"new york"/PrefixEnd                                                  |       57 |      0.000173 |            1 | region=us-east4,zone=a   | {1,9,12} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"new york"/PrefixEnd                                                  | /"paris"                                                               |      123 |             0 |            1 | region=us-east4,zone=a   | {1,9,10} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=a"}
-  /"paris"                                                               | /"paris"/"\xe3\x88e\x94\xafO@\x00\x80\x00\x00\x00\x00\x00\xad\x98"     |      125 |      0.914014 |            7 | region=eu-west2,zone=b   | {3,7,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
-  /"paris"/"\xe3\x88e\x94\xafO@\x00\x80\x00\x00\x00\x00\x00\xad\x98"     | /"paris"/PrefixEnd                                                     |       93 |      0.000828 |            7 | region=eu-west2,zone=b   | {2,7,11} | {"region=us-east4,zone=b","region=eu-west2,zone=b","region=eu-central,zone=c"}
-  /"paris"/PrefixEnd                                                     | /"rome"                                                                |       81 |             0 |           12 | region=eu-central,zone=b | {1,9,12} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"rome"                                                                | /"rome"/PrefixEnd                                                      |      134 |       0.90353 |            9 | region=eu-west2,zone=c   | {2,9,12} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"rome"/PrefixEnd                                                      | /"san francisco"                                                       |      135 |             0 |            2 | region=us-east4,zone=b   | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=a"}
-  /"san francisco"                                                       | /"san francisco"/"\x8e5?|\xed\x91H\x00\x80\x00\x00\x00\x00\x00l\u007f" |       70 |      1.005096 |           12 | region=eu-central,zone=b | {2,8,12} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=b"}
-  /"san francisco"/"\x8e5?|\xed\x91H\x00\x80\x00\x00\x00\x00\x00l\u007f" | /"san francisco"/PrefixEnd                                             |      114 |       0.00055 |           10 | region=eu-central,zone=a | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=a"}
-  /"san francisco"/PrefixEnd                                             | /"seattle"                                                             |       74 |             0 |            7 | region=eu-west2,zone=b   | {3,7,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
-  /"seattle"                                                             | /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc"         |       75 |      0.946371 |           12 | region=eu-central,zone=b | {1,9,12} | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc"         | /"seattle"/PrefixEnd                                                   |      113 |      0.000506 |           11 | region=eu-central,zone=c | {2,8,11} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=c"}
-  /"seattle"/PrefixEnd                                                   | /"washington dc"                                                       |       71 |             0 |           10 | region=eu-central,zone=a | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=a"}
-  /"washington dc"                                                       | /"washington dc"/"US&\x17\xc1\xbdD\x00\x80\x00\x00\x00\x00\x00A\x19"   |       76 |      1.002677 |            3 | region=us-east4,zone=c   | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"washington dc"/"US&\x17\xc1\xbdD\x00\x80\x00\x00\x00\x00\x00A\x19"   | /"washington dc"/PrefixEnd                                             |       69 |      0.000367 |            3 | region=us-east4,zone=c   | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  /"washington dc"/PrefixEnd                                             | NULL                                                                   |       80 |      8.890417 |            2 | region=us-east4,zone=b   | {2,9,11} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=c"}
+     start_key    |     end_key     | lh |  lease_holder_locality   | replicas |                               replica_localities
+------------------+-----------------+----+--------------------------+----------+---------------------------------------------------------------------------------
+  "new york"/"\x1 | "new york"/Pref |  1 | region=us-east4,zone=a   | {1,9,11} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
+  "boston"        | "boston"/"8\xe2 |  3 | region=us-east4,zone=c   | {3,9,11} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=a"}
+  "boston"/"8\xe2 | "boston"/Prefix |  3 | region=us-east4,zone=c   | {3,9,10} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=c"}
+  "new york"      | "new york"/"\x1 |  3 | region=us-east4,zone=c   | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=a"}
+  "washington dc" | "washington dc" |  3 | region=us-east4,zone=c   | {3,9,10} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=c"}
+  "washington dc" | "washington dc" |  3 | region=us-east4,zone=c   | {3,8,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
+  "paris"         | "paris"/"\xe3\x |  7 | region=eu-west2,zone=a   | {3,7,12} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "paris"/"\xe3\x | "paris"/PrefixE |  7 | region=eu-west2,zone=a   | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
+  "amsterdam"     | "amsterdam"/"\x |  8 | region=eu-west2,zone=c   | {3,8,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=c   | {3,8,10} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=c"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  9 | region=eu-west2,zone=b   | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
+  "san francisco" | "san francisco" | 10 | region=eu-central,zone=c | {2,8,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=c"}
+  "seattle"       | "seattle"/"q\xc | 10 | region=eu-central,zone=c | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
+  "seattle"/"q\xc | "seattle"/Prefi | 10 | region=eu-central,zone=c | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=b","region=eu-central,zone=c"}
+  "los angeles"   | "los angeles"/" | 11 | region=eu-central,zone=a | {1,9,11} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
+  "san francisco" | "san francisco" | 11 | region=eu-central,zone=a | {3,8,11} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=a"}
+  "los angeles"/" | "los angeles"/P | 12 | region=eu-central,zone=b | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
 ```
 
 Perfect, ranges have been spread across all 3 regions equally. Let's pin partition `us_west2` to region EU West, so we get the fastest reads.
@@ -940,24 +930,24 @@ SELECT * FROM ridesranges;
 ```text
      start_key    |     end_key     | lh | lease_holder_locality  | replicas |                               replica_localities
 ------------------+-----------------+----+------------------------+----------+---------------------------------------------------------------------------------
-  "boston"        | "boston"/"8\xe2 |  2 | region=us-east4,zone=b | {2,7,11} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=a"}
-  "boston"/"8\xe2 | "boston"/Prefix |  2 | region=us-east4,zone=b | {2,7,12} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=c"}
-  "new york"/"\x1 | "new york"/Pref |  2 | region=us-east4,zone=b | {2,7,12} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=c"}
-  "washington dc" | "washington dc" |  2 | region=us-east4,zone=b | {2,7,10} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "new york"/"\x1 | "new york"/Pref |  1 | region=us-east4,zone=a | {1,9,11} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
+  "boston"        | "boston"/"8\xe2 |  3 | region=us-east4,zone=c | {3,9,11} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=a"}
+  "boston"/"8\xe2 | "boston"/Prefix |  3 | region=us-east4,zone=c | {3,9,10} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=c"}
   "new york"      | "new york"/"\x1 |  3 | region=us-east4,zone=c | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=a"}
-  "washington dc" | "washington dc" |  3 | region=us-east4,zone=c | {3,7,10} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "washington dc" | "washington dc" |  3 | region=us-east4,zone=c | {3,9,10} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=c"}
+  "washington dc" | "washington dc" |  3 | region=us-east4,zone=c | {3,8,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
 
-  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west2,zone=a | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=b"}
-  "los angeles"   | "los angeles"/" |  7 | region=eu-west2,zone=a | {1,7,12} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
-  "los angeles"/" | "los angeles"/P |  7 | region=eu-west2,zone=a | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=b"}
-  "paris"         | "paris"/"\xe3\x |  7 | region=eu-west2,zone=a | {2,7,10} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=b"}
-  "san francisco" | "san francisco" |  7 | region=eu-west2,zone=a | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=a"}
-  "seattle"       | "seattle"/"q\xc |  7 | region=eu-west2,zone=a | {3,7,11} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=a"}
-  "seattle"/"q\xc | "seattle"/Prefi |  7 | region=eu-west2,zone=a | {2,7,11} | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-central,zone=a"}
-  "paris"/"\xe3\x | "paris"/PrefixE |  8 | region=eu-west2,zone=b | {3,8,10} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
-  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=b | {3,8,11} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=a"}
-  "amsterdam"/"\x | "amsterdam"/Pre |  9 | region=eu-west2,zone=c | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=b"}
-  "san francisco" | "san francisco" |  9 | region=eu-west2,zone=c | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=c"}
+  "paris"         | "paris"/"\xe3\x |  7 | region=eu-west2,zone=a | {3,7,12} | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-central,zone=b"}
+  "paris"/"\xe3\x | "paris"/PrefixE |  7 | region=eu-west2,zone=a | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
+  "seattle"       | "seattle"/"q\xc |  7 | region=eu-west2,zone=a | {1,7,10} | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-central,zone=c"}
+  "amsterdam"     | "amsterdam"/"\x |  8 | region=eu-west2,zone=c | {3,8,12} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=b"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=c | {3,8,10} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=c"}
+  "san francisco" | "san francisco" |  8 | region=eu-west2,zone=c | {3,8,11} | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-central,zone=a"}
+  "san francisco" | "san francisco" |  8 | region=eu-west2,zone=c | {2,8,10} | {"region=us-east4,zone=b","region=eu-west2,zone=c","region=eu-central,zone=c"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  9 | region=eu-west2,zone=b | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
+  "los angeles"   | "los angeles"/" |  9 | region=eu-west2,zone=b | {1,9,11} | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-central,zone=a"}
+  "los angeles"/" | "los angeles"/P |  9 | region=eu-west2,zone=b | {3,9,12} | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-central,zone=b"}
+  "seattle"/"q\xc | "seattle"/Prefi |  9 | region=eu-west2,zone=b | {2,9,10} | {"region=us-east4,zone=b","region=eu-west2,zone=b","region=eu-central,zone=c"}
 ```
 
 Good job! Let's review the latency. We now expect latency for reads to be the sum of the SQL client rooundtrip (180ms) and just millis as leaseholder is in region.
@@ -997,9 +987,9 @@ Let's test with writes. We expect latency to be the sum of the SQL client roundt
 
 ```sql
 -- we use different UUIDs from before...
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000125845', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135846', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135847', 'san francisco', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000125811', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135816', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135817', 'san francisco', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 ```
 
 ```bash
@@ -1016,6 +1006,4 @@ INSERT 1
 Time: 197.0458ms
 ```
 
-Awesome! Not too bad for an other-side-of-the-world ACID transaction!
-
-
+Awesome! Not too bad for an other-side-of-the-world ACID transaction! We explored how easy it is to respond to a region failure by quickly scaling out the cluster and pinning the ranges to get best performance.
