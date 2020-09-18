@@ -71,6 +71,11 @@ Time: 133.429ms
 Now that you have imported the data, review how the ranges are distributed in the `rides` table. We create our own view to only project columns of interest. Feel free to modify as you see fit.
 
 ```sql
+CREATE VIEW ridesranges AS
+  SELECT SUBSTRING(start_key, 2, 15) AS start_key, SUBSTRING(end_key, 2, 15) AS end_key, lease_holder AS lh, lease_holder_locality, replicas, replica_localities
+  FROM [SHOW RANGES FROM TABLE rides]
+  WHERE start_key IS NOT NULL AND start_key NOT LIKE '%Prefix%';
+
 SELECT * FROM ridesranges;
 ```
 
