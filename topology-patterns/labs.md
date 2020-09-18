@@ -158,7 +158,7 @@ Confirm the partition job was successful
 SHOW PARTITIONS FROM TABLE rides;
 ```
 
-```bash
+```text
   database_name | table_name | partition_name | parent_partition | column_names |  index_name   |                 partition_value                 | zone_config |       full_zone_config
 ----------------+------------+----------------+------------------+--------------+---------------+-------------------------------------------------+-------------+-------------------------------
   movr          | rides      | us_west2       | NULL             | city         | rides@primary | ('los angeles'), ('seattle'), ('san francisco') | NULL        | range_min_bytes = 134217728,
@@ -260,15 +260,15 @@ Connect with separate SQL connections to each region. Use iTerm2 with broadcast,
 -- confirm location for the current node
 SHOW LOCALITY;
 -- query data from other regions will incur latency as the leaseholders are in the other regions
-SELECT id, start_address, 'seattle' AS city
+SELECT id, start_address, 'us-west2' AS region
 FROM rides
 WHERE city = 'seattle'
 LIMIT 1;
-SELECT id, start_address, 'new york' as city
+SELECT id, start_address, 'us-east4' as region
 FROM rides
 WHERE city = 'new york'
 LIMIT 1;
-SELECT id, start_address, 'rome' AS city
+SELECT id, start_address, 'eu-west2' AS region
 FROM rides
 WHERE city = 'rome'
 LIMIT 1;
@@ -424,7 +424,7 @@ WHERE city='rome'
 GROUP BY 1,2;
 ```
 
-```bash
+```text
   vehicle_city |              vehicle_id              | count
 ---------------+--------------------------------------+--------
   seattle      | 570a3d70-a3d7-4c00-8000-000000000022 |   537
@@ -691,33 +691,29 @@ In a little over a minute, 3 nodes will be set to **Dead**, and CockroachDB will
 ![dead-nodes](/media/dead-nodes.png)
 
 ```sql
-SELECT start_key, lease_holder, lease_holder_locality, replicas, replica_localities
-FROM [SHOW RANGES FROM TABLE rides]
-WHERE "start_key" IS NOT NULL
-AND "start_key" NOT LIKE '%Prefix%';
+SELECT * FROM ridesranges;
 ```
 
 ```text
-                                start_key                                | lease_holder | lease_holder_locality  | replicas |                              replica_localities
--------------------------------------------------------------------------+--------------+------------------------+----------+-------------------------------------------------------------------------------
-  /"boston"                                                              |            1 | region=us-east4,zone=a | {1,7,9}  | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
-  /"los angeles"                                                         |            1 | region=us-east4,zone=a | {1,8,9}  | {"region=us-east4,zone=a","region=eu-west2,zone=a","region=eu-west2,zone=c"}
-  /"los angeles"/"\xaa\xa6L/\x83{H\x00\x80\x00\x00\x00\x00\x00\x822"     |            1 | region=us-east4,zone=a | {1,2,7}  | {"region=us-east4,zone=a","region=us-east4,zone=b","region=eu-west2,zone=b"}
-  /"new york"/"\x1cq\f\xb2\x95\xe9B\x00\x80\x00\x00\x00\x00\x00\x15\xb3" |            1 | region=us-east4,zone=a | {1,2,9}  | {"region=us-east4,zone=a","region=us-east4,zone=b","region=eu-west2,zone=c"}
-  /"seattle"                                                             |            1 | region=us-east4,zone=a | {1,3,9}  | {"region=us-east4,zone=a","region=us-east4,zone=c","region=eu-west2,zone=c"}
-  /"washington dc"                                                       |            1 | region=us-east4,zone=a | {1,3,9}  | {"region=us-east4,zone=a","region=us-east4,zone=c","region=eu-west2,zone=c"}
-  /"boston"/"8\xe2\x19e+\xd3D\x00\x80\x00\x00\x00\x00\x00+f"             |            2 | region=us-east4,zone=b | {2,3,8}  | {"region=us-east4,zone=b","region=us-east4,zone=c","region=eu-west2,zone=a"}
-  /"new york"                                                            |            2 | region=us-east4,zone=b | {1,2,7}  | {"region=us-east4,zone=a","region=us-east4,zone=b","region=eu-west2,zone=b"}
-  /"seattle"/"q\xc42\xcaW\xa7H\x00\x80\x00\x00\x00\x00\x00V\xcc"         |            3 | region=us-east4,zone=c | {2,3,8}  | {"region=us-east4,zone=b","region=us-east4,zone=c","region=eu-west2,zone=a"}
-  /"washington dc"/"US&\x17\xc1\xbdD\x00\x80\x00\x00\x00\x00\x00A\x19"   |            3 | region=us-east4,zone=c | {3,8,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-west2,zone=c"}
-  
-  /"paris"                                                               |            7 | region=eu-west2,zone=b | {3,7,8}  | {"region=us-east4,zone=c","region=eu-west2,zone=b","region=eu-west2,zone=a"}
-  /"paris"/"\xe3\x88e\x94\xafO@\x00\x80\x00\x00\x00\x00\x00\xad\x98"     |            7 | region=eu-west2,zone=b | {1,2,7}  | {"region=us-east4,zone=a","region=us-east4,zone=b","region=eu-west2,zone=b"}
-  /"amsterdam"                                                           |            8 | region=eu-west2,zone=a | {1,3,8}  | {"region=us-east4,zone=a","region=us-east4,zone=c","region=eu-west2,zone=a"}
-  /"amsterdam"/"\xc7\x17X\xe2\x19eH\x00\x80\x00\x00\x00\x00\x00\x97\xe5" |            8 | region=eu-west2,zone=a | {1,7,8}  | {"region=us-east4,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=a"}
-  /"san francisco"                                                       |            8 | region=eu-west2,zone=a | {2,3,8}  | {"region=us-east4,zone=b","region=us-east4,zone=c","region=eu-west2,zone=a"}
-  /"san francisco"/"\x8e5?|\xed\x91H\x00\x80\x00\x00\x00\x00\x00l\u007f" |            8 | region=eu-west2,zone=a | {2,8,9}  | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-west2,zone=c"}
-  /"rome"                                                                |            9 | region=eu-west2,zone=c | {2,8,9}  | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-west2,zone=c"}
+     start_key    |     end_key     | lh | lease_holder_locality  | replicas |                              replica_localities
+------------------+-----------------+----+------------------------+----------+-------------------------------------------------------------------------------
+  "los angeles"   | "los angeles"/" |  1 | region=us-east4,zone=a | {1,8,9}  | {"region=us-east4,zone=a","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "san francisco" | "san francisco" |  2 | region=us-east4,zone=b | {2,7,8}  | {"region=us-east4,zone=b","region=eu-west2,zone=a","region=eu-west2,zone=c"}
+  "seattle"/"q\xc | "seattle"/Prefi |  2 | region=us-east4,zone=b | {2,3,9}  | {"region=us-east4,zone=b","region=us-east4,zone=c","region=eu-west2,zone=b"}
+  "washington dc" | "washington dc" |  2 | region=us-east4,zone=b | {2,3,9}  | {"region=us-east4,zone=b","region=us-east4,zone=c","region=eu-west2,zone=b"}
+  "boston"        | "boston"/"8\xe2 |  3 | region=us-east4,zone=c | {3,8,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "boston"/"8\xe2 | "boston"/Prefix |  3 | region=us-east4,zone=c | {3,8,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "los angeles"/" | "los angeles"/P |  3 | region=us-east4,zone=c | {3,7,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-west2,zone=b"}
+  "new york"      | "new york"/"\x1 |  3 | region=us-east4,zone=c | {3,7,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-west2,zone=b"}
+  "new york"/"\x1 | "new york"/Pref |  3 | region=us-east4,zone=c | {1,3,9}  | {"region=us-east4,zone=a","region=us-east4,zone=c","region=eu-west2,zone=b"}
+  "washington dc" | "washington dc" |  3 | region=us-east4,zone=c | {3,8,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "paris"/"\xe3\x | "paris"/PrefixE |  7 | region=eu-west2,zone=a | {1,2,7}  | {"region=us-east4,zone=a","region=us-east4,zone=b","region=eu-west2,zone=a"}
+  "seattle"       | "seattle"/"q\xc |  7 | region=eu-west2,zone=a | {1,2,7}  | {"region=us-east4,zone=a","region=us-east4,zone=b","region=eu-west2,zone=a"}
+  "amsterdam"     | "amsterdam"/"\x |  8 | region=eu-west2,zone=c | {3,8,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "paris"         | "paris"/"\xe3\x |  8 | region=eu-west2,zone=c | {3,7,8}  | {"region=us-east4,zone=c","region=eu-west2,zone=a","region=eu-west2,zone=c"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=c | {1,3,8}  | {"region=us-east4,zone=a","region=us-east4,zone=c","region=eu-west2,zone=c"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  9 | region=eu-west2,zone=b | {1,3,9}  | {"region=us-east4,zone=a","region=us-east4,zone=c","region=eu-west2,zone=b"}
+  "san francisco" | "san francisco" |  9 | region=eu-west2,zone=b | {3,8,9}  | {"region=us-east4,zone=c","region=eu-west2,zone=c","region=eu-west2,zone=b"}
 ```
 
 From above table we can see that the Seattle data was replicated to US East. We will therefore try to update a row in those ranges so the EU West gateway node will pass the write request to the US East based leaseholder, and thus get the highest possible latency for our transaction.
