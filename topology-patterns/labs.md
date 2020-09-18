@@ -1006,4 +1006,14 @@ INSERT 1
 Time: 197.0458ms
 ```
 
-Awesome! Not too bad for an other-side-of-the-world ACID transaction! We explored how easy it is to respond to a region failure by quickly scaling out the cluster and pinning the ranges to get best performance.
+Awesome! Not too bad for an other-side-of-the-world ACID transaction!
+
+## Final thoughts
+
+We played with the different Topology Patterns, learning the use cases for each and what are their strenghts and limitations.
+
+We explored how easy it is to respond to a region failure by quickly scaling out the cluster and by intelligently placing ranges and leaseholders to get best performance.
+
+We have done so while maintaining both availability, transactions consistency and durability: no downtime, no conflicts and no data loss.
+
+We have reacted manually to a region failure, but we could have easely automated the process using any of the popular DevOps tools (Ansible, Terraform, etc.).
