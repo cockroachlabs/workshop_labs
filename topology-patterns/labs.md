@@ -29,7 +29,7 @@ There are 6 recommended topology patterns:
 
 ## Lab 0 - Create database and load data
 
-Connect to any node and run the workload simulator. Please note that loading the data can take up to 5 minutes.
+Connect to any node and run the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html). Please note that loading the data can take up to 5 minutes.
 
 ```bash
 docker exec -it roach-newyork-1 bash -c "./cockroach workload init movr --drop --db movr postgres://root@127.0.0.1:26257?sslmode=disable --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100"
@@ -71,11 +71,6 @@ Time: 133.429ms
 Now that you have imported the data, review how the ranges are distributed in the `rides` table. We create our own view to only project columns of interest. Feel free to modify as you see fit.
 
 ```sql
-CREATE VIEW ridesranges AS
-  SELECT SUBSTRING(start_key, 2, 15) AS start_key, SUBSTRING(end_key, 2, 15) AS end_key, lease_holder AS lh, lease_holder_locality, replicas, replica_localities
-  FROM [SHOW RANGES FROM TABLE rides]
-  WHERE start_key IS NOT NULL AND start_key NOT LIKE '%Prefix%';
-
 SELECT * FROM ridesranges;
 ```
 
@@ -138,7 +133,7 @@ SHOW RANGES FROM INDEX rides_auto_index_fk_city_ref_users;
 
 Again, the index replicas are also spread across regions.
 
-## Lab 2 - Partition the `rides` table
+## Lab 2 - Geo-Partitioned Replicas
 
 Read how you can tune the performance of the database using [partitioning](https://www.cockroachlabs.com/docs/v20.1/performance-tuning.html#step-13-partition-data-by-city). [Here](https://www.cockroachlabs.com/docs/v20.1/configure-replication-zones.html#create-a-replication-zone-for-a-partition) you can find information on replication zones with some examples.
 
@@ -181,7 +176,44 @@ SHOW PARTITIONS FROM TABLE rides;
                 |            |                |                  |              |               |                                                 |             | lease_preferences = '[]'
 ```
 
-Perfect!
+Perfect! Let us assume we have a regulatory EU requirement that imposes EU data to stay within the EU (inlucing UK).
+Currently we are not compliant as Rome, Paris and Amsterdam data is replicated in the US East and US West regions.
+
+With the [Geo-Partitioned Replicas](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-replicas.html) topology pattern, we can pin all replicas to a particular region/area.
+
+Pros:
+
+- fast read and writes from in-region requests
+- Able to comply with legal regulations.
+
+Cons:
+
+- As data is pinned to a single region we can't survive region failure or we need a more complex setup (e.g: more regions within the same country)
+
+Pinning data to nodes is very easy, it all depends on what labels you passed to the `--locality` flag when you run the CockroachDB process.
+For our cluster, we passed `--locality=region=eu-west2,zone=a|b|c` so we will use `region` to pin partitions to the correct place.
+
+The `lease_preferences` will be set to the target region and the `constaints` will be set to place **all** replicas in the same region as the leaseholder.
+
+```sql
+ALTER PARTITION eu_west2 OF INDEX rides@*
+CONFIGURE ZONE USING
+  num_replicas = 3,
+  constraints = '{"+region=eu-west2"}',
+  lease_preferences = '[[+region=eu-west2]]';
+```
+
+After few minutes, verify all replicas for the European cities are in the `eu-west2` region
+
+```sql
+SELECT * FROM ridesranges;
+```
+
+```text
+
+```
+
+Let Geo-Partitioned Replicas help you comply with your legal requirements for data locality and regulation like GDPR. You can read more on our [blog](https://www.cockroachlabs.com/blog/gdpr-compliance-for-my-database/).
 
 ## Lab 3 - Geo-Partitioned Leaseholders
 
