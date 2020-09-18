@@ -52,7 +52,7 @@ psql -h localhost -p 26257 -U root movr
 SHOW TABLES;
 ```
 
-```bash
+```text
           table_name
 ------------------------------
   promo_codes
@@ -100,7 +100,7 @@ Review how indexes are distributed on the `movr.rides`
 SHOW CREATE TABLE rides;
 ```
 
-```bash
+```text
  table_name |                                                        create_statement
 ------------+----------------------------------------------------------------------------------------------------------------------------------
  rides      | CREATE TABLE rides (
@@ -130,7 +130,7 @@ Show ranges from one of the indexes
 SHOW RANGES FROM INDEX rides_auto_index_fk_city_ref_users;
 ```
 
-```bash
+```text
   start_key | end_key | range_id | range_size_mb | lease_holder |   lease_holder_locality    | replicas |                                replica_localities
 ------------+---------+----------+---------------+--------------+----------------------------+----------+-----------------------------------------------------------------------------------
   NULL      | NULL    |      143 |      8.888912 |            9 | region=eu-west2,zone=c | {3,4,9}  | {"region=us-east4,zone=b","region=us-west2,zone=c","region=eu-west2,zone=c"}
@@ -744,7 +744,7 @@ Verify you see the ~180ms lantecy to EU West region. Please note that for this s
 SHOW LOCALITY;
 ```
 
-```bash
+```text
          locality
 --------------------------
   region=eu-west2,zone=a
@@ -958,7 +958,7 @@ SELECT * FROM rides WHERE city = 'san francisco' LIMIT 1;
 SELECT * FROM rides WHERE city = 'los angeles' LIMIT 1;
 ```
 
-```bash
+```text
                    id                  |  city   | vehicle_city |               rider_id               |              vehicle_id              |    start_address    |    end_address    |        start_time         |         end_time          | revenue
 ---------------------------------------+---------+--------------+--------------------------------------+--------------------------------------+---------------------+-------------------+---------------------------+---------------------------+----------
   5555c52e-72da-4400-8000-00000000411b | seattle | seattle      | 63958106-24dd-4000-8000-000000000185 | 6147ae14-7ae1-4800-8000-000000000026 | Cockroach Street 50 | 65529 Krystal Via | 2018-12-04 03:04:05+00:00 | 2018-12-04 04:04:05+00:00 |   22.00
@@ -992,7 +992,7 @@ INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135816', 'los angeles',
 INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135817', 'san francisco', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 ```
 
-```bash
+```text
 INSERT 1
 
 Time: 195.0875ms
