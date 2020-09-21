@@ -140,7 +140,7 @@ Again, the index replicas are also spread across regions.
 
 ## Lab 2 - Geo-Partitioned Replicas
 
-Read how you can tune the performance of the database using [partitioning](https://www.cockroachlabs.com/docs/v20.1/performance-tuning.html#step-13-partition-data-by-city). [Here](https://www.cockroachlabs.com/docs/v20.1/configure-replication-zones.html#create-a-replication-zone-for-a-partition) you can find information on replication zones with some examples.
+Read how you can tune the performance of the database using [partitioning](https://www.cockroachlabs.com/docs/stable/partitioning.html). You can read the docs about [configuring replication zones](https://www.cockroachlabs.com/docs/stable/configure-replication-zones.html) with some examples [here](https://www.cockroachlabs.com/docs/stable/configure-replication-zones.html#create-a-replication-zone-for-a-partition).
 
 Partition the `rides` table by column `city` to the appropriate regions (`us-west2`, `us-east4`, `eu-west2`).
 
@@ -331,23 +331,23 @@ LIMIT 1;
 
 Time: 1.847ms
 
-                   id                  |        start_address        |  city
----------------------------------------+-----------------------------+----------
-  5555c52e-72da-4400-8000-00000000411b | 25783 Kelly Fields Suite 75 | seattle
+                   id                  |        start_address        |  region
+---------------------------------------+-----------------------------+-----------
+  5555c52e-72da-4400-8000-00000000411b | 25783 Kelly Fields Suite 75 | us-west2
 (1 row)
 
 Time: 67.662ms
 
-                   id                  |    start_address     |   city
+                   id                  |    start_address     |  region
 ---------------------------------------+----------------------+-----------
-  00000000-0000-4000-8000-000000000000 | 99176 Anderson Mills | new york
+  00000000-0000-4000-8000-000000000000 | 99176 Anderson Mills | us-east4
 (1 row)
 
 Time: 1.921ms
 
-                   id                  |   start_address    | city
----------------------------------------+--------------------+-------
-  e38ef34d-6a16-4000-8000-00000000ad9d | 12651 Haley Square | rome
+                   id                  |   start_address    |  region
+---------------------------------------+--------------------+-----------
+  e38ef34d-6a16-4000-8000-00000000ad9d | 12651 Haley Square | eu-west2
 (1 row)
 
 Time: 128.969ms
@@ -377,17 +377,17 @@ There are 2 ways to use the Follower Reads functionality: the first is by using 
 ```sql
 SHOW LOCALITY;
 
-SELECT id, start_address, 'seattle' as city
+SELECT id, start_address, 'us-west2' as region
 FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
 WHERE city = 'seattle'
 LIMIT 1;
 
-SELECT id, start_address, 'new york' as city
+SELECT id, start_address, 'us-east4' as region
 FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
 WHERE city = 'new york'
 LIMIT 1;
 
-SELECT id, start_address, 'rome' as city
+SELECT id, start_address, 'eu-west2' as region
 FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
 WHERE city = 'rome'
 LIMIT 1;
@@ -401,23 +401,23 @@ LIMIT 1;
 
 Time: 2.47ms
 
-                   id                  |        start_address        |  city
----------------------------------------+-----------------------------+----------
-  5555c52e-72da-4400-8000-00000000411b | 25783 Kelly Fields Suite 75 | seattle
+                   id                  |        start_address        |  region
+---------------------------------------+-----------------------------+-----------
+  5555c52e-72da-4400-8000-00000000411b | 25783 Kelly Fields Suite 75 | us-west2
 (1 row)
 
 Time: 1.933ms
 
-                   id                  |    start_address     |   city
+                   id                  |    start_address     |  region
 ---------------------------------------+----------------------+-----------
-  00000000-0000-4000-8000-000000000000 | 99176 Anderson Mills | new york
+  00000000-0000-4000-8000-000000000000 | 99176 Anderson Mills | us-east4
 (1 row)
 
 Time: 2.546ms
 
-                   id                  |   start_address    | city
----------------------------------------+--------------------+-------
-  e38ef34d-6a16-4000-8000-00000000ad9d | 12651 Haley Square | rome
+                   id                  |   start_address    |  region
+---------------------------------------+--------------------+-----------
+  e38ef34d-6a16-4000-8000-00000000ad9d | 12651 Haley Square | eu-west2
 (1 row)
 
 Time: 1.896ms
