@@ -215,10 +215,22 @@ SELECT * FROM ridesranges;
 ```
 
 ```text
-
+     start_key    |     end_key     | lh | lease_holder_locality  | replicas |                              replica_localities
+------------------+-----------------+----+------------------------+----------+-------------------------------------------------------------------------------
+  "boston"/"8\xe2 | "los angeles"/" |  2 | region=us-east4,zone=c | {2,4,8}  | {"region=us-east4,zone=c","region=us-west2,zone=a","region=eu-west2,zone=c"}
+  "los angeles"/" | "new york"/"\x1 |  2 | region=us-east4,zone=c | {2,4,8}  | {"region=us-east4,zone=c","region=us-west2,zone=a","region=eu-west2,zone=c"}
+  "new york"/"\x1 | "paris"         |  2 | region=us-east4,zone=c | {2,4,8}  | {"region=us-east4,zone=c","region=us-west2,zone=a","region=eu-west2,zone=c"}
+  "washington dc" | NULL            |  4 | region=us-west2,zone=a | {2,4,8}  | {"region=us-east4,zone=c","region=us-west2,zone=a","region=eu-west2,zone=c"}
+  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "san francisco" | "seattle"/"q\xc |  7 | region=eu-west2,zone=a | {2,4,7}  | {"region=us-east4,zone=c","region=us-west2,zone=a","region=eu-west2,zone=a"}
+  "paris"         | "paris"/"\xe3\x |  8 | region=eu-west2,zone=c | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "paris"/"\xe3\x | "paris"/PrefixE |  8 | region=eu-west2,zone=c | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=c | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=c","region=eu-west2,zone=b"}
+  "seattle"/"q\xc | "washington dc" |  8 | region=eu-west2,zone=c | {3,4,8}  | {"region=us-east4,zone=b","region=us-west2,zone=a","region=eu-west2,zone=c"}
 ```
 
-Let Geo-Partitioned Replicas help you comply with your legal requirements for data locality and regulation like GDPR. You can read more on our [blog](https://www.cockroachlabs.com/blog/gdpr-compliance-for-my-database/).
+As expected! European cities are pinned to region `eu-west2` - a tag you passed when you create the cluster. You can have multiple layer of tags (area/region/zone/datacenter) for a finer control on where you'd like to pin your data. Let Geo-Partitioned Replicas help you comply with your legal requirements for data locality and regulation like GDPR. You can read more on our [blog](https://www.cockroachlabs.com/blog/gdpr-compliance-for-my-database/).
 
 ## Lab 3 - Geo-Partitioned Leaseholders
 
