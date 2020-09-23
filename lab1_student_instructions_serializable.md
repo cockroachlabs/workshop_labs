@@ -19,26 +19,26 @@ The presentation was done with the following:
 * 3 node CRDB cluster
 
 To install cockroachdb locally using one of the following methods:
-* Downloads
-* * [mac brew install](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-mac)
-* * [linux download](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-linux)
-* * [windows download](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-windows)
+**Downloads:**
+* [mac brew install](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-mac)
+* [linux download](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-linux)
+* [windows download](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-windows)
 
-* Start Local Cluster:
-* * [local cluster](https://www.cockroachlabs.com/docs/v20.1/start-a-local-cluster)
-* * [single node cluster](https://www.cockroachlabs.com/docs/stable/cockroach-start-single-node.html#insecure)
+**Start Local Cluster:**
+* [local cluster](https://www.cockroachlabs.com/docs/v20.1/start-a-local-cluster)
+* [single node cluster](https://www.cockroachlabs.com/docs/stable/cockroach-start-single-node.html#insecure)
 
 ## JMETER 
 I used Jmeter with the version 5.2.1 but newer versions should be fine.
 
-* Install Instructions
-* * [Mac](https://medium.com/@sdanerib/run-jmeter-with-plugins-in-macos-8a6654fc0b38)
-* * [Windows](https://medium.com/@taufiq_ibrahim/installing-apache-jmeter-on-windows-10-62b7f53841f)
-* * [Linux](https://linuxhint.com/install_apache_jmeter_ubuntu/)
+**Install Instructions:**
+* [Mac](https://medium.com/@sdanerib/run-jmeter-with-plugins-in-macos-8a6654fc0b38)
+* [Windows](https://medium.com/@taufiq_ibrahim/installing-apache-jmeter-on-windows-10-62b7f53841f)
+* [Linux](https://linuxhint.com/install_apache_jmeter_ubuntu/)
 
 Once you have jmeter installed, you will need to add the following plugins and download the jmx file: 
-* [plug-ins](#/serial/jmeter_plugins.png)
-* [JMX](#/serial/Serializable_Workshop_Demo.jmx)
+* [plug-ins](/serial/jmeter_plugins.png)
+* [JMX](/serial/Serializable_Workshop_Demo.jmx)
 
 
 ## Database Configuration
