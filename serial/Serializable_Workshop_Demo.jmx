@@ -16,7 +16,7 @@
         <stringProp name="checkQuery">Select 1</stringProp>
         <stringProp name="connectionAge">5000</stringProp>
         <stringProp name="dataSource">central</stringProp>
-        <stringProp name="dbUrl">jdbc:postgresql://127.0.0.1:26257/serial?autoReconnect=true&amp;sslmode=disable&amp;ssl=false&amp;ApplicationName=SFU_FALSE_implicit</stringProp>
+        <stringProp name="dbUrl">jdbc:postgresql://127.0.0.1:26257/serial?autoReconnect=true&amp;sslmode=disable&amp;ssl=false&amp;ApplicationName=Demo1</stringProp>
         <stringProp name="driver">org.postgresql.Driver</stringProp>
         <boolProp name="keepAlive">true</boolProp>
         <stringProp name="password"></stringProp>
@@ -106,7 +106,7 @@
         <stringProp name="RespTimeGraph.yaxisscaleincrement">log</stringProp>
       </ResultCollector>
       <hashTree/>
-      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
           <name>saveConfig</name>
@@ -321,7 +321,7 @@
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <intProp name="LoopController.loops">-1</intProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">6</stringProp>
+        <stringProp name="ThreadGroup.num_threads">5</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.duration">${__P(duration,120)}</stringProp>
@@ -1003,13 +1003,13 @@ COMMIT;</stringProp>
         <stringProp name="ThreadGroup.num_threads">3</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">${__P(duration,120)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,60)}</stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <stringProp name="TestPlan.comments">set cluster setting sql.defaults.implicit_select_for_update.enabled=true/false and run with the two differnt updates</stringProp>
       </ThreadGroup>
       <hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_implicit" enabled="true">
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_implicit" enabled="false">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
           <stringProp name="query">-- Must configure the following:
@@ -1046,11 +1046,11 @@ WHERE customer_id=9743;
           </PreciseThroughputTimer>
           <hashTree/>
         </hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_implicit_nosfu" enabled="false">
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_implicit_nosfu" enabled="true">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
           <stringProp name="query">-- Must configure the following:
--- set cluster setting sql.defaults.implicit_select_for_update.enabled=true;
+-- set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
 UPDATE alerts SET cstatus=cstatus, updated_at=now() 
 WHERE customer_id=9743;</stringProp>
           <stringProp name="queryArguments"></stringProp>
