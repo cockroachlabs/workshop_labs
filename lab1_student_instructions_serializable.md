@@ -48,6 +48,10 @@ Once you have jmeter installed, you will need to add the following plugins and d
 Run the following to create the test database and populate the table for the tests:
 
 ```sql
+CREATE DATABASE serial;
+
+USE serial;
+
 CREATE TABLE alerts (
     id INT NOT NULL DEFAULT unique_rowid(),
     customer_id INT,
