@@ -328,6 +328,7 @@ This final test shows how IMPLICIT transactions perform with Select for Update. 
 and enable / disable SFU for implicit transactions.
 
 **Implicit Transactions with SFU... the default setting**
+
 Make sure the cluster has the SFU setting enabled:
 ```sql
 set cluster setting sql.defaults.implicit_select_for_update.enabled=true;
@@ -343,6 +344,7 @@ WHERE customer_id=9743;
 ```
 
 **Implicit Transactions WITH noSFU**
+
 Make sure the cluster has the SFU setting disabled:
 ```sql
 set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
@@ -357,4 +359,5 @@ UPDATE alerts SET cstatus=cstatus, updated_at=now()
 WHERE customer_id=9743;
 ```
 
-**Question:** What are the retries with SFU enabled vs disabled?  What are the differences in overall throughput?
+**Question:** What are the retries with SFU enabled vs disabled?  What are the differences in overall 
+throughput?
