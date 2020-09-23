@@ -337,8 +337,8 @@ set cluster setting sql.defaults.implicit_select_for_update.enabled=true;
 Run the following transaction with 3 threads for a few minutes.  Record the throughput and response times:
 
 ```sql
--- Must configure the following:
--- set cluster setting sql.defaults.implicit_select_for_update.enabled=true;
+-- Update Transaction with SFU
+-- 
 UPDATE alerts SET cstatus=cstatus, updated_at=now() 
 WHERE customer_id=9743;
 ```
@@ -353,8 +353,8 @@ set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
 Run the following transaction with 3 threads for a few minutes.  Record the throughput and response times:
 
 ```sql
--- Must configure the following:
--- set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
+-- Update Transaction with noSFU
+-- 
 UPDATE alerts SET cstatus=cstatus, updated_at=now() 
 WHERE customer_id=9743;
 ```
