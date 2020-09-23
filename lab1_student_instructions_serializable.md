@@ -39,7 +39,9 @@ I used Jmeter with the version 5.2.1 but newer versions should be fine.
 
 Once you have jmeter installed, you will need to add the following plugins and download the jmx file: 
 * [plug-ins](/serial/jmeter_plugins.png)
-* [JMX](/serial/Serializable_Workshop_Demo.jmx)
+* <a id="raw-url" href="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx">Download JMX File</a>
+
+
 
 
 ## Database Configuration
