@@ -104,11 +104,13 @@ The following test scenarios are described below:
 This test is to show the performance difference of various queries while running **updates** 
 on the same set of rows... a tourture test.  If you are using Jmeter, it is marked as DEMO#1.
 
-There are 5 total selects run with 4 of them quering the same rows that are being updated
-and one that is querying a different set of rows as a baseline for no-contention.  The queries
-as well as the update were all run in a thread group with 6 threads.  Feel free to experiment with 
-the number of theads driving the workload based on your cluster configuration.
+There are 5 total selects running.  Four of them query the same rows that are being updated
+and one that is querying a different set of rows as a baseline for no-contention.  There are three
+different types of updates included.  Run ONE of the updates along with the 5 queries to understand
+how they perform.   The 5 queries and 1 update are run in a thread group with 6 threads.  Feel free to 
+experiment with the number of theads driving the workload based on your cluster configuration.
 
+**Select Queries:**
 ```sql
 -- select_high
 --
@@ -147,6 +149,7 @@ The following UPDATE was RUN along with the queries:
 BEGIN;
 
 SET TRANSACTION PRIORITY LOW;
+-- SET TRANSACTION PRIORITY NORMAL;
 -- SET TRANSACTION PRIORITY HIGH;
 
   UPDATE alerts SET cstatus=cstatus, updated_at=now() 
@@ -155,7 +158,14 @@ SET TRANSACTION PRIORITY LOW;
 COMMIT;
 ```
 
-**QUESTION:** What are your observations?
+#### Q1
+* What are your overall observations?
+
+#### Q2
+* Do the txn priorities effect the queries as expected?
+
+#### Q3
+* How do the follower read queries perform compared to the no-conflicting query?
 
 
 ### Demo #2 :: Bulk Updates disturbing Select performance
@@ -224,7 +234,13 @@ WHERE severity=${__Random(0,10)} LIMIT 50000;
 COMMIT;
 ```
 
-**QUESTION:** What are your observations?
+#### Q4
+* What are your overall observations with Bulk Updates?
+
+#### Q5
+* How does limiting the bulk update batch size effect query response time?
+
+
 
 ### Demo #3 :: Retries with Updates
 Basically, this scenario does two runs and observes the retry errors while updating the SAME rows
@@ -320,7 +336,14 @@ Time: 2.133ms
 
 ```
 
-**Question:** What happens to the running updates when the CLI gets the ERROR?  What happens after running the ROLLBACK?
+#### Q6
+* What happens to the running updates when the CLI gets the ERROR?
+
+#### Q7
+* What happens after running the ROLLBACK?
+
+#### Q8
+* What is the best size for batch updates or deletes?
 
 
 ### Demo #4 :: Implicit Transactions /w Select for Update (SFU)
@@ -359,5 +382,11 @@ UPDATE alerts SET cstatus=cstatus, updated_at=now()
 WHERE customer_id=9743;
 ```
 
-**Question:** What are the retries with SFU enabled vs disabled?  What are the differences in overall 
-throughput?
+#### Q9
+* What are the retries with SFU enabled vs disabled?
+
+#### Q10
+* What are the differences in response times between SFU and noSFU?
+
+#### Q11
+* Why is the overall throughput so much better?
