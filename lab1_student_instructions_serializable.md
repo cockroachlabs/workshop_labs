@@ -18,15 +18,16 @@ The presentation was done with the following:
 * MacBook Pro 15" 2018 with 6 cores and 32GB RAM
 * 3 node CRDB cluster
 
-To install cockroachdb locally using one of the following methods:
+To install cockroachdb locally using one of the following methods.
+
 **Downloads:**
 * [mac brew install](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-mac)
 * [linux download](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-linux)
 * [windows download](https://www.cockroachlabs.com/docs/v20.1/install-cockroachdb-windows)
 
-**Start Local Cluster:**
-* [local cluster](https://www.cockroachlabs.com/docs/v20.1/start-a-local-cluster)
-* [single node cluster](https://www.cockroachlabs.com/docs/stable/cockroach-start-single-node.html#insecure)
+**Local Cluster Configs:**
+* [3 node local](https://www.cockroachlabs.com/docs/v20.1/start-a-local-cluster)
+* [single node](https://www.cockroachlabs.com/docs/stable/cockroach-start-single-node.html#insecure)
 
 ## JMETER 
 I used Jmeter with the version 5.2.1 but newer versions should be fine.
