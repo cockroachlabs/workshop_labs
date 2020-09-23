@@ -158,3 +158,203 @@ COMMIT;
 **QUESTION:** What are your observations?
 
 
+### Demo #2 :: Bulk Updates disturbing Select performance
+This scenaro simply runs bulk updates with various batch sizes while obeserving performance.
+Basically, run one thread pool with 6 threads with one querie and one bulk update.  There are 
+bulk updates with 100, 1000, 5000, 10000, and 50000 commits per transaction.  Run each update
+individually along with the a normal select to see how it effects performance.
+
+```sql
+-- Implicit Select
+--
+SELECT * FROM alerts 
+WHERE customer_id=9743;
+
+
+-- Bulk Updates
+--
+-- 100 rows
+BEGIN;
+
+SET TRANSACTION PRIORITY HIGH;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE severity=${__Random(0,10)} LIMIT 100;
+
+COMMIT;
+
+-- 1000 rows
+BEGIN;
+
+SET TRANSACTION PRIORITY HIGH;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE severity=${__Random(0,10)} LIMIT 1000;
+
+COMMIT;
+
+-- 5000 rows
+BEGIN;
+
+SET TRANSACTION PRIORITY HIGH;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE severity=${__Random(0,10)} LIMIT 5000;
+
+COMMIT;
+
+-- 10000 rows
+BEGIN;
+
+SET TRANSACTION PRIORITY HIGH;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE severity=${__Random(0,10)} LIMIT 10000;
+
+COMMIT;
+
+-- 50000 rows
+BEGIN;
+
+SET TRANSACTION PRIORITY HIGH;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE severity=${__Random(0,10)} LIMIT 50000;
+
+COMMIT;
+```
+
+**QUESTION:** What are your observations?
+
+### Demo #3 :: Retries with Updates
+Basically, this scenario does two runs and observes the retry errors while updating the SAME rows
+throught a CLI.
+
+First, run the following update with 3 threads using an update with TXN priority HIGH:
+
+```sql
+BEGIN;
+
+SET TRANSACTION PRIORITY HIGH;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE customer_id=9743;
+
+COMMIT;
+
+```
+
+While this is running, connect with the cockroach CLI to the serial database. After you type `BEGIN;` 
+you will have to type a *carriage return* to OPEN the transaction... you will then get 
+the `OPEN>` prompt and can proceed with the UPDATE and COMMIT.
+
+```sql
+root@:26257/defaultdb> use serial;
+SET
+
+Time: 421µs
+
+root@:26257/serial> BEGIN;
+Now adding input for a multi-line SQL transaction client-side (smart_prompt enabled).
+Press Enter two times to send the SQL text collected so far to the server, or Ctrl+C to cancel.
+You can also use \show to display the statements entered so far.
+                 ->
+BEGIN
+
+Time: 133µs
+
+root@:26257/serial  OPEN> UPDATE alerts SET cstatus=cstatus, updated_at=now()
+WHERE customer_id=9743;
+UPDATE 98
+
+Time: 64.395ms
+
+root@:26257/serial  OPEN> COMMIT;
+ERROR: restart transaction: TransactionRetryWithProtoRefreshError: TransactionAbortedError(ABORT_REASON_CLIENT_REJECT): "sql txn" meta={id=4bd52e44 key=/Table/95/3/9743 pri=0.04830100 epo=0 ts=1600839484.354878000,0 min=1600839462.660598000,0 seq=98} lock=true stat=PENDING rts=1600839484.354878000,0 wto=false max=1600839463.160598000,0
+SQLSTATE: 40001
+root@:26257/serial>
+
+```
+
+Second, run the following update with 3 threads using an update with TXN priority LOW:
+
+```sql
+BEGIN;
+
+SET TRANSACTION PRIORITY LOW;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE customer_id=9743;
+
+COMMIT;
+
+```
+
+While this is running, connect with the cockroach CLI to the serial database. After you type `BEGIN;` 
+you will have to type a *carriage return* to OPEN the transaction... you will then get 
+the `OPEN>` prompt and can proceed with the UPDATE and COMMIT.
+
+```sql
+root@:26257/defaultdb> use serial;
+SET
+
+Time: 421µs
+
+root@:26257/serial> BEGIN;
+Now adding input for a multi-line SQL transaction client-side (smart_prompt enabled).
+Press Enter two times to send the SQL text collected so far to the server, or Ctrl+C to cancel.
+You can also use \show to display the statements entered so far.
+                 ->
+BEGIN
+
+Time: 192µs
+
+root@:26257/serial  OPEN> UPDATE alerts SET cstatus=cstatus, updated_at=now()
+WHERE customer_id=9743;
+ERROR: restart transaction: TransactionRetryWithProtoRefreshError: TransactionRetryError: retry txn (RETRY_WRITE_TOO_OLD - WriteTooOld flag converted to WriteTooOldError): "sql txn" meta={id=4009f04d key=/Table/95/3/9743 pri=0.00238321 epo=0 ts=1600839787.358442000,1 min=1600839785.348268000,0 seq=98} lock=true stat=PENDING rts=1600839787.358442000,1 wto=false max=1600839785.848268000,0
+SQLSTATE: 40001
+root@:26257/? ERROR> ROLLBACK;
+ROLLBACK
+
+Time: 2.133ms
+
+```
+
+**Question:** What happens to the running updates when the CLI gets the ERROR?  What happens after running the ROLLBACK?
+
+
+### Demo #4 :: Implicit Transactions /w Select for Update (SFU)
+This final test shows how IMPLICIT transactions perform with Select for Update.  This demo will run two tests
+and enable / disable SFU for implicit transactions.
+
+**Implicit Transactions with SFU... the default setting**
+Make sure the cluster has the SFU setting enabled:
+```sql
+set cluster setting sql.defaults.implicit_select_for_update.enabled=true;
+```
+
+Run the following transaction with 3 threads for a few minutes.  Record the throughput and response times:
+
+```sql
+-- Must configure the following:
+-- set cluster setting sql.defaults.implicit_select_for_update.enabled=true;
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE customer_id=9743;
+```
+
+**Implicit Transactions WITH noSFU**
+Make sure the cluster has the SFU setting disabled:
+```sql
+set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
+```
+
+Run the following transaction with 3 threads for a few minutes.  Record the throughput and response times:
+
+```sql
+-- Must configure the following:
+-- set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE customer_id=9743;
+```
+
+**Question:** What are the retries with SFU enabled vs disabled?  What are the differences in overall throughput?
