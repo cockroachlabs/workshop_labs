@@ -33,6 +33,12 @@ To install cockroachdb locally using one of the following methods.
 I used Jmeter with the version 5.2.1 but newer versions should be fine.  The instructions to 
 install are below, but I have created a [tar/gzip](https://github.com/cockroachlabs/workshop_labs/raw/master/jmeter/apache-jmeter-5.2.1.tar.gz) of my environment to short-cut the process.
 
+**Short-Cut TAR/GZIP of My Jmeter environment:**
+
+* [tar/gzip](https://github.com/cockroachlabs/workshop_labs/raw/master/jmeter/apache-jmeter-5.2.1.tar.gz) of my workshop environment.  You will still need to make sure Java is installed on your machine.
+
+### Jmeter Install instructions
+
 **Install Instructions:**
 * [Mac](https://medium.com/@sdanerib/run-jmeter-with-plugins-in-macos-8a6654fc0b38)
 * [Windows](https://medium.com/@taufiq_ibrahim/installing-apache-jmeter-on-windows-10-62b7f53841f)
@@ -41,9 +47,6 @@ install are below, but I have created a [tar/gzip](https://github.com/cockroachl
 Once you have jmeter installed, you will need to add the following plugins and download the jmx file: 
 * [plug-ins](/serial/jmeter_plugins.png)
 * <a href="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx" download="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx">Download JMX File</a>
-
-**TAR/GZIP of My Jmeter environment:** 
-
 
 
 
