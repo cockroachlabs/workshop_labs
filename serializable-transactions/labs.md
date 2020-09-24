@@ -34,7 +34,7 @@ Something here
 
 Once you have JMeter installed, you will need to add the following plugins and download the `jmx` file:
 
-- ![plug-ins](/media/serializable-transactions_jmeter-plugins.png)
+- ![plug-ins](media/serializable-transactions_jmeter-plugins.png)
 - <a href="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx" download="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx">Download JMX File</a>
 
 ## Database Configuration
