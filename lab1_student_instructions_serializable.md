@@ -100,6 +100,13 @@ The following test scenarios are described below:
 * Retries with Updates
 * Implicit Transactions /w Select for Update (SFU)
 
+For each one of these tests, it is helpful to configurate the `application_name` variable.
+The AdminUI allows you to drill-down from the statements page the application_name.  This is configured in one
+two ways:
+
+* JDBC connect string.  I am using this method with JMETER to configure the Pool connection [string](serial/JDBC_application_name.png).
+* Session Level parameter : `SET application_name='DEMO_1`
+
 ### Demo #1 :: Contention with Selects and Updates
 This test is to show the performance difference of various queries while running **updates** 
 on the same set of rows... a tourture test.  If you are using Jmeter, it is marked as DEMO#1.
@@ -109,6 +116,8 @@ and one that is querying a different set of rows as a baseline for no-contention
 different types of updates included.  Run ONE of the updates along with the 5 queries to understand
 how they perform.   The 5 queries and 1 update are run in a thread group with 6 threads.  Feel free to 
 experiment with the number of theads driving the workload based on your cluster configuration.
+
+
 
 **Select Queries:**
 ```sql
