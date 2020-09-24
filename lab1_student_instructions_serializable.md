@@ -104,8 +104,10 @@ For each one of these tests, it is helpful to configurate the `application_name`
 The AdminUI allows you to drill-down from the statements page the application_name.  This is configured in one
 two ways:
 
-* JDBC connect string.  I am using this method with JMETER to configure the Pool connection [string](serial/JDBC_application_name.png).
-* Session Level parameter : `SET application_name='DEMO_1`
+* JDBC connect string.  I am using this method with JMETER to configure the Pool connection string. 
+![string](serial/JDBC_application_name.png)
+
+* Session Level parameter : `SET application_name='DEMO_1'`
 
 ### Demo #1 :: Contention with Selects and Updates
 This test is to show the performance difference of various queries while running **updates** 
