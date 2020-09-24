@@ -469,7 +469,7 @@ WHERE customer_id=9743;
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
-              <savedValue>1.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="batchSize">3</intProp>
             <intProp name="batchThreadDelay">0</intProp>
@@ -479,7 +479,7 @@ WHERE customer_id=9743;
             <doubleProp>
               <name>throughput</name>
               <value>10000.0</value>
-              <savedValue>10000.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="throughputPeriod">100</intProp>
           </PreciseThroughputTimer>
@@ -675,7 +675,7 @@ WHERE customer_id=9743;
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
-              <savedValue>1.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="batchSize">3</intProp>
             <intProp name="batchThreadDelay">0</intProp>
@@ -685,7 +685,7 @@ WHERE customer_id=9743;
             <doubleProp>
               <name>throughput</name>
               <value>10000.0</value>
-              <savedValue>10000.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="throughputPeriod">100</intProp>
           </PreciseThroughputTimer>
@@ -715,7 +715,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
-              <savedValue>1.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="batchSize">3</intProp>
             <intProp name="batchThreadDelay">0</intProp>
@@ -725,7 +725,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>throughput</name>
               <value>2000.0</value>
-              <savedValue>2000.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="throughputPeriod">100</intProp>
           </PreciseThroughputTimer>
@@ -755,7 +755,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
-              <savedValue>1.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="batchSize">3</intProp>
             <intProp name="batchThreadDelay">0</intProp>
@@ -765,7 +765,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>throughput</name>
               <value>2000.0</value>
-              <savedValue>2000.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="throughputPeriod">100</intProp>
           </PreciseThroughputTimer>
@@ -795,7 +795,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
-              <savedValue>1.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="batchSize">3</intProp>
             <intProp name="batchThreadDelay">0</intProp>
@@ -805,7 +805,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>throughput</name>
               <value>2000.0</value>
-              <savedValue>2000.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="throughputPeriod">100</intProp>
           </PreciseThroughputTimer>
@@ -835,7 +835,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
-              <savedValue>1.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="batchSize">3</intProp>
             <intProp name="batchThreadDelay">0</intProp>
@@ -845,47 +845,7 @@ COMMIT;</stringProp>
             <doubleProp>
               <name>throughput</name>
               <value>2000.0</value>
-              <savedValue>2000.0</savedValue>
-            </doubleProp>
-            <intProp name="throughputPeriod">100</intProp>
-          </PreciseThroughputTimer>
-          <hashTree/>
-        </hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="bulk_update_limit_50000" enabled="false">
-          <stringProp name="dataSource">central</stringProp>
-          <stringProp name="queryType">Callable Statement</stringProp>
-          <stringProp name="query">BEGIN;
-
-SET TRANSACTION PRIORITY HIGH;
-
-UPDATE alerts SET cstatus=cstatus, updated_at=now() 
-WHERE severity=${__Random(0,10)} LIMIT 50000;
-
-COMMIT;</stringProp>
-          <stringProp name="queryArguments"></stringProp>
-          <stringProp name="queryArgumentsTypes"></stringProp>
-          <stringProp name="variableNames"></stringProp>
-          <stringProp name="resultVariable"></stringProp>
-          <stringProp name="queryTimeout"></stringProp>
-          <stringProp name="resultSetHandler">Store as String</stringProp>
-          <stringProp name="resultSetMaxRows"></stringProp>
-        </JDBCSampler>
-        <hashTree>
-          <PreciseThroughputTimer guiclass="TestBeanGUI" testclass="PreciseThroughputTimer" testname="Precise Throughput Timer" enabled="true">
-            <doubleProp>
-              <name>allowedThroughputSurplus</name>
-              <value>1.0</value>
-              <savedValue>1.0</savedValue>
-            </doubleProp>
-            <intProp name="batchSize">3</intProp>
-            <intProp name="batchThreadDelay">0</intProp>
-            <longProp name="duration">100</longProp>
-            <intProp name="exactLimit">10000</intProp>
-            <longProp name="randomSeed">0</longProp>
-            <doubleProp>
-              <name>throughput</name>
-              <value>2000.0</value>
-              <savedValue>2000.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="throughputPeriod">100</intProp>
           </PreciseThroughputTimer>
@@ -907,7 +867,50 @@ COMMIT;</stringProp>
         <stringProp name="TestPlan.comments">USE CLI to demonstrate Retries ::: Run with update_low and update_high to get two differnt retry errors</stringProp>
       </ThreadGroup>
       <hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_low" enabled="true">
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_high" enabled="true">
+          <stringProp name="dataSource">central</stringProp>
+          <stringProp name="queryType">Callable Statement</stringProp>
+          <stringProp name="query">BEGIN;
+
+SET TRANSACTION PRIORITY HIGH;
+
+UPDATE alerts SET cstatus=cstatus, updated_at=now() 
+WHERE customer_id=9743;
+
+--SELECT pg_sleep(0.1);
+--SELECT pg_sleep(5);
+
+COMMIT;</stringProp>
+          <stringProp name="queryArguments"></stringProp>
+          <stringProp name="queryArgumentsTypes"></stringProp>
+          <stringProp name="variableNames"></stringProp>
+          <stringProp name="resultVariable"></stringProp>
+          <stringProp name="queryTimeout"></stringProp>
+          <stringProp name="resultSetHandler">Store as String</stringProp>
+          <stringProp name="resultSetMaxRows"></stringProp>
+        </JDBCSampler>
+        <hashTree>
+          <PreciseThroughputTimer guiclass="TestBeanGUI" testclass="PreciseThroughputTimer" testname="Precise Throughput Timer" enabled="true">
+            <doubleProp>
+              <name>allowedThroughputSurplus</name>
+              <value>1.0</value>
+              <savedValue>0.0</savedValue>
+            </doubleProp>
+            <intProp name="batchSize">3</intProp>
+            <intProp name="batchThreadDelay">0</intProp>
+            <longProp name="duration">100</longProp>
+            <intProp name="exactLimit">10000</intProp>
+            <longProp name="randomSeed">0</longProp>
+            <doubleProp>
+              <name>throughput</name>
+              <value>2000.0</value>
+              <savedValue>0.0</savedValue>
+            </doubleProp>
+            <intProp name="throughputPeriod">100</intProp>
+          </PreciseThroughputTimer>
+          <hashTree/>
+        </hashTree>
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_low" enabled="false">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
           <stringProp name="query">BEGIN;
@@ -950,20 +953,29 @@ COMMIT;</stringProp>
           </PreciseThroughputTimer>
           <hashTree/>
         </hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_high" enabled="false">
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Demo #4 :: Implicit Transactions with SFU" enabled="false">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <intProp name="LoopController.loops">-1</intProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">3</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,60)}</stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="TestPlan.comments">set cluster setting sql.defaults.implicit_select_for_update.enabled=true/false and run with the two differnt updates</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_implicit_nosfu" enabled="true">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
-          <stringProp name="query">BEGIN;
-
-SET TRANSACTION PRIORITY HIGH;
-
+          <stringProp name="query">-- Must configure the following:
+-- set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
 UPDATE alerts SET cstatus=cstatus, updated_at=now() 
-WHERE customer_id=9743;
-
---SELECT pg_sleep(0.1);
---SELECT pg_sleep(5);
-
-COMMIT;</stringProp>
+WHERE customer_id=9743;</stringProp>
           <stringProp name="queryArguments"></stringProp>
           <stringProp name="queryArgumentsTypes"></stringProp>
           <stringProp name="variableNames"></stringProp>
@@ -973,7 +985,7 @@ COMMIT;</stringProp>
           <stringProp name="resultSetMaxRows"></stringProp>
         </JDBCSampler>
         <hashTree>
-          <PreciseThroughputTimer guiclass="TestBeanGUI" testclass="PreciseThroughputTimer" testname="Precise Throughput Timer" enabled="true">
+          <PreciseThroughputTimer guiclass="TestBeanGUI" testclass="PreciseThroughputTimer" testname="Precise Throughput Timer" enabled="false">
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
@@ -993,22 +1005,6 @@ COMMIT;</stringProp>
           </PreciseThroughputTimer>
           <hashTree/>
         </hashTree>
-      </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Demo #4 :: Implicit Transactions with SFU" enabled="false">
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <intProp name="LoopController.loops">-1</intProp>
-        </elementProp>
-        <stringProp name="ThreadGroup.num_threads">3</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
-        <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">${__P(duration,60)}</stringProp>
-        <stringProp name="ThreadGroup.delay"></stringProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <stringProp name="TestPlan.comments">set cluster setting sql.defaults.implicit_select_for_update.enabled=true/false and run with the two differnt updates</stringProp>
-      </ThreadGroup>
-      <hashTree>
         <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_implicit" enabled="false">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
@@ -1030,7 +1026,7 @@ WHERE customer_id=9743;
             <doubleProp>
               <name>allowedThroughputSurplus</name>
               <value>1.0</value>
-              <savedValue>1.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="batchSize">3</intProp>
             <intProp name="batchThreadDelay">0</intProp>
@@ -1040,43 +1036,7 @@ WHERE customer_id=9743;
             <doubleProp>
               <name>throughput</name>
               <value>2000.0</value>
-              <savedValue>2000.0</savedValue>
-            </doubleProp>
-            <intProp name="throughputPeriod">100</intProp>
-          </PreciseThroughputTimer>
-          <hashTree/>
-        </hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_implicit_nosfu" enabled="true">
-          <stringProp name="dataSource">central</stringProp>
-          <stringProp name="queryType">Callable Statement</stringProp>
-          <stringProp name="query">-- Must configure the following:
--- set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
-UPDATE alerts SET cstatus=cstatus, updated_at=now() 
-WHERE customer_id=9743;</stringProp>
-          <stringProp name="queryArguments"></stringProp>
-          <stringProp name="queryArgumentsTypes"></stringProp>
-          <stringProp name="variableNames"></stringProp>
-          <stringProp name="resultVariable"></stringProp>
-          <stringProp name="queryTimeout"></stringProp>
-          <stringProp name="resultSetHandler">Store as String</stringProp>
-          <stringProp name="resultSetMaxRows"></stringProp>
-        </JDBCSampler>
-        <hashTree>
-          <PreciseThroughputTimer guiclass="TestBeanGUI" testclass="PreciseThroughputTimer" testname="Precise Throughput Timer" enabled="false">
-            <doubleProp>
-              <name>allowedThroughputSurplus</name>
-              <value>1.0</value>
-              <savedValue>1.0</savedValue>
-            </doubleProp>
-            <intProp name="batchSize">3</intProp>
-            <intProp name="batchThreadDelay">0</intProp>
-            <longProp name="duration">100</longProp>
-            <intProp name="exactLimit">10000</intProp>
-            <longProp name="randomSeed">0</longProp>
-            <doubleProp>
-              <name>throughput</name>
-              <value>2000.0</value>
-              <savedValue>2000.0</savedValue>
+              <savedValue>0.0</savedValue>
             </doubleProp>
             <intProp name="throughputPeriod">100</intProp>
           </PreciseThroughputTimer>
