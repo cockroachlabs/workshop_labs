@@ -88,7 +88,7 @@ now()
 from generate_series(1,1000000) as a;
 ```
 
-You should now be ready to run the various scenarios to show the various demos covered in the presentation.
+You should now be ready to run the various scenarios to run the demos covered by the presentation.
 Below, I will describe the setup, transactions, and number of threads used to simulate the various scenarios.
 With this, you should be able to use the JMETER setup, generate the test code, or use another test tool 
 to drive the cluster and experiment with serializable transactions.
@@ -104,7 +104,7 @@ The following test scenarios are described below:
 This test is to show the performance difference of various queries while running **updates** 
 on the same set of rows... a tourture test.  If you are using Jmeter, it is marked as DEMO#1.
 
-There are 5 total selects running.  Four of them query the same rows that are being updated
+There are 5 total selects statements.  Four of them query the same rows that are being updated
 and one that is querying a different set of rows as a baseline for no-contention.  There are three
 different types of updates included.  Run ONE of the updates along with the 5 queries to understand
 how they perform.   The 5 queries and 1 update are run in a thread group with 6 threads.  Feel free to 
@@ -171,7 +171,7 @@ COMMIT;
 ### Demo #2 :: Bulk Updates disturbing Select performance
 This scenaro simply runs bulk updates with various batch sizes while obeserving performance.
 Basically, run one thread pool with 6 threads with one querie and one bulk update.  There are 
-bulk updates with 100, 1000, 5000, 10000, and 50000 commits per transaction.  Run each update
+bulk updates with 100, 1000, 5000, and 10000 commits per transaction.  Run each update
 individually along with the a normal select to see how it effects performance.
 
 ```sql
