@@ -32,12 +32,32 @@ Something here
 
 ## Labs 0 - Setup JMeter and database
 
-Once you have JMeter installed, you will need to add the following plugins and download the `jmx` file:
+Once you have JMeter installed, you will need to:
 
-- ![plug-ins](media/serializable-transactions_jmeter-plugins.png)
-- <a href="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx" download="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx">Download JMX File</a>
+1. add the below plugins
+
+    ![plug-ins](media/jmeter-plugins.png)
+
+2. download the [jmx file](https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serializable-transactions/data/jmeter-crdb-serializable.jmx).
+
+3. In JMeter, `File > Open` and select the jmx file you just downloaded. At this point JMeter is ready - check the JDBC URL at the bottom.
+
+![jmeter-jmx](media/jmeter-jmx.png)
 
 ## Database Configuration
+
+Connect to the database to confirm it loaded successfully
+
+```bash
+# use cockroach sql, defaults to localhost:26257
+cockroach sql --insecure -d movr
+
+# or use the --url param for any another host:
+cockroach sql --url "postgresql://localhost:26258/movr?sslmode=disable"
+
+# or use psql
+psql -h localhost -p 26257 -U root movr
+```
 
 Run the following to create the test database and populate the table for the tests:
 
@@ -65,26 +85,26 @@ CREATE TABLE alerts (
     INDEX alerts_i_idx_3 (id2 ASC, id2_desc ASC, cstatus ASC)
 );
 
-insert into alerts
-select
+INSERT INTO alerts
+SELECT
 a,
 round(random()*10000)::INT,
 'ALERT_TYPE',
 round(random()*10)::INT,
-concat('STATUS-',round(random()*10)::STRING),
+concat('STATUS-',ROUND(random()*10)::STRING),
 'ADESC',
 round(random()*1000)::INT,
 'ID1_DESCRIPTION',
 round(random()*5000)::INT,
 'ID2_DESCRIPTION',
-now(),
-now()
-from generate_series(1,1000000) as a;
+NOW(),
+NOW()
+FROM generate_series(1,1000000) AS a;
 ```
 
 You should now be ready to run the various scenarios to run the demos covered by the presentation.
 Below, I will describe the setup, transactions, and number of threads used to simulate the various scenarios.
-With this, you should be able to use the JMETER setup, generate the test code, or use another test tool to drive the cluster and experiment with serializable transactions.
+With this, you should be able to use the JMeter setup, generate the test code, or use another test tool to drive the cluster and experiment with serializable transactions.
 
 ## LAB TEST Scenarios
 
