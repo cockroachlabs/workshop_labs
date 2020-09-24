@@ -10,7 +10,7 @@ Below is the high level architecture diagram. Each region will host 3 nodes:
 - region `us-east4` hosts nodes `roach-newyork-1|2|3`
 - region `eu-west2` hosts nodes `roach-london-1|2|3`.
 
-![docker-arch](/media/infrastructure/docker-arch.png)
+![docker-arch](media/docker-arch.png)
 
 ## Setup
 
@@ -227,9 +227,9 @@ SET CLUSTER SETTING enterprise.license = "xxxx-yyyy-zzzz";
 
 At this point you should be able to view the CockroachDB Admin UI at <http://localhost:8080>. Check the map and the latency table:
 
-![crdb-map](/media/infrastructure/crdb-map.png)
+![crdb-map](media/crdb-map.png)
 
-![crdb-latency](/media/infrastructure/crdb-latency.png)
+![crdb-latency](media/crdb-latency.png)
 
 Congratulations, you are now ready to start your dev work on a simulated multi-region deployment!
 
