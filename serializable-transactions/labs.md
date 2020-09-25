@@ -4,7 +4,13 @@ In this lab we will explore how to best use Serializable transactions with Cockr
 
 ## Overview
 
-Something here
+CockroachDB only uses the `SERIALIZABLE` isolation level, the highest logical isolation level, required transactions are ACID guaranteed.
+
+For a light overview and understanding of isolation levels, here's a short and useful [tutorial](https://www.cockroachlabs.com/docs/v20.1/demo-serializable.html).
+
+However, the most comprehensive information on Transaction in CockroachDB is [the Transaction doc](https://www.cockroachlabs.com/docs/v20.1/transactions.html).
+
+For in-depth understanding, check also the [architecture pages for the transaction layer](https://www.cockroachlabs.com/docs/v20.1/architecture/transaction-layer.html).
 
 ## Labs Prerequisites
 
@@ -20,15 +26,15 @@ Something here
 
 3. Install [Apache JMeter](https://jmeter.apache.org/):
 
-- Mac
+    - Mac
 
-    ```bash
-    brew install jmeter
-    open /usr/local/bin/jmeter
-    ```
+        ```bash
+        brew install jmeter
+        open /usr/local/bin/jmeter
+        ```
 
-- [Windows](https://medium.com/@taufiq_ibrahim/installing-apache-jmeter-on-windows-10-62b7f53841f)
-- [Linux](https://linuxhint.com/install_apache_jmeter_ubuntu/)
+    - [Windows](https://medium.com/@taufiq_ibrahim/installing-apache-jmeter-on-windows-10-62b7f53841f)
+    - [Linux](https://linuxhint.com/install_apache_jmeter_ubuntu/)
 
 ## Labs 0 - Setup JMeter and database
 
