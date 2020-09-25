@@ -83,8 +83,8 @@ CREATE TABLE alerts (
     id1_desc STRING,
     id2 INT,
     id2_desc STRING,
-    created_at TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at TIMESTAMP NOT NULL DEFAULT now(),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (id),
     INDEX alerts_i_idx_1 (cstatus ASC, customer_id ASC, id1 ASC, severity ASC),
     INDEX alerts_i_idx_2 (customer_id ASC, id1 ASC, id1_desc ASC, id2 ASC),
@@ -161,7 +161,7 @@ This is configured in two ways:
 
 ## Lab 1 - Contention with SELECTs and UPDATEs
 
-This test is to show the performance difference of various queries while running **UPDATEs** on the same set of rows... a tourture test.
+This test is to show the performance difference of various queries while running UPDATEs on the same set of rows... A tourture test.
 
 In JMeter, select the test suite called **Demo #1**.
 
@@ -169,134 +169,104 @@ In JMeter, select the test suite called **Demo #1**.
 
 There are 5 total SELECTs statements: 4 query the same rows that are being updated (`select_high|low|normal|follower_reads`) and 1 queries a different set of rows as a baseline for no-contention (`select_normal_different_id`). Inspect the SQL statement for each.
 
-There are 2 types of UPDATEs included: run the test with just **one** of these enabled - you can right click and `Toggle` to enable/disable - along with the 5 SELECTs to understand how they perform; the 6 queries are run in a thread group with 6 threads.
+There are 2 types of UPDATEs included: run the test with just **one** of these enabled - you can right click and `Toggle` to enable/disable - along with the 5 SELECTs to understand how they perform; the 6 queries are run in a thread group with 6 threads for 60 seconds.
 
-Feel free to experiment with the number of theads driving the workload based on your cluster configuration.
+In JMeter, choose the `jp@gc - Response Times Over Time` graph, then start the demo by clicking on the green **Play** button.
 
-**Select Queries:**
+Feel free to experiment with the number of theads driving the workload based on your cluster configuration. For reference, below are the queries run simultaneously
 
 ```sql
 -- select_high
---
 BEGIN;
   SET TRANSACTION PRIORITY HIGH;
   SELECT * FROM alerts WHERE customer_id=9743;
 COMMIT;
 
 -- select_low
---
 BEGIN;
   SET TRANSACTION PRIORITY LOW;
   SELECT * FROM alerts WHERE customer_id=9743;
 COMMIT;
 
 -- select_normal
---
 BEGIN;
   SELECT * FROM alerts WHERE customer_id=9743;
 COMMIT;
 
 -- select_follower_read (implicit)
---
-SELECT * FROM alerts  as of system time experimental_follower_read_timestamp()
-WHERE customer_id=9743;
+SELECT * FROM alerts AS OF SYSTEM TIME experimental_follower_read_timestamp() WHERE customer_id=9743;
 
 -- select_normal_different_id
---
-SELECT * FROM alerts
-WHERE customer_id=9800;
-```
+SELECT * FROM alerts WHERE customer_id=9800;
 
-The following UPDATE was RUN along with the queries:
-
-```sql
+-- update_low
 BEGIN;
-
 SET TRANSACTION PRIORITY LOW;
--- SET TRANSACTION PRIORITY NORMAL;
--- SET TRANSACTION PRIORITY HIGH;
-
-  UPDATE alerts SET cstatus=cstatus, updated_at=now()
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
   WHERE customer_id=9743;
-
 COMMIT;
 ```
 
-#### Q1
+Below is the result of running **Demo1**:
 
-- What are your overall observations?
+![jmeter-demo1-results](media/jmeter-demo1-results.png)
 
-#### Q2
+- `select_normal_different_id` has low latency due to no contention on the key.
+- `select_follower_read` has low latency due to reading the value from a replica - no contention on the leaseholder.
+- `select_high|normal|low` and the `UPDATE` have higher latency due to the higher level of contention. We can see that setting the `TRANSACTION PRIORITY` helped process `select_high` sooner than the other ones.
 
-- Do the txn priorities effect the queries as expected?
+Checking the **Statements** page in the CockroachDB Admin UI and filtering for **App: DEMO1**, we see that there were 199 retries out of 1000 for the  `UPDATE alerts` query.
 
-#### Q3
+![adminui-demo1-results](media/adminui-demo1-results.png)
 
-- How do the follower read queries perform compared to the no-conflicting query?
+The two `SELECT FROM alerts` statements at the bottom refer to those sent by `select_normal_different_id` and `select_follower_read`. The statement at the top (with 3,000 queries sent) refers to those sent by `select_high|normal|low` in aggregate.
 
-### Demo #2 :: Bulk Updates disturbing Select performance
+## Lab 2 - Bulk UPDATEs disturbing SELECT performance
 
-This scenaro simply runs bulk updates with various batch sizes while obeserving performance.
-Basically, run one thread pool with 6 threads with one querie and one bulk update.  There are bulk updates with 100, 1000, 5000, and 10000 commits per transaction.  Run each update
-individually along with the a normal select to see how it effects performance.
+This scenario simply runs bulk UPDATEs with various batch sizes while obeserving performance.
+Basically, run one thread pool with 6 threads with one SELECT query and one bulk update.
+There are bulk updates with 100, 1000, 5000, and 10000 commits per transaction.
+Run each UPDATE individually along with the SELECT to see how it effects performance.
+
+In JMeter, ensure every thread is dead and that the 
 
 ```sql
 -- Implicit Select
---
-SELECT * FROM alerts
-WHERE customer_id=9743;
+SELECT * FROM alerts WHERE customer_id=9743;
 
-
--- Bulk Updates
---
--- 100 rows
+-- Bulk updates 100 rows
 BEGIN;
-
 SET TRANSACTION PRIORITY HIGH;
-
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE severity=${__Random(0,10)} LIMIT 100;
-
 COMMIT;
 
 -- 1000 rows
 BEGIN;
-
 SET TRANSACTION PRIORITY HIGH;
-
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE severity=${__Random(0,10)} LIMIT 1000;
-
 COMMIT;
 
 -- 5000 rows
 BEGIN;
-
 SET TRANSACTION PRIORITY HIGH;
-
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE severity=${__Random(0,10)} LIMIT 5000;
-
 COMMIT;
 
 -- 10000 rows
 BEGIN;
-
 SET TRANSACTION PRIORITY HIGH;
-
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE severity=${__Random(0,10)} LIMIT 10000;
-
 COMMIT;
 
 -- 50000 rows
 BEGIN;
-
 SET TRANSACTION PRIORITY HIGH;
-
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE severity=${__Random(0,10)} LIMIT 50000;
-
 COMMIT;
 ```
 
@@ -320,7 +290,7 @@ BEGIN;
 
 SET TRANSACTION PRIORITY HIGH;
 
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
 
 COMMIT;
@@ -344,7 +314,7 @@ BEGIN
 
 Time: 133µs
 
-root@:26257/serial  OPEN> UPDATE alerts SET cstatus=cstatus, updated_at=now()
+root@:26257/serial  OPEN> UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
 UPDATE 98
 
@@ -364,7 +334,7 @@ BEGIN;
 
 SET TRANSACTION PRIORITY LOW;
 
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
 
 COMMIT;
@@ -389,7 +359,7 @@ BEGIN
 
 Time: 192µs
 
-root@:26257/serial  OPEN> UPDATE alerts SET cstatus=cstatus, updated_at=now()
+root@:26257/serial  OPEN> UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
 ERROR: restart transaction: TransactionRetryWithProtoRefreshError: TransactionRetryError: retry txn (RETRY_WRITE_TOO_OLD - WriteTooOld flag converted to WriteTooOldError): "sql txn" meta={id=4009f04d key=/Table/95/3/9743 pri=0.00238321 epo=0 ts=1600839787.358442000,1 min=1600839785.348268000,0 seq=98} lock=true stat=PENDING rts=1600839787.358442000,1 wto=false max=1600839785.848268000,0
 SQLSTATE: 40001
@@ -430,7 +400,7 @@ Run the following transaction with 3 threads for a few minutes.  Record the thro
 ```sql
 -- Update Transaction with SFU
 --
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
 ```
 
@@ -447,7 +417,7 @@ Run the following transaction with 3 threads for a few minutes.  Record the thro
 ```sql
 -- Update Transaction with noSFU
 --
-UPDATE alerts SET cstatus=cstatus, updated_at=now()
+UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
 ```
 
