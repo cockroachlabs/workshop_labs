@@ -209,7 +209,7 @@ COMMIT;
 
 Below is the result of running **Demo1**:
 
-![jmeter-demo1-results](media/jmeter-demo1-results.png)
+![demo1-jmeter-results](media/demo1-jmeter-results.png)
 
 - `select_normal_different_id` has low latency due to no contention on the key.
 - `select_follower_read` has low latency due to reading the value from a replica - no contention on the leaseholder.
@@ -217,7 +217,7 @@ Below is the result of running **Demo1**:
 
 Checking the **Statements** page in the CockroachDB Admin UI and filtering for **App: DEMO1**, we see that there were 199 retries out of 1000 for the  `UPDATE alerts` query.
 
-![adminui-demo1-results](media/adminui-demo1-results.png)
+![demo1-ui-results](media/demo1-ui-results.png)
 
 The two `SELECT FROM alerts` statements at the bottom refer to those sent by `select_normal_different_id` and `select_follower_read`. The statement at the top (with 3,000 queries sent) refers to those sent by `select_high|normal|low` in aggregate.
 
@@ -228,7 +228,15 @@ Basically, run one thread pool with 6 threads with one SELECT query and one bulk
 There are bulk updates with 100, 1000, 5000, and 10000 commits per transaction.
 Run each UPDATE individually along with the SELECT to see how it effects performance.
 
-In JMeter, ensure every thread is dead and that the 
+In JMeter:
+
+1. Ensure every thread is dead - click the **Shutdown** button if necessary.
+2. Ensure the graph is cleared by clicking the **Clear All** button.
+3. Update the Database URL by setting `ApplicationName=Demo2`.
+4. Disable the **Demo1** test suite and enable **Demo2**.
+5. Start the test by clicking the **Play** button.
+
+Below the queries run for reference.
 
 ```sql
 -- Implicit Select
@@ -270,36 +278,47 @@ WHERE severity=${__Random(0,10)} LIMIT 50000;
 COMMIT;
 ```
 
-#### Q4
+Below the result of the test **Demo2** with 100 UPDATEs and 5000 UPDATEs.
 
-- What are your overall observations with Bulk Updates?
+![demo2-jmeter-results1](media/demo2-jmeter-results1.png)
+![demo2-jmeter-results2](media/demo2-jmeter-results2.png)
 
-#### Q5
+and below in the Admin UI
 
-- How does limiting the bulk update batch size effect query response time?
+![demo2-ui-results1](media/demo2-ui-results1.png)
+![demo2-ui-results2](media/demo2-ui-results2.png)
 
-### Demo #3 :: Retries with Updates
+It should be clear by the result of the test that we get better latency and performance by limitimg the size of the batch update.
 
-Basically, this scenario does two runs and observes the retry errors while updating the SAME rows
-throught a CLI.
+## Lab 3 - Retries with UPDATEs
 
-First, run the following update with 3 threads using an update with TXN priority HIGH:
+In this scenario we do two runs and observes the retry errors while updating the **same** rows throught a CLI client.
+
+In JMeter:
+
+1. Ensure every thread is dead - click the **Shutdown** button if necessary.
+2. Ensure the graph is cleared by clicking the **Clear All** button.
+3. Update the Database URL by setting `ApplicationName=Demo3`.
+4. Disable the **Demo2** test suite and enable **Demo3**.
+5. Start the test by clicking the **Play** button.
+
+Below the queries run for reference.
+
+First, run the `update_high` query with 3 threads, below for reference.
 
 ```sql
+-- update_high
 BEGIN;
-
 SET TRANSACTION PRIORITY HIGH;
-
 UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
-
 COMMIT;
-
 ```
 
-While this is running, connect with the cockroach CLI to the serial database. After you type `BEGIN;` you will have to type a *carriage return* to OPEN the transaction... you will then get the `OPEN>` prompt and can proceed with the UPDATE and COMMIT.
+While this is running, connect with the CockroachDB CLI to the `serial` database. Type `BEGIN;` and then press Enter to `OPEN` the transaction.
+You will then get the `OPEN>` prompt and can proceed with the UPDATE and COMMIT.
 
-```sql
+```text
 root@:26257/defaultdb> use serial;
 SET
 
@@ -327,24 +346,22 @@ root@:26257/serial>
 
 ```
 
-Second, run the following update with 3 threads using an update with TXN priority LOW:
+We got an [ABORT_REASON_CLIENT_REJECT](https://www.cockroachlabs.com/docs/v20.1/transaction-retry-error-reference.html#abort_reason_client_reject) due to a Write/Write conflict with a higher priority transaction.
+
+Let's try with low priority transactions running. Run JMeter with the `update_low` query.
 
 ```sql
+-- update_low
 BEGIN;
-
 SET TRANSACTION PRIORITY LOW;
-
 UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
 WHERE customer_id=9743;
-
 COMMIT;
-
 ```
 
-While this is running, connect with the cockroach CLI to the serial database. After you type `BEGIN;`
-you will have to type a *carriage return* to OPEN the transaction... you will then get the `OPEN>` prompt and can proceed with the UPDATE and COMMIT.
+While this is running, do the same as test as before in the CLI
 
-```sql
+```text
 root@:26257/defaultdb> use serial;
 SET
 
@@ -370,65 +387,44 @@ Time: 2.133ms
 
 ```
 
-#### Q6
+In this case we got a [RETRY_WRITE_TOO_OLD](https://www.cockroachlabs.com/docs/v20.1/transaction-retry-error-reference.html#retry_write_too_old) as another transaction has already committed and thus our write is too old and need to restart.
 
-- What happens to the running updates when the CLI gets the ERROR?
+## Lab 4 - Implicit Transactions with SELECT FOR UPDATE
 
-#### Q7
+This final test shows how IMPLICIT transactions perform with SELECT FOR UPDATE. This demo will run two tests and enable / disable SFU for implicit transactions.
 
-- What happens after running the ROLLBACK?
+In JMeter:
 
-#### Q8
+1. Ensure every thread is dead - click the **Shutdown** button if necessary.
+2. Ensure the graph is cleared by clicking the **Clear All** button.
+3. Update the Database URL by setting `ApplicationName=Demo4`.
+4. Disable the **Demo3** test suite and enable **Demo4**.
 
-- What is the best size for batch updates or deletes?
-
-### Demo #4 :: Implicit Transactions /w Select for Update (SFU)
-
-This final test shows how IMPLICIT transactions perform with Select for Update.  This demo will run two tests
-and enable / disable SFU for implicit transactions.
-
-#### Implicit Transactions with SFU... the default setting
-
-Make sure the cluster has the SFU setting enabled:
+Make sure the cluster has the SELECT FOR UPDATE setting enabled:
 
 ```sql
-set cluster setting sql.defaults.implicit_select_for_update.enabled=true;
+SET cluster setting sql.defaults.implicit_select_for_update.enabled=true;
 ```
 
-Run the following transaction with 3 threads for a few minutes.  Record the throughput and response times:
+Run the `update_sfu` transaction with 3 threads for a few minutes.
 
 ```sql
--- Update Transaction with SFU
---
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+-- update_sfu
+UPDATE alerts
+SET cstatus=cstatus, updated_at=now()
 WHERE customer_id=9743;
 ```
 
-#### Implicit Transactions WITH noSFU
+![demo4-jmeter-results-sfu-enabled](media/demo4-jmeter-results-sfu-enabled.png)
 
-Make sure the cluster has the SFU setting disabled:
-
-```sql
-set cluster setting sql.defaults.implicit_select_for_update.enabled=false;
-```
-
-Run the following transaction with 3 threads for a few minutes.  Record the throughput and response times:
+Let's try the same test with the SELECT FOR UPDATE setting disabled:
 
 ```sql
--- Update Transaction with noSFU
---
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE customer_id=9743;
+SET cluster setting sql.defaults.implicit_select_for_update.enabled=false;
 ```
 
-#### Q9
+Re-run the JMeter test, below the results.
 
-- What are the retries with SFU enabled vs disabled?
+![demo4-jmeter-results-sfu-disabled](media/demo4-jmeter-results-sfu-disabled.png)
 
-#### Q10
-
-- What are the differences in response times between SFU and noSFU?
-
-#### Q11
-
-- Why is the overall throughput so much better?
+We can see that with SFU disable, we have much higher latency.
