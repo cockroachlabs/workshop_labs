@@ -34,32 +34,38 @@ Something here
 
 Once you have JMeter installed, you will need to:
 
-1. add the below plugins
+1. Add the below plugins. In JMeter, go to `Options > Plugins Manager` and search in the `Available Plugins` tab
 
     ![plug-ins](media/jmeter-plugins.png)
 
-2. download the [jmx file](https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serializable-transactions/data/jmeter-crdb-serializable.jmx).
+2. Download the [JMeter test configuration file](https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serializable-transactions/data/jmeter-crdb-serializable.jmx).
 
-3. In JMeter, `File > Open` and select the jmx file you just downloaded. At this point JMeter is ready - check the JDBC URL at the bottom.
+    ```bash
+    wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serializable-transactions/data/jmeter-crdb-serializable.jmx
+    ```
 
-![jmeter-jmx](media/jmeter-jmx.png)
+3. Download the [Postgresql JDBC driver](https://jdbc.postgresql.org/) and place it in JMeter's `lib` directory, as documented [here](https://jmeter.apache.org/usermanual/get-started.html#classpath).
 
-## Database Configuration
+    As an example, the location in macOS when installing JMeter using Homebrew is: `/usr/local/Cellar/jmeter/5.3/libexec/lib`.
 
-Connect to the database to confirm it loaded successfully
+4. Load the configuration for the tests. In JMeter, `File > Open` and select the `.jmx` file you just downloaded. JMeter is now ready - check the JDBC URL at the bottom pointing to your cluster.
+
+    ![jmeter-ready](media/jmeter-ready.png)
+
+You are now ready to connect to the database
 
 ```bash
 # use cockroach sql, defaults to localhost:26257
-cockroach sql --insecure -d movr
+cockroach sql --insecure -d defaultdb
 
 # or use the --url param for any another host:
-cockroach sql --url "postgresql://localhost:26258/movr?sslmode=disable"
+cockroach sql --url "postgresql://localhost:26258/defaultdb?sslmode=disable"
 
 # or use psql
-psql -h localhost -p 26257 -U root movr
+psql -h localhost -p 26257 -U root defaultdb
 ```
 
-Run the following to create the test database and populate the table for the tests:
+Run the following to create the test database and populate the table for the tests. This will take about 5 minutes
 
 ```sql
 CREATE DATABASE serial;
@@ -85,54 +91,87 @@ CREATE TABLE alerts (
     INDEX alerts_i_idx_3 (id2 ASC, id2_desc ASC, cstatus ASC)
 );
 
+-- pin table to us-west2 region for quick r/w access
+ALTER TABLE alerts
+CONFIGURE ZONE USING
+  num_replicas = 3,
+  constraints = '{"+region=us-west2"}',
+  lease_preferences = '[[+region=us-west2]]';
+
 INSERT INTO alerts
-SELECT
-a,
-round(random()*10000)::INT,
-'ALERT_TYPE',
-round(random()*10)::INT,
-concat('STATUS-',ROUND(random()*10)::STRING),
-'ADESC',
-round(random()*1000)::INT,
-'ID1_DESCRIPTION',
-round(random()*5000)::INT,
-'ID2_DESCRIPTION',
-NOW(),
-NOW()
+    SELECT
+    a,
+    round(random()*10000)::INT,
+    'ALERT_TYPE',
+    round(random()*10)::INT,
+    concat('STATUS-',ROUND(random()*10)::STRING),
+    'ADESC',
+    round(random()*1000)::INT,
+    'ID1_DESCRIPTION',
+    round(random()*5000)::INT,
+    'ID2_DESCRIPTION',
+    NOW(),
+    NOW()
 FROM generate_series(1,1000000) AS a;
+```
+
+Check what the table looks like
+
+```sql
+SELECT * FROM alerts LIMIT 10;
+```
+
+```text
+  id | customer_id | alert_type | severity |  cstatus  | adesc | id1 |    id1_desc     | id2  |    id2_desc     |            created_at            |            updated_at
+-----+-------------+------------+----------+-----------+-------+-----+-----------------+------+-----------------+----------------------------------+-----------------------------------
+   1 |        2192 | ALERT_TYPE |        5 | STATUS-2  | ADESC | 473 | ID1_DESCRIPTION | 3110 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   2 |        1936 | ALERT_TYPE |       10 | STATUS-1  | ADESC | 598 | ID1_DESCRIPTION |  150 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   3 |        3107 | ALERT_TYPE |        2 | STATUS-8  | ADESC | 998 | ID1_DESCRIPTION |  241 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   4 |        5240 | ALERT_TYPE |        2 | STATUS-9  | ADESC | 992 | ID1_DESCRIPTION | 3315 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   5 |        7628 | ALERT_TYPE |        3 | STATUS-2  | ADESC | 560 | ID1_DESCRIPTION | 3475 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   6 |         806 | ALERT_TYPE |        6 | STATUS-10 | ADESC | 661 | ID1_DESCRIPTION | 2204 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   7 |        6276 | ALERT_TYPE |        2 | STATUS-8  | ADESC | 677 | ID1_DESCRIPTION | 2253 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   8 |        3927 | ALERT_TYPE |        4 | STATUS-0  | ADESC | 200 | ID1_DESCRIPTION | 4298 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+   9 |        1360 | ALERT_TYPE |        3 | STATUS-7  | ADESC | 679 | ID1_DESCRIPTION | 2827 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+  10 |        7346 | ALERT_TYPE |        3 | STATUS-2  | ADESC | 364 | ID1_DESCRIPTION | 3055 | ID2_DESCRIPTION | 2020-09-25 12:52:35.516589+00:00 | 2020-09-25 12:52:35.516589+00:00
+(10 rows)
 ```
 
 You should now be ready to run the various scenarios to run the demos covered by the presentation.
 Below, I will describe the setup, transactions, and number of threads used to simulate the various scenarios.
 With this, you should be able to use the JMeter setup, generate the test code, or use another test tool to drive the cluster and experiment with serializable transactions.
 
-## LAB TEST Scenarios
+## Labs Scenarios
 
 The following test scenarios are described below:
 
-- Contention with Selects and Updates
-- Bulk Updates disturbing Select performance
-- Retries with Updates
-- Implicit Transactions /w Select for Update (SFU)
+- Contention with `SELECT`s and `UPDATE`s
+- Bulk `UPDATES`s disturbing `SELECT`s performance
+- Retries with `UPDATE`s
+- Implicit Transactions with `SELECT FOR UPDATE` (SFU)
 
-For each one of these tests, it is helpful to configurate the `application_name` variable.
-The AdminUI allows you to drill-down from the statements page the application_name.  This is configured in one
-two ways:
+For each one of these tests, it is helpful to configurate the `application_name` variable, so that we can filter the metrics in the Admin UI for each individual test.
+This is configured in two ways:
 
-- JDBC connect string.  I am using this method with JMETER to configure the Pool connection string.
+- JDBC connection string. I am using this method with JMeter to configure the Pool connection string.
 
-![string](serial/JDBC_application_name.png)
+    ![string](media/JDBC_application_name.png)
 
-- Session Level parameter : `SET application_name='DEMO_1'`
+- Session Level parameter: `SET application_name='DEMO_1'`
 
-### Demo #1 :: Contention with Selects and Updates
+## Lab 1 - Contention with SELECTs and UPDATEs
 
-This test is to show the performance difference of various queries while running **updates** on the same set of rows... a tourture test.  If you are using Jmeter, it is marked as DEMO#1.
+This test is to show the performance difference of various queries while running **UPDATEs** on the same set of rows... a tourture test.
 
-There are 5 total selects statements.  Four of them query the same rows that are being updated
-and one that is querying a different set of rows as a baseline for no-contention.  There are three
-different types of updates included.  Run ONE of the updates along with the 5 queries to understand
-how they perform.   The 5 queries and 1 update are run in a thread group with 6 threads.  Feel free to experiment with the number of theads driving the workload based on your cluster configuration.
+In JMeter, select the test suite called **Demo #1**.
+
+![jmeter-demo1](media/jmeter-demo1.png)
+
+There are 5 total SELECTs statements: 4 query the same rows that are being updated (`select_high|low|normal|follower_reads`) and 1 queries a different set of rows as a baseline for no-contention (`select_normal_different_id`). Inspect the SQL statement for each.
+
+There are 2 types of UPDATEs included: run the test with just **one** of these enabled - you can right click and `Toggle` to enable/disable - along with the 5 SELECTs to understand how they perform; the 6 queries are run in a thread group with 6 threads.
+
+Feel free to experiment with the number of theads driving the workload based on your cluster configuration.
 
 **Select Queries:**
 
