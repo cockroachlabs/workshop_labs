@@ -2,7 +2,7 @@
 
 This repository contains instructions for the various labs that are part of  the *Advanced Developer Workshop*.
 
-## Infrastructure
+## Provision Infrastructure and Platform
 
 - [Build CRDB cluster on localhost using Docker](infrastructure/build-local-docker-cluster.md)
 
