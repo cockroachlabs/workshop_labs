@@ -44,8 +44,18 @@ install are below, but I have created a [tar/gzip](https://github.com/cockroachl
 * [Windows](https://medium.com/@taufiq_ibrahim/installing-apache-jmeter-on-windows-10-62b7f53841f)
 * [Linux](https://linuxhint.com/install_apache_jmeter_ubuntu/)
 
+**Install PostGres Driver:**
+Place the `postgresql` driver into the JMeter lib directory
+
+```bash
+wget -O postgresql-42.2.11.jar https://jdbc.postgresql.org/download/postgresql-42.2.11.jar
+```
+
+**Install Plugins:**
 Once you have jmeter installed, you will need to add the following plugins and download the jmx file: 
 * [plug-ins](/serial/jmeter_plugins.png)
+
+**Download JMX file:**
 * <a href="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx" download="https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serial/Serializable_Workshop_Demo.jmx">Download JMX File</a>
 
 
