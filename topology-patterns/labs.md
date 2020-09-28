@@ -735,7 +735,7 @@ docker stop haproxy-seattle roach-seattle-1 roach-seattle-2 roach-seattle-3
 Check the Admin UI - you might have to use a different port as the host bound to port 8080 died. Use port 8180 instead.
 In a little over a minute, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
 
-![dead-nodes](/media/dead-nodes.png)
+![dead-nodes](media/dead-nodes.png)
 
 ```sql
 SELECT * FROM ridesranges;
@@ -926,11 +926,11 @@ INSERT into system.locations VALUES ('region', 'eu-central', 50.110922, 8.682127
 
 Check the Admin UI: slowly, you should see the live nodes increasing from 6 to 9. If you refresh the map, you should see the Frankfurt datacenter.
 
-![eu-central-map](/media/eu-central-map.png)
+![eu-central-map](media/eu-central-map.png)
 
 Confirm the latency in the Network Latency page is ~12ms between London and Frankfurt, and ~120ms between Frankfurt and NY.
 
-![eu-central-latency](/media/eu-central-latency.png)
+![eu-central-latency](media/eu-central-latency.png)
 
 Ranges have been automatically shuffled around to the new datacenter. Check what it looks like:
 

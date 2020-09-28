@@ -10,7 +10,7 @@ Below is the high level architecture diagram. Each region will host 3 nodes:
 - region `us-east4` hosts nodes `roach-newyork-1|2|3`
 - region `eu-west2` hosts nodes `roach-london-1|2|3`.
 
-![docker-arch](/media/docker-arch.png)
+![docker-arch](media/docker-arch.png)
 
 ## Setup
 
@@ -34,8 +34,8 @@ Create the `haproxy.cfg` files for the HAProxy in each region.
 
 ```bash
 # us-east4
-mkdir -p data/us-east4
-cat - >data/us-east4/haproxy.cfg <<EOF
+mkdir -p data/infrastructure/us-east4
+cat - >data/infrastructure/us-east4/haproxy.cfg <<EOF
 
 global
   maxconn 4096
@@ -62,8 +62,8 @@ listen psql
 EOF
 
 # us-west2
-mkdir data/us-west2
-cat - >data/us-west2/haproxy.cfg <<EOF
+mkdir data/infrastructure/us-west2
+cat - >data/infrastructure/us-west2/haproxy.cfg <<EOF
 
 global
   maxconn 4096
@@ -90,8 +90,8 @@ listen psql
 EOF
 
 # eu-west2
-mkdir data/eu-west2
-cat - >data/eu-west2/haproxy.cfg <<EOF
+mkdir data/infrastructure/eu-west2
+cat - >data/infrastructure/eu-west2/haproxy.cfg <<EOF
 
 global
   maxconn 4096
@@ -125,21 +125,21 @@ docker run -d --name=roach-seattle-1 --hostname=roach-seattle-1 --ip=172.27.0.11
 docker run -d --name=roach-seattle-2 --hostname=roach-seattle-2 --ip=172.27.0.12 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8081:8080 -v "roach-seattle-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=b
 docker run -d --name=roach-seattle-3 --hostname=roach-seattle-3 --ip=172.27.0.13 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8082:8080 -v "roach-seattle-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=c
 # Seattle HAProxy
-docker run -d --name haproxy-seattle --ip=172.27.0.10 -p 26257:26257 --net=us-west2-net -v `pwd`/data/us-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
+docker run -d --name haproxy-seattle --ip=172.27.0.10 -p 26257:26257 --net=us-west2-net -v `pwd`/data/infrastructure/us-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
 
 # New York
 docker run -d --name=roach-newyork-1 --hostname=roach-newyork-1 --ip=172.28.0.11 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8180:8080 -v "roach-newyork-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=a
 docker run -d --name=roach-newyork-2 --hostname=roach-newyork-2 --ip=172.28.0.12 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8181:8080 -v "roach-newyork-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=b
 docker run -d --name=roach-newyork-3 --hostname=roach-newyork-3 --ip=172.28.0.13 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8182:8080 -v "roach-newyork-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=c
 # New York HAProxy
-docker run -d --name haproxy-newyork --ip=172.28.0.10 -p 26258:26257 --net=us-east4-net -v `pwd`/data/us-east4/:/usr/local/etc/haproxy:ro haproxy:1.7  
+docker run -d --name haproxy-newyork --ip=172.28.0.10 -p 26258:26257 --net=us-east4-net -v `pwd`/data/infrastructure/us-east4/:/usr/local/etc/haproxy:ro haproxy:1.7  
 
 # London
 docker run -d --name=roach-london-1 --hostname=roach-london-1 --ip=172.29.0.11 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8280:8080 -v "roach-london-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=a
 docker run -d --name=roach-london-2 --hostname=roach-london-2 --ip=172.29.0.12 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8281:8080 -v "roach-london-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=b
 docker run -d --name=roach-london-3 --hostname=roach-london-3 --ip=172.29.0.13 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8282:8080 -v "roach-london-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=c
 # London HAProxy
-docker run -d --name haproxy-london --ip=172.29.0.10 -p 26259:26257 --net=eu-west2-net -v `pwd`/data/eu-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
+docker run -d --name haproxy-london --ip=172.29.0.10 -p 26259:26257 --net=eu-west2-net -v `pwd`/data/infrastructure/eu-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
 ```
 
 Initialize the cluster
@@ -227,9 +227,9 @@ SET CLUSTER SETTING enterprise.license = "xxxx-yyyy-zzzz";
 
 At this point you should be able to view the CockroachDB Admin UI at <http://localhost:8080>. Check the map and the latency table:
 
-![crdb-map](/media/crdb-map.png)
+![crdb-map](media/crdb-map.png)
 
-![crdb-latency](/media/crdb-latency.png)
+![crdb-latency](media/crdb-latency.png)
 
 Congratulations, you are now ready to start your dev work on a simulated multi-region deployment!
 
