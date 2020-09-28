@@ -71,7 +71,7 @@ cockroach sql --url "postgresql://localhost:26258/defaultdb?sslmode=disable"
 psql -h localhost -p 26257 -U root defaultdb
 ```
 
-Run the following to create the test database and populate the table for the tests. This will take about 5 minutes
+Run the following to create the test database and populate the table for the tests.
 
 ```sql
 CREATE DATABASE serial;
@@ -118,7 +118,7 @@ INSERT INTO alerts
     'ID2_DESCRIPTION',
     NOW(),
     NOW()
-FROM generate_series(1,1000000) AS a;
+FROM generate_series(1,100000) AS a;
 ```
 
 Check what the table looks like
