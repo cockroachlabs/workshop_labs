@@ -321,7 +321,7 @@
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <intProp name="LoopController.loops">-1</intProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">5</stringProp>
+        <stringProp name="ThreadGroup.num_threads">6</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.duration">${__P(duration,60)}</stringProp>
@@ -377,7 +377,7 @@ SET TRANSACTION PRIORITY LOW;
 
 SELECT * FROM alerts WHERE customer_id=9743;
 
-COMMIT;</stringProp>
+COMMIT; </stringProp>
           <stringProp name="queryArguments"></stringProp>
           <stringProp name="queryArgumentsTypes"></stringProp>
           <stringProp name="variableNames"></stringProp>
@@ -412,13 +412,10 @@ COMMIT;</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
           <stringProp name="query">BEGIN;
 
-SELECT * FROM alerts 
-WHERE customer_id=9743;
+SELECT * FROM alerts WHERE customer_id=9743;
 
 COMMIT;
-
---SELECT * FROM alerts 
---WHERE customer_id=${__Random(1000,1009)}</stringProp>
+</stringProp>
           <stringProp name="queryArguments"></stringProp>
           <stringProp name="queryArgumentsTypes"></stringProp>
           <stringProp name="variableNames"></stringProp>
@@ -451,11 +448,8 @@ COMMIT;
         <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="select_implicit" enabled="false">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
-          <stringProp name="query">SELECT * FROM alerts 
-WHERE customer_id=9743;
-
---SELECT * FROM alerts 
---WHERE customer_id=${__Random(1000,1009)}</stringProp>
+          <stringProp name="query">SELECT * FROM alerts WHERE customer_id=9743;
+</stringProp>
           <stringProp name="queryArguments"></stringProp>
           <stringProp name="queryArgumentsTypes"></stringProp>
           <stringProp name="variableNames"></stringProp>
@@ -488,8 +482,7 @@ WHERE customer_id=9743;
         <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="select_follower_reads" enabled="true">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
-          <stringProp name="query">SELECT * FROM alerts  as of system time experimental_follower_read_timestamp()
-WHERE customer_id=9743;</stringProp>
+          <stringProp name="query">SELECT * FROM alerts as of system time experimental_follower_read_timestamp() WHERE customer_id=9743;</stringProp>
           <stringProp name="queryArguments"></stringProp>
           <stringProp name="queryArgumentsTypes"></stringProp>
           <stringProp name="variableNames"></stringProp>
@@ -522,8 +515,7 @@ WHERE customer_id=9743;</stringProp>
         <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="select_normal_different_id" enabled="true">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
-          <stringProp name="query">SELECT * FROM alerts 
-WHERE customer_id=9800;</stringProp>
+          <stringProp name="query">SELECT * FROM alerts WHERE customer_id=9800;</stringProp>
           <stringProp name="queryArguments"></stringProp>
           <stringProp name="queryArgumentsTypes"></stringProp>
           <stringProp name="variableNames"></stringProp>
@@ -560,11 +552,7 @@ WHERE customer_id=9800;</stringProp>
 
 SET TRANSACTION PRIORITY LOW;
 
-UPDATE alerts SET cstatus=cstatus, updated_at=now() 
-WHERE customer_id=9743;
-
---SELECT pg_sleep(0.1);
---SELECT pg_sleep(5);
+UPDATE alerts SET cstatus=cstatus, updated_at=now() WHERE customer_id=9743;
 
 COMMIT;</stringProp>
           <stringProp name="queryArguments"></stringProp>
@@ -691,7 +679,7 @@ WHERE customer_id=9743;
           </PreciseThroughputTimer>
           <hashTree/>
         </hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="bulk_update_limit_100" enabled="true">
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="bulk_update_limit_100" enabled="false">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
           <stringProp name="query">BEGIN;
@@ -771,7 +759,7 @@ COMMIT;</stringProp>
           </PreciseThroughputTimer>
           <hashTree/>
         </hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="bulk_update_limit_5000" enabled="false">
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="bulk_update_limit_5000" enabled="true">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
           <stringProp name="query">BEGIN;
@@ -861,7 +849,7 @@ COMMIT;</stringProp>
         <stringProp name="ThreadGroup.num_threads">3</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">${__P(duration,60)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,300)}</stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <stringProp name="TestPlan.comments">USE CLI to demonstrate Retries ::: Run with update_low and update_high to get two differnt retry errors</stringProp>
@@ -876,9 +864,6 @@ SET TRANSACTION PRIORITY HIGH;
 
 UPDATE alerts SET cstatus=cstatus, updated_at=now() 
 WHERE customer_id=9743;
-
---SELECT pg_sleep(0.1);
---SELECT pg_sleep(5);
 
 COMMIT;</stringProp>
           <stringProp name="queryArguments"></stringProp>
@@ -919,9 +904,6 @@ SET TRANSACTION PRIORITY LOW;
 
 UPDATE alerts SET cstatus=cstatus, updated_at=now() 
 WHERE customer_id=9743;
-
---SELECT pg_sleep(0.1);
---SELECT pg_sleep(5);
 
 COMMIT;</stringProp>
           <stringProp name="queryArguments"></stringProp>

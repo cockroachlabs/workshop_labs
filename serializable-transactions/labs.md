@@ -221,11 +221,11 @@ Below is the result of running **Demo1**:
 - `select_follower_read` has low latency due to reading the value from a replica - no contention on the leaseholder.
 - `select_high|normal|low` and the `UPDATE` have higher latency due to the higher level of contention. We can see that setting the `TRANSACTION PRIORITY` helped process `select_high` sooner than the other ones.
 
-Checking the **Statements** page in the CockroachDB Admin UI and filtering for **App: DEMO1**, we see that there were 199 retries out of 1000 for the  `UPDATE alerts` query.
+Checking the **Statements** page in the CockroachDB Admin UI and filtering for **App: DEMO1**, we see that there were 1k retries out of 2000 for the  `UPDATE alerts` query.
 
 ![demo1-ui-results](media/demo1-ui-results.png)
 
-The two `SELECT FROM alerts` statements at the bottom refer to those sent by `select_normal_different_id` and `select_follower_read`. The statement at the top (with 3,000 queries sent) refers to those sent by `select_high|normal|low` in aggregate.
+The two `SELECT FROM alerts` statements at the bottom refer to those sent by `select_normal_different_id` and `select_follower_read`. The statement at the top (with 6,000 queries sent) refers to those sent by `select_high|normal|low` in aggregate.
 
 ## Lab 2 - Bulk UPDATEs disturbing SELECT performance
 
