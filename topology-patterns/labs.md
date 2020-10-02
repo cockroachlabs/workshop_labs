@@ -232,6 +232,11 @@ SELECT * FROM ridesranges;
 
 As expected! European cities are pinned to region `eu-west2` - a tag you passed when you create the cluster. You can have multiple layer of tags (area/region/zone/datacenter) for a finer control on where you'd like to pin your data. Let Geo-Partitioned Replicas help you comply with your legal requirements for data locality and regulation like GDPR. You can read more on our [blog](https://www.cockroachlabs.com/blog/gdpr-compliance-for-my-database/).
 
+### What you can survive
+
+Check the `replica_localities`: with the above configuration, you can survive the region failure of either `us-west2` or `us-east4` and you'd still have enough replicas to keep your database running.
+As all replicas of the European cities are located in region `eu-west2`, a loss of that region will make the European cities data unavailable, however, you can tolerate the loss of a region **zone**. Either case, you would still be able to access US cities data.
+
 ## Lab 3 - Geo-Partitioned Leaseholders
 
 In this lab, we implement the [Geo Partitioned Leaseholder](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-leaseholders.html) topology pattern, where we pin the leaseholder to the region to match the cities, as we anticipate majority of the queries involving these cities originate from the region itself.
@@ -358,6 +363,10 @@ As expected, we get fast responses when we query local data, but the delay is no
 Connect to the Admin UI and go to the **Network Latency** tab on the left. Compare the latency measured with your findings running SQL queries.
 
 With the Geo-Partitioned Leaseholders topology you were able to achieve fast local reads and still be able to survive a region failure.
+
+### What you can survive
+
+Check the `replica_localities`: as you have a replica of each range in each region, you can survive a region failure and still be in business.
 
 ## Lab 4 - Follower Reads
 
