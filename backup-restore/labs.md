@@ -504,7 +504,7 @@ Let's repave node `roach-london-1` for `roach-london-4`
 
 ```bash
 # drain roach-london-1
-docker exec -it roach-london-3 cockroach node drain --insecure
+docker exec -it roach-london-1 cockroach node drain --insecure
 
 # stop and remove the node immediately
 docker stop roach-london-1
