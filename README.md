@@ -35,3 +35,7 @@ This repository contains instructions for the various labs that are part of  the
 ## Serializable Transactions
 
 - [Labs](/serializable-transactions/labs.md)
+
+## Backup and Restore
+
+- [Labs](/backup-restore/labs.md)
