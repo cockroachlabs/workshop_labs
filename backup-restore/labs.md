@@ -159,7 +159,9 @@ You can learn a lot more about Cockroach Backup strategies [in the docs](https:/
 
 ## Lab 2 - Incremental Backup
 
-We are very content with CockroachDB features and performance that we decide to deploy another app using CockroachDB as backend database! Let us load another database
+We are so content with CockroachDB features and performance that we decided to deploy another app using CockroachDB as our backend!
+
+Let us load another database
 
 ```bash
 cockroach workload init bank
@@ -242,16 +244,11 @@ Another day has passed. Let's take another incremental backup
 -- ??? Who did this, what's going on?!?
 UPDATE movr.users SET NAME = 'malicious user' WHERE id IN ('ae147ae1-47ae-4800-8000-000000000022', 'b3333333-3333-4000-8000-000000000023', 'b851eb85-1eb8-4000-8000-000000000024');
 
+-- wait 10 seconds else the changes won't be captured
 BACKUP TO 's3://backup/2020-01-03?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake' AS OF SYSTEM TIME '-10s'
 INCREMENTAL FROM
     's3://backup/2020-01-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake',
     's3://backup/2020-01-02?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake';
-```
-
-```text
-                   id                  |   city    |      name      |            address            | credit_card
----------------------------------------+-----------+----------------+-------------------------------+--------------
-  ae147ae1-47ae-4800-8000-000000000022 | amsterdam | malicious user | 88194 Angela Gardens Suite 94 | 4443538758
 ```
 
 Confirm the backup looks good
@@ -263,27 +260,39 @@ SHOW BACKUP 's3://backup/2020-01-03?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_K
 ```text
   database_name |         table_name         |            start_time            |             end_time             | size_bytes | rows | is_full_cluster
 ----------------+----------------------------+----------------------------------+----------------------------------+------------+------+------------------
-  system        | users                      | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  system        | zones                      | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  system        | settings                   | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  system        | ui                         | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  system        | jobs                       | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |       9774 |    1 |      true
-  system        | locations                  | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  system        | role_members               | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  system        | comments                   | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  movr          | users                      | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |        309 |    3 |      true
-  movr          | vehicles                   | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  movr          | rides                      | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  movr          | vehicle_location_histories | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  movr          | promo_codes                | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  movr          | user_promo_codes           | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  movr          | jobsview                   | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  bank          | bank                       | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-  defaultdb     | jobsview                   | 2020-10-08 17:45:27.579751+00:00 | 2020-10-08 18:18:42.820443+00:00 |          0 |    0 |      true
-(17 rows)
+  system        | users                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  system        | zones                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  system        | settings                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  system        | ui                         | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  system        | jobs                       | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |      19648 |    2 |      true
+  system        | locations                  | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  system        | role_members               | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  system        | comments                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  movr          | users                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |        309 |    3 |      true
+  movr          | vehicles                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  movr          | rides                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  movr          | vehicle_location_histories | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  movr          | promo_codes                | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  movr          | user_promo_codes           | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  movr          | jobsview                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+  bank          | bank                       | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
+(16 rows)
 ```
 
 The backup process looks good, but you got hacked! A malicious user has corrupted some of your data!!
+
+```sql
+SELECT * FROM movr.users WHERE name = 'malicious user';
+```
+
+```text
+                   id                  |   city    |      name      |            address            | credit_card
+---------------------------------------+-----------+----------------+-------------------------------+--------------
+  ae147ae1-47ae-4800-8000-000000000022 | amsterdam | malicious user | 88194 Angela Gardens Suite 94 | 4443538758
+  b3333333-3333-4000-8000-000000000023 | amsterdam | malicious user | 29590 Butler Plain Apt. 25    | 3750897994
+  b851eb85-1eb8-4000-8000-000000000024 | amsterdam | malicious user | 32768 Eric Divide Suite 88    | 8107478823
+(3 rows)
+```
 
 ## Lab 3 - Restore a database
 
