@@ -60,6 +60,38 @@ SHOW TABLES;
 SELECT * FROM rides LIMIT 10;
 ```
 
+```text
+SET
+
+Time: 65.5088ms
+
+          table_name
+------------------------------
+  promo_codes
+  rides
+  user_promo_codes
+  users
+  vehicle_location_histories
+  vehicles
+(6 rows)
+
+Time: 131.2331ms
+
+                   id                  |   city    | vehicle_city |               rider_id               |              vehicle_id              |         start_address          |           end_address           |        start_time         |         end_time          | revenue
+---------------------------------------+-----------+--------------+--------------------------------------+--------------------------------------+--------------------------------+---------------------------------+---------------------------+---------------------------+----------
+  ab020c49-ba5e-4800-8000-00000000014e | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 1905 Christopher Locks Apt. 77 | 66037 Belinda Plaza Apt. 93     | 2018-12-13 03:04:05+00:00 | 2018-12-14 08:04:05+00:00 |   77.00
+  ab851eb8-51eb-4800-8000-00000000014f | amsterdam | amsterdam    | b851eb85-1eb8-4000-8000-000000000024 | aaaaaaaa-aaaa-4800-8000-00000000000a | 70458 Mary Crest               | 33862 Charles Junctions Apt. 49 | 2018-12-26 03:04:05+00:00 | 2018-12-28 10:04:05+00:00 |   81.00
+  ac083126-e978-4800-8000-000000000150 | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 50217 Victoria Fields Apt. 44  | 56217 Wilson Spring             | 2018-12-07 03:04:05+00:00 | 2018-12-07 10:04:05+00:00 |    9.00
+  ac8b4395-8106-4800-8000-000000000151 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | bbbbbbbb-bbbb-4800-8000-00000000000b | 34704 Stewart Ports Suite 56   | 53889 Frank Lake Apt. 49        | 2018-12-22 03:04:05+00:00 | 2018-12-22 16:04:05+00:00 |   27.00
+  ad0e5604-1893-4800-8000-000000000152 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | aaaaaaaa-aaaa-4800-8000-00000000000a | 10806 Kevin Spur               | 15744 Valerie Squares           | 2018-12-08 03:04:05+00:00 | 2018-12-08 22:04:05+00:00 |   20.00
+  ad916872-b020-4800-8000-000000000153 | amsterdam | amsterdam    | b3333333-3333-4000-8000-000000000023 | bbbbbbbb-bbbb-4800-8000-00000000000b | 51101 Cassandra Spring         | 96936 Parker Summit             | 2018-12-10 03:04:05+00:00 | 2018-12-12 02:04:05+00:00 |   22.00
+  ae147ae1-47ae-4800-8000-000000000154 | amsterdam | amsterdam    | bd70a3d7-0a3d-4000-8000-000000000025 | aaaaaaaa-aaaa-4800-8000-00000000000a | 63503 Lisa Summit Suite 28     | 26800 Brown Station             | 2018-12-25 03:04:05+00:00 | 2018-12-26 22:04:05+00:00 |    0.00
+  ae978d4f-df3b-4800-8000-000000000155 | amsterdam | amsterdam    | b851eb85-1eb8-4000-8000-000000000024 | bbbbbbbb-bbbb-4800-8000-00000000000b | 95059 Mendez Village Apt. 96   | 26739 Ellis Drive Apt. 91       | 2018-12-16 03:04:05+00:00 | 2018-12-16 21:04:05+00:00 |   51.00
+  af1a9fbe-76c8-4800-8000-000000000156 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | aaaaaaaa-aaaa-4800-8000-00000000000a | 64807 Melissa Branch           | 32661 Dalton Flats Suite 70     | 2018-12-18 03:04:05+00:00 | 2018-12-18 12:04:05+00:00 |   87.00
+  af9db22d-0e56-4800-8000-000000000157 | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 20937 Gibson River             | 50480 Steven Row                | 2018-12-23 03:04:05+00:00 | 2018-12-25 11:04:05+00:00 |   88.00
+(10 rows)
+```
+
 You can also check the **Databases** page in the AdminUI at <http://localhost:8080> for an overview of your databases and their size.
 
 ![adminui-databases](media/adminui-databases.png)
