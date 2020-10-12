@@ -55,41 +55,17 @@ cockroach sql --insecure
 Check the data was created correctly
 
 ```sql
-USE movr;
-SHOW TABLES;
-SELECT * FROM rides LIMIT 10;
+SELECT * FROM movr.rides LIMIT 5;
 ```
 
 ```text
-SET
-
-Time: 65.5088ms
-
-          table_name
-------------------------------
-  promo_codes
-  rides
-  user_promo_codes
-  users
-  vehicle_location_histories
-  vehicles
-(6 rows)
-
-Time: 131.2331ms
-
                    id                  |   city    | vehicle_city |               rider_id               |              vehicle_id              |         start_address          |           end_address           |        start_time         |         end_time          | revenue
 ---------------------------------------+-----------+--------------+--------------------------------------+--------------------------------------+--------------------------------+---------------------------------+---------------------------+---------------------------+----------
   ab020c49-ba5e-4800-8000-00000000014e | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 1905 Christopher Locks Apt. 77 | 66037 Belinda Plaza Apt. 93     | 2018-12-13 03:04:05+00:00 | 2018-12-14 08:04:05+00:00 |   77.00
   ab851eb8-51eb-4800-8000-00000000014f | amsterdam | amsterdam    | b851eb85-1eb8-4000-8000-000000000024 | aaaaaaaa-aaaa-4800-8000-00000000000a | 70458 Mary Crest               | 33862 Charles Junctions Apt. 49 | 2018-12-26 03:04:05+00:00 | 2018-12-28 10:04:05+00:00 |   81.00
   ac083126-e978-4800-8000-000000000150 | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 50217 Victoria Fields Apt. 44  | 56217 Wilson Spring             | 2018-12-07 03:04:05+00:00 | 2018-12-07 10:04:05+00:00 |    9.00
   ac8b4395-8106-4800-8000-000000000151 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | bbbbbbbb-bbbb-4800-8000-00000000000b | 34704 Stewart Ports Suite 56   | 53889 Frank Lake Apt. 49        | 2018-12-22 03:04:05+00:00 | 2018-12-22 16:04:05+00:00 |   27.00
-  ad0e5604-1893-4800-8000-000000000152 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | aaaaaaaa-aaaa-4800-8000-00000000000a | 10806 Kevin Spur               | 15744 Valerie Squares           | 2018-12-08 03:04:05+00:00 | 2018-12-08 22:04:05+00:00 |   20.00
-  ad916872-b020-4800-8000-000000000153 | amsterdam | amsterdam    | b3333333-3333-4000-8000-000000000023 | bbbbbbbb-bbbb-4800-8000-00000000000b | 51101 Cassandra Spring         | 96936 Parker Summit             | 2018-12-10 03:04:05+00:00 | 2018-12-12 02:04:05+00:00 |   22.00
-  ae147ae1-47ae-4800-8000-000000000154 | amsterdam | amsterdam    | bd70a3d7-0a3d-4000-8000-000000000025 | aaaaaaaa-aaaa-4800-8000-00000000000a | 63503 Lisa Summit Suite 28     | 26800 Brown Station             | 2018-12-25 03:04:05+00:00 | 2018-12-26 22:04:05+00:00 |    0.00
-  ae978d4f-df3b-4800-8000-000000000155 | amsterdam | amsterdam    | b851eb85-1eb8-4000-8000-000000000024 | bbbbbbbb-bbbb-4800-8000-00000000000b | 95059 Mendez Village Apt. 96   | 26739 Ellis Drive Apt. 91       | 2018-12-16 03:04:05+00:00 | 2018-12-16 21:04:05+00:00 |   51.00
-  af1a9fbe-76c8-4800-8000-000000000156 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | aaaaaaaa-aaaa-4800-8000-00000000000a | 64807 Melissa Branch           | 32661 Dalton Flats Suite 70     | 2018-12-18 03:04:05+00:00 | 2018-12-18 12:04:05+00:00 |   87.00
-  af9db22d-0e56-4800-8000-000000000157 | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 20937 Gibson River             | 50480 Steven Row                | 2018-12-23 03:04:05+00:00 | 2018-12-25 11:04:05+00:00 |   88.00
-(10 rows)
+  ad0e5604-1893-4800-8000-000000000152 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | aaaaaaaa-aaaa-4800-8000-00000000000a | 10806 Kevin Spur               | 15744 Valerie Squares           | 2018-12-08 03:04:
 ```
 
 You can also check the **Databases** page in the AdminUI at <http://localhost:8080> for an overview of your databases and their size.
@@ -103,7 +79,7 @@ Good job, we are now ready to perform our first backup job.
 Backup the entire cluster to S3. Please note: we must include the "KEYS" parameter even though none are required for S3Mock.
 
 ```sql
-BACKUP TO 's3://backup/2020-01-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake' AS OF SYSTEM TIME '-10s';
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '-10s';
 ```
 
 Check the Job progress in the Admin UI
@@ -134,42 +110,48 @@ SELECT * FROM jobsview ORDER BY created DESC LIMIT 5;
 ```text
         job_id       |   job_type    |                      short_description                      |  status   |             created              |    duration     | pct_done | error
 ---------------------+---------------+-------------------------------------------------------------+-----------+----------------------------------+-----------------+----------+--------
-  596714310165135361 | BACKUP        | BACKUP TO 's3://backup/2020-01-01?AWS_ACCESS_KEY_ID=fake&AW | succeeded | 2020-10-08 16:05:55.787686+00:00 | 00:00:13.619662 |        1 |
-  596710673946640385 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-08 15:47:24.493597+00:00 | 00:00:19.246661 |        1 |
-  596710671515779073 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-08 15:47:24.493597+00:00 | 00:00:02.966944 |        1 |
-  596710568452194305 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-08 15:46:53.042466+00:00 | 00:00:02.967055 |        1 |
-  596710570891804673 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-08 15:46:53.042466+00:00 | 00:00:20.31613  |        1 |
+  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=id&AWS_END | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
+  597905751889248257 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:18.564897 |        1 |
+  597905748751515649 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:03.050331 |        1 |
+  597905649737793537 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:03.039549 |        1 |
+  597905652866678785 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:18.768623 |        1 |
 ```
 
 Verify what was backed up remotely
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake';
+SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
 ```
 
 ```text
-  database_name |         table_name         | start_time |             end_time             | size_bytes | rows | is_full_cluster
-----------------+----------------------------+------------+----------------------------------+------------+------+------------------
-  system        | users                      | NULL       | 2020-10-08 16:05:45.715862+00:00 |         99 |    2 |      true
-  system        | zones                      | NULL       | 2020-10-08 16:05:45.715862+00:00 |        201 |    7 |      true
-  system        | settings                   | NULL       | 2020-10-08 16:05:45.715862+00:00 |        374 |    5 |      true
-  system        | ui                         | NULL       | 2020-10-08 16:05:45.715862+00:00 |          0 |    0 |      true
-  system        | jobs                       | NULL       | 2020-10-08 16:05:45.715862+00:00 |      14036 |   20 |      true
-  system        | locations                  | NULL       | 2020-10-08 16:05:45.715862+00:00 |        360 |    7 |      true
-  system        | role_members               | NULL       | 2020-10-08 16:05:45.715862+00:00 |         94 |    1 |      true
-  system        | comments                   | NULL       | 2020-10-08 16:05:45.715862+00:00 |          0 |    0 |      true
-  movr          | users                      | NULL       | 2020-10-08 16:05:45.715862+00:00 |       4911 |   50 |      true
-  movr          | vehicles                   | NULL       | 2020-10-08 16:05:45.715862+00:00 |       3182 |   15 |      true
-  movr          | rides                      | NULL       | 2020-10-08 16:05:45.715862+00:00 |     156387 |  500 |      true
-  movr          | vehicle_location_histories | NULL       | 2020-10-08 16:05:45.715862+00:00 |      73918 | 1000 |      true
-  movr          | promo_codes                | NULL       | 2020-10-08 16:05:45.715862+00:00 |     219973 | 1000 |      true
-  movr          | user_promo_codes           | NULL       | 2020-10-08 16:05:45.715862+00:00 |          0 |    0 |      true
-(14 rows)
+  database_name | parent_schema_name |        object_name         | object_type | start_time |             end_time             | size_bytes | rows | is_full_cluster
+----------------+--------------------+----------------------------+-------------+------------+----------------------------------+------------+------+------------------
+  NULL          | NULL               | system                     | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  system        | public             | users                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |         99 |    2 |      true
+  system        | public             | zones                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        201 |    7 |      true
+  system        | public             | settings                   | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        371 |    5 |      true
+  system        | public             | ui                         | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        155 |    1 |      true
+  system        | public             | jobs                       | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |      14002 |   18 |      true
+  system        | public             | locations                  | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        360 |    7 |      true
+  system        | public             | role_members               | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |         94 |    1 |      true
+  system        | public             | comments                   | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  system        | public             | role_options               | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  system        | public             | scheduled_jobs             | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  NULL          | NULL               | defaultdb                  | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | postgres                   | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | movr                       | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  movr          | public             | users                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |       4911 |   50 |      true
+  movr          | public             | vehicles                   | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |       3182 |   15 |      true
+  movr          | public             | rides                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |     156387 |  500 |      true
+  movr          | public             | vehicle_location_histories | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |      73918 | 1000 |      true
+  movr          | public             | promo_codes                | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |     219973 | 1000 |      true
+  movr          | public             | user_promo_codes           | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+(20 rows)
 ```
 
 Very good! The output shows both the `system` and `movr` databases backups are safely stored in S3!
 
-If you are curious to see what the backup file looks like, connect to container `s3mock`
+Check how the backup files are actually stored. In a new terminal window, connect to container `s3mock`
 
 ```bash
 docker exec -it s3mock /bin/sh
@@ -178,14 +160,18 @@ docker exec -it s3mock /bin/sh
 Then drill into the `backup` bucket directory inside `/tmp`
 
 ```bash
-/ # ls -ltr /tmp/s3mockFileStore1602171829630/backup/2020-01-01/
-total 168
-drwxr-xr-x    2 root     root          4096 Oct  8 16:06 596714343610908673%002Esst
-drwxr-xr-x    2 root     root          4096 Oct  8 16:06 596714343184596999%002Esst
-drwxr-xr-x    2 root     root          4096 Oct  8 16:06 596714343154941960%002Esst
+/ # ls -ltr /tmp/s3mockFileStore*/backup/2020-01/
+total 188
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-CHECKPOINT-CHECKSUM
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 597906131332562949%002Esst
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 597906130090360841%002Esst
 [...]
-drwxr-xr-x    2 root     root          4096 Oct  8 16:06 BACKUP
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST-CHECKSUM
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-STATISTICS
 ```
+
+These are the files for our **Full Cluster** backup. In the next lab we will run an **incremental** backup and see how the files will be nicely organized.
 
 You can learn a lot more about Cockroach Backup strategies [in the docs](https://www.cockroachlabs.com/docs/v20.2/take-full-and-incremental-backups.html), too!
 
@@ -202,7 +188,7 @@ cockroach workload init bank
 Confirm the database was created and data was loaded
 
 ```sql
-SELECT * FROM bank.bank LIMIT 10;
+SELECT * FROM bank.bank LIMIT 5;
 ```
 
 ```text
@@ -213,102 +199,209 @@ SELECT * FROM bank.bank LIMIT 10;
    2 |       0 | initial-VNfyUJHfCmMeAUoTgoSVvnByDyvpHNPHDfVoNWdXBFQpwMOBgNVtNijyTjmecvFqyeLHlDbIBRrbCzSeiHWSLmWbhIvh
    3 |       0 | initial-llflzsVuQYUlfwlyoaqjdwKUNgNFVgvlnINeOUUVyfxyvmOiAelxqkTBfpBBziYVHgQLLEuCazSXmURnXBlCCfsOqeji
    4 |       0 | initial-rmGzVVucMqbYnBaccWilErbWvcatqBsWSXvrbxYUUEhmOnccXzvqcsGuMVJNBjmzKErJzEzzfCzNTmLQqhkrDUxdgqDD
-   5 |       0 | initial-jXejtgYqbhAMjWszDWhRMrreNesfWgMHlFNZwrACPjPAJqkxZtWAtMUZnYhpwIuVTUhtuAZmrcLOerfZkYenmcFgnsXK
-   6 |       0 | initial-rEwGJlYhtthvaMmYrLvcctmXZyyUSYpmcnSmOsZqjxBiTARaJCEHVnSPAJFTzpfqjheUnjvcHxGafmjaqtcEibbRGRcr
-   7 |       0 | initial-jgSEECNqBhAebEjfAeVYekdkazEPZagEQYcajFZXfArIucQcCvrFARXidZNthBWtDVFzGAfQbscjCkoxvZyTKbNIdRxN
-   8 |       0 | initial-XNLtmUlDQeZkRPMaygqBLWwUqXmqHhEquyfervKFBFDwYrWsGkYVJtJroUncsmdcSHhUqsVNLOwiamuOxlYayMqrLheK
-   9 |       0 | initial-yebOGytNpTjrZWGwZjBYJtxekffbsIuqDwKSlhbtpnimeKKeOKDMsPtPgQgYWYdwHmNTuINQvtqlintFvZIFmyMzbZLx
 ```
 
-With the new data added, let's take an incremental backup.
-We want the location of the incremental backup to be on a separate location (directory `2020-01-02`), so we must point BACKUP to the location of the Full Backup we want to increment from.
+With the new data added, let's take another backup.
+As in the specified location `s3://backup/2020-01` there is already a Full Backup, Cockroach will create a separate directory and put the incremental backup files in there.
 
 ```sql
-BACKUP TO 's3://backup/2020-01-02?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake' AS OF SYSTEM TIME '-10s'
-INCREMENTAL FROM 's3://backup/2020-01-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake';
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '-10s';
 ```
 
 Check the JOBS table to confirm the backup is complete
 
 ```sql
-SELECT * FROM jobsview ORDER BY created DESC LIMIT 1;
+SELECT * FROM jobsview ORDER BY created DESC LIMIT 5;
 ```
 
 ```text
         job_id       |   job_type    |                      short_description                      |  status   |             created              |    duration     | pct_done | error
 ---------------------+---------------+-------------------------------------------------------------+-----------+----------------------------------+-----------------+----------+--------
-  596733912437358593 | BACKUP        | BACKUP TO 's3://backup/2020-01-02?AWS_ACCESS_KEY_ID=fake&AW | succeeded | 2020-10-08 17:45:37.926408+00:00 | 00:00:15.477749 |        1 |
+  597908447545393153 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=id&AWS_END | succeeded | 2020-10-12 21:19:37.595622+00:00 | 00:00:31.972327 |        1 |
+  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=id&AWS_END | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
+  597905751889248257 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:18.564897 |        1 |
+  597905748751515649 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:03.050331 |        1 |
+  597905652866678785 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:18.768623 |        1 |
 ````
+
+Check in S3Mock how the files are organized. You can see that there is a new folder `20201012` (today's date).
+
+```bash
+/ # ls -ltr /tmp/s3mockFileStore*/backup/2020-01/
+total 192
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-CHECKPOINT-CHECKSUM
+[...]
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST-CHECKSUM
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST
+drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-STATISTICS
+drwxr-xr-x    3 root     root          4096 Oct 12 21:19 20201012
+```
+
+And in that folder another folder with the timestamp and the backup files
+
+```bash
+/ # ls -ltr /tmp/s3mockFileStore1602536464462/backup/2020-01/20201012/211927\%002E05/
+total 68
+drwxr-xr-x    2 root     root          4096 Oct 12 21:19 BACKUP-CHECKPOINT-CHECKSUM
+drwxr-xr-x    2 root     root          4096 Oct 12 21:20 597908528448012289%002Esst
+[...]]
+drwxr-xr-x    2 root     root          4096 Oct 12 21:20 BACKUP_MANIFEST-CHECKSUM
+drwxr-xr-x    2 root     root          4096 Oct 12 21:20 BACKUP_MANIFEST
+drwxr-xr-x    2 root     root          4096 Oct 12 21:20 BACKUP-STATISTICS
+```
 
 Now let's see the available backups at the new location
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01-02?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake';
+SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
 ```
 
 ```text
-  database_name |         table_name         |            start_time            |             end_time             | size_bytes | rows | is_full_cluster
-----------------+----------------------------+----------------------------------+----------------------------------+------------+------+------------------
-  system        | users                      | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  system        | zones                      | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  system        | settings                   | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  system        | ui                         | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  system        | jobs                       | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |       9795 |    4 |      true
-  system        | locations                  | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  system        | role_members               | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  system        | comments                   | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  movr          | users                      | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  movr          | vehicles                   | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  movr          | rides                      | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  movr          | vehicle_location_histories | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  movr          | promo_codes                | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  movr          | user_promo_codes           | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  movr          | jobsview                   | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |          0 |    0 |      true
-  bank          | bank                       | 2020-10-08 16:05:45.715862+00:00 | 2020-10-08 17:45:27.579751+00:00 |     114634 | 1000 |      true
-(16 rows)
+  database_name | parent_schema_name |        object_name         | object_type |            start_time            |             end_time             | size_bytes | rows | is_full_cluster
+----------------+--------------------+----------------------------+-------------+----------------------------------+----------------------------------+------------+------+------------------
+  NULL          | NULL               | system                     | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  system        | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         99 |    2 |      true
+  system        | public             | zones                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        201 |    7 |      true
+  system        | public             | settings                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        371 |    5 |      true
+  system        | public             | ui                         | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        155 |    1 |      true
+  system        | public             | jobs                       | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      14002 |   18 |      true
+  system        | public             | locations                  | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        360 |    7 |      true
+  system        | public             | role_members               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         94 |    1 |      true
+  system        | public             | comments                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  system        | public             | role_options               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  system        | public             | scheduled_jobs             | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  NULL          | NULL               | defaultdb                  | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | postgres                   | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | movr                       | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  movr          | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       4911 |   50 |      true
+  movr          | public             | vehicles                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       3182 |   15 |      true
+  movr          | public             | rides                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     156387 |  500 |      true
+  movr          | public             | vehicle_location_histories | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      73918 | 1000 |      true
+  movr          | public             | promo_codes                | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     219973 | 1000 |      true
+  movr          | public             | user_promo_codes           | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  NULL          | NULL               | system                     | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  system        | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | zones                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | settings                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | ui                         | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | jobs                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |      18801 |    7 |      true
+  system        | public             | locations                  | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | role_members               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | comments                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | role_options               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | scheduled_jobs             | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  NULL          | NULL               | defaultdb                  | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | postgres                   | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | movr                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  movr          | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | vehicles                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | rides                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | vehicle_location_histories | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | promo_codes                | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | user_promo_codes           | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  defaultdb     | public             | jobsview                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  NULL          | NULL               | bank                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  bank          | public             | bank                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |     114634 | 1000 |      true
+(43 rows)
 ```
 
-Very good! We have not updated the `movr` database, so it is all zero, but we can see that `bank` has been added.
+Very good! We have not updated the `movr` database, so `size_bytes` shows zeros, but we can see that a row for `bank` has been added. Also, we can see that the start and end time define when the incremental backups have been taken.
 
-Another day has passed. Let's take another incremental backup
+Another "day" has passed. Let's take another incremental backup
 
 ```sql
 -- ??? Who did this, what's going on?!?
 UPDATE movr.users SET NAME = 'malicious user' WHERE id IN ('ae147ae1-47ae-4800-8000-000000000022', 'b3333333-3333-4000-8000-000000000023', 'b851eb85-1eb8-4000-8000-000000000024');
 
--- wait 10 seconds else the changes won't be captured
-BACKUP TO 's3://backup/2020-01-03?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake' AS OF SYSTEM TIME '-10s'
-INCREMENTAL FROM
-    's3://backup/2020-01-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake',
-    's3://backup/2020-01-02?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake';
+-- wait 10 seconds else the above changes won't be captured!
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '-10s';
+```
+
+in S3Mock, another folder has been added for the new timestamp
+
+```bash
+/ # ls -ltr /tmp/s3mockFileStore1602536464462/backup/2020-01/20201012/
+total 8
+drwxr-xr-x   19 root     root          4096 Oct 12 21:20 211927%002E05
+drwxr-xr-x   11 root     root          4096 Oct 12 21:29 212824%002E80
 ```
 
 Confirm the backup looks good
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01-03?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake';
+SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
 ```
 
 ```text
-  database_name |         table_name         |            start_time            |             end_time             | size_bytes | rows | is_full_cluster
-----------------+----------------------------+----------------------------------+----------------------------------+------------+------+------------------
-  system        | users                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  system        | zones                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  system        | settings                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  system        | ui                         | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  system        | jobs                       | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |      19648 |    2 |      true
-  system        | locations                  | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  system        | role_members               | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  system        | comments                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  movr          | users                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |        309 |    3 |      true
-  movr          | vehicles                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  movr          | rides                      | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  movr          | vehicle_location_histories | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  movr          | promo_codes                | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  movr          | user_promo_codes           | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  movr          | jobsview                   | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-  bank          | bank                       | 2020-10-08 20:53:33.294473+00:00 | 2020-10-08 20:59:36.994805+00:00 |          0 |    0 |      true
-(16 rows)
+  database_name | parent_schema_name |        object_name         | object_type |            start_time            |             end_time             | size_bytes | rows | is_full_cluster
+----------------+--------------------+----------------------------+-------------+----------------------------------+----------------------------------+------------+------+------------------
+  NULL          | NULL               | system                     | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  system        | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         99 |    2 |      true
+  system        | public             | zones                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        201 |    7 |      true
+  system        | public             | settings                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        371 |    5 |      true
+  system        | public             | ui                         | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        155 |    1 |      true
+  system        | public             | jobs                       | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      14002 |   18 |      true
+  system        | public             | locations                  | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        360 |    7 |      true
+  system        | public             | role_members               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         94 |    1 |      true
+  system        | public             | comments                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  system        | public             | role_options               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  system        | public             | scheduled_jobs             | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  NULL          | NULL               | defaultdb                  | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | postgres                   | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | movr                       | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
+  movr          | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       4911 |   50 |      true
+  movr          | public             | vehicles                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       3182 |   15 |      true
+  movr          | public             | rides                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     156387 |  500 |      true
+  movr          | public             | vehicle_location_histories | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      73918 | 1000 |      true
+  movr          | public             | promo_codes                | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     219973 | 1000 |      true
+  movr          | public             | user_promo_codes           | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
+  NULL          | NULL               | system                     | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  system        | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | zones                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | settings                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | ui                         | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | jobs                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |      18801 |    7 |      true
+  system        | public             | locations                  | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | role_members               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | comments                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | role_options               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  system        | public             | scheduled_jobs             | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  NULL          | NULL               | defaultdb                  | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | postgres                   | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | movr                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  movr          | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | vehicles                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | rides                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | vehicle_location_histories | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | promo_codes                | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  movr          | public             | user_promo_codes           | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  defaultdb     | public             | jobsview                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
+  NULL          | NULL               | bank                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
+  bank          | public             | bank                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |     114634 | 1000 |      true
+  NULL          | NULL               | system                     | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
+  system        | public             | users                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | zones                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | settings                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | ui                         | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | jobs                       | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |      13702 |    2 |      true
+  system        | public             | locations                  | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | role_members               | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | comments                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | role_options               | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  system        | public             | scheduled_jobs             | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  NULL          | NULL               | defaultdb                  | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | postgres                   | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | movr                       | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
+  movr          | public             | users                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |        309 |    3 |      true
+  movr          | public             | vehicles                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  movr          | public             | rides                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  movr          | public             | vehicle_location_histories | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  movr          | public             | promo_codes                | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  movr          | public             | user_promo_codes           | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  defaultdb     | public             | jobsview                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+  NULL          | NULL               | bank                       | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
+  bank          | public             | bank                       | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
+(66 rows)
 ```
 
 The backup process looks good, but you got hacked! A malicious user has corrupted some of your data!!
@@ -328,37 +421,52 @@ SELECT * FROM movr.users WHERE name = 'malicious user';
 
 ## Lab 3 - Restore a database
 
-After careful consideration, you decide that it's best to drop the database and restore from the last valid backup, dated 2020-01-02.
+After careful consideration, you decide that it's best to drop the database and restore from the last valid backup - the 2nd incremental backup - with `enddate` = `2020-10-12 21:19:27.053348+00:00`.
 
 ```sql
 -- this can take 2-3 minutes
 DROP DATABASE movr CASCADE;
 
+-- check note below re timestamp precision - notice I added a trailing 5 to the microseconds...
 RESTORE DATABASE movr
-FROM
-    's3://backup/2020-01-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake',
-    's3://backup/2020-01-02?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=fake&AWS_SECRET_ACCESS_KEY=fake';
+FROM 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '2020-10-12 21:19:27.0533485+00:00';
+```
 
+```text
+DROP DATABASE
+
+Time: 513.329ms
+
+        job_id       |  status   | fraction_completed | rows | index_entries | bytes
+---------------------+-----------+--------------------+------+---------------+---------
+  596743986481856513 | succeeded |                  1 | 2565 |          1015 | 458371
+(1 row)
+```
+
+**Please note:** you might get an error like below when you try to restore
+
+```text
+ERROR: invalid RESTORE timestamp: restoring to arbitrary time requires that BACKUP for requested time be created with 'revision_history' option. nearest BACKUP times are 2020-10-12 21:07:14.5701275 +0000 UTC or 2020-10-12 21:19:27.0533485 +0000 UTC
+```
+
+That's because the timestamp you entered is not exactly the `enddate` timestamp. Check the timestamp suggested in the error message. In this example, I have updated the enddate by adding a '5' to my microseconds.
+
+```sql
 --- verify the malicious user is gone
 SELECT * FROM movr.users WHERE name = 'malicious user';
 ```
 
 ```text
-        job_id       |  status   | fraction_completed | rows | index_entries | bytes
----------------------+-----------+--------------------+------+---------------+---------
-  596743986481856513 | succeeded |                  1 | 2565 |          1015 | 458371
-(1 row)
-
-Time: 195.3715ms
-
   id | city | name | address | credit_card
 -----+------+------+---------+--------------
 (0 rows)
+
+Time: 9.259ms
 ```
 
 Good, you're back in business!
 
-There are many, better ways in which you can manage your backup. Read the docs to find out more about:
+There are many ways in which you can manage your backups. Read the docs to find out more about:
 
 - [Backups with revision history and restore from point in time](https://www.cockroachlabs.com/docs/v20.2/take-backups-with-revision-history-and-restore-from-a-point-in-time.html)
 - [Encrypted Backup and Restore](https://www.cockroachlabs.com/docs/v20.2/take-and-restore-encrypted-backups.html)
@@ -400,7 +508,7 @@ You can read more about the Decommission process in our [docs](https://www.cockr
 Let's spin up a new node and add it to the cluster. In this example, we want to repave node `roach-seattle-3` for node `roach-seattle-4`
 
 ```bash
-docker run -d --name=roach-seattle-4 --hostname=roach-seattle-4 --ip=172.27.0.14 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -v "roach-seattle-4-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=c
+docker run -d --name=roach-seattle-4 --hostname=roach-seattle-4 --ip=172.27.0.14 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -v "roach-seattle-4-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=c
 
 # attach container to networks
 docker network connect uswest-useast-net roach-seattle-4
@@ -421,16 +529,16 @@ You can also see from the CLI
 root@roach-newyork-1:/cockroach# cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.1.6 | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 19:48:42.057632+00:00 | region=us-east4,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.1.6 | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 19:48:42.38807+00:00  | region=us-east4,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.1.6 | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 19:48:42.842474+00:00 | region=us-east4,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.1.6 | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 19:48:44.300456+00:00 | region=us-west2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.1.6 | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 19:48:40.567553+00:00 | region=us-west2,zone=b | true         | true
-   6 | roach-seattle-3:26257 | roach-seattle-3:26257 | v20.1.6 | 2020-10-08 15:43:18.704429+00:00 | 2020-10-08 19:48:41.219253+00:00 | region=us-west2,zone=c | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.1.6 | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 19:48:44.378163+00:00 | region=eu-west2,zone=b | true         | true
-   8 | roach-london-1:26257  | roach-london-1:26257  | v20.1.6 | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 19:48:40.398695+00:00 | region=eu-west2,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.1.6 | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 19:48:40.438241+00:00 | region=eu-west2,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.1.6 | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 19:48:40.624029+00:00 | region=us-west2,zone=c | true         | true
+   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 19:48:42.057632+00:00 | region=us-east4,zone=a | true         | true
+   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 19:48:42.38807+00:00  | region=us-east4,zone=b | true         | true
+   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 19:48:42.842474+00:00 | region=us-east4,zone=c | true         | true
+   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 19:48:44.300456+00:00 | region=us-west2,zone=a | true         | true
+   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 19:48:40.567553+00:00 | region=us-west2,zone=b | true         | true
+   6 | roach-seattle-3:26257 | roach-seattle-3:26257 | v20.2.x | 2020-10-08 15:43:18.704429+00:00 | 2020-10-08 19:48:41.219253+00:00 | region=us-west2,zone=c | true         | true
+   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 19:48:44.378163+00:00 | region=eu-west2,zone=b | true         | true
+   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 19:48:40.398695+00:00 | region=eu-west2,zone=a | true         | true
+   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 19:48:40.438241+00:00 | region=eu-west2,zone=c | true         | true
+  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 19:48:40.624029+00:00 | region=us-west2,zone=c | true         | true
 (10 rows)
 ```
 
@@ -476,15 +584,15 @@ Verify the status on the CLI
 root@roach-newyork-1:/cockroach# cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.1.6 | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:00:45.702579+00:00 | region=us-east4,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.1.6 | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:00:46.032631+00:00 | region=us-east4,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.1.6 | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:00:42.021404+00:00 | region=us-east4,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.1.6 | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:00:43.479506+00:00 | region=us-west2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.1.6 | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:00:44.211455+00:00 | region=us-west2,zone=b | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.1.6 | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:00:43.557008+00:00 | region=eu-west2,zone=b | true         | true
-   8 | roach-london-1:26257  | roach-london-1:26257  | v20.1.6 | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 20:00:44.041947+00:00 | region=eu-west2,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.1.6 | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:00:44.081871+00:00 | region=eu-west2,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.1.6 | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:00:44.268408+00:00 | region=us-west2,zone=c | true         | true
+   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:00:45.702579+00:00 | region=us-east4,zone=a | true         | true
+   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:00:46.032631+00:00 | region=us-east4,zone=b | true         | true
+   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:00:42.021404+00:00 | region=us-east4,zone=c | true         | true
+   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:00:43.479506+00:00 | region=us-west2,zone=a | true         | true
+   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:00:44.211455+00:00 | region=us-west2,zone=b | true         | true
+   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:00:43.557008+00:00 | region=eu-west2,zone=b | true         | true
+   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 20:00:44.041947+00:00 | region=eu-west2,zone=a | true         | true
+   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:00:44.081871+00:00 | region=eu-west2,zone=c | true         | true
+  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:00:44.268408+00:00 | region=us-west2,zone=c | true         | true
 (9 rows)
 ```
 
@@ -543,7 +651,7 @@ docker stop roach-london-1
 docker rm roach-london-1
 
 # start the new container using the same volume roach-london-1-data
-docker run -d --name=roach-london-4 --hostname=roach-london-4 --ip=172.29.0.14 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -v "roach-london-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=a
+docker run -d --name=roach-london-4 --hostname=roach-london-4 --ip=172.29.0.14 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -v "roach-london-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=a
 
 # connect to networks
 docker network connect useast-euwest-net roach-london-4
@@ -560,16 +668,16 @@ You can verify from the CLI, too
 root@roach-newyork-1:/cockroach# cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.1.6 | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:23:09.69264+00:00  | region=us-east4,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.1.6 | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:23:10.023896+00:00 | region=us-east4,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.1.6 | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:23:05.977296+00:00 | region=us-east4,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.1.6 | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:23:07.468981+00:00 | region=us-west2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.1.6 | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:23:08.202968+00:00 | region=us-west2,zone=b | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.1.6 | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:23:07.547155+00:00 | region=eu-west2,zone=b | true         | true
-   8 | roach-london-4:26257  | roach-london-4:26257  | v20.1.6 | 2020-10-08 20:21:36.196613+00:00 | 2020-10-08 20:23:09.491299+00:00 | region=eu-west2,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.1.6 | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:23:08.072601+00:00 | region=eu-west2,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.1.6 | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:23:08.258708+00:00 | region=us-west2,zone=c | true         | true
+   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:23:09.69264+00:00  | region=us-east4,zone=a | true         | true
+   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:23:10.023896+00:00 | region=us-east4,zone=b | true         | true
+   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:23:05.977296+00:00 | region=us-east4,zone=c | true         | true
+   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:23:07.468981+00:00 | region=us-west2,zone=a | true         | true
+   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:23:08.202968+00:00 | region=us-west2,zone=b | true         | true
+   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:23:07.547155+00:00 | region=eu-west2,zone=b | true         | true
+   8 | roach-london-4:26257  | roach-london-4:26257  | v20.2.x | 2020-10-08 20:21:36.196613+00:00 | 2020-10-08 20:23:09.491299+00:00 | region=eu-west2,zone=a | true         | true
+   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:23:08.072601+00:00 | region=eu-west2,zone=c | true         | true
+  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:23:08.258708+00:00 | region=us-west2,zone=c | true         | true
 (9 rows)
 ```
 
-Our new node `roach-london-4` is up and running!
+Our new node `roach-london-4` is up and running, we repaved in a matter of seconds!
