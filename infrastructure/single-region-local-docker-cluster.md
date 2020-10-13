@@ -4,8 +4,6 @@ Following are instructions to simulate the deployment of a 3 nodes [CockroachDB]
 
 ## Setup
 
-Create the required networks. We create 1 network for each region, plus 1 network for each inter-regional connection.
-
 Create the `haproxy.cfg` files for the HAProxy in each region.
 
 ```bash
