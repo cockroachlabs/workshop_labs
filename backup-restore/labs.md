@@ -512,11 +512,11 @@ SHOW SCHEDULES;
 ```
 
 ```text
-          id         |         label          | schedule_status |         next_run          |                 state                  | recurrence | jobsrunning | owner |             created              |                                                                                                   command
----------------------+------------------------+-----------------+---------------------------+----------------------------------------+------------+-------------+-------+----------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+          id         |         label          | schedule_status |         next_run          | state | recurrence | jobsrunning | owner |             created              |                                                                                            command
+---------------------+------------------------+-----------------+---------------------------+-------+------------+-------------+-------+----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   598169895033896961 | weekly                 | ACTIVE          | 2020-10-14 00:00:00+00:00 |       | @daily     |           0 | root  | 2020-10-13 19:29:16.627381+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fs3mock%3A9090&AWS_SECRET_ACCESS_KEY=redacted' WITH detached", "backup_type": 1}
   598169897925541889 | weekly                 | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 19:29:20.901034+00:00 | {"backup_statement": "BACKUP INTO 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fs3mock%3A9090&AWS_SECRET_ACCESS_KEY=redacted' WITH detached"}
-(6 rows)
+(2 rows)
 ```
 
 As we set the `first_run` to `now`, the first backup job was started, and most likely it just finished, confirm in the Admin UI > Jobs page. Being the first backup, this is necessarely a Full Backup regardless of the schedule.
