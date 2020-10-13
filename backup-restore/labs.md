@@ -8,7 +8,7 @@ synopsys In this lab TODO
 
 ## Labs Prerequisites
 
-1. Build the dev cluster following [these instructions](/infrastructure/build-local-docker-cluster.md).
+1. Build the dev cluster following [these instructions](/infrastructure/multi-region-local-docker-cluster.md).
 
 2. You also need:
 
