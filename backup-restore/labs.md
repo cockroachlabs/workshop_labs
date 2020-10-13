@@ -43,7 +43,7 @@ docker exec -it roach-newyork-1 bash
 In the container, generate a sample database with data. Please note, this will take few minutes to complete. While it works, you can read about the `workload` function and the `movr` database in [here](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
 
 ```bash
-cockroach workload init movr --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100
+cockroach workload init movr
 ```
 
 Once done, connect to the database
@@ -435,7 +435,7 @@ DROP DATABASE movr CASCADE;
 
 -- check note below re timestamp precision - notice I added a trailing 5 to the microseconds...
 RESTORE DATABASE movr
-FROM 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' 
+FROM 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
   AS OF SYSTEM TIME '2020-10-12 21:19:27.0533485+00:00';
 ```
 
