@@ -490,7 +490,7 @@ You are happy with the way your backups are taken and you want to automate this 
 You can run this schedule from CockroachDB directly, without using tolls like `cron` or `anacron`. Run below statement
 
 ```sql
-CREATE SCHEDULE full_weekly_daily_incr
+CREATE SCHEDULE weekly
   FOR BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
     RECURRING '@daily'
     FULL BACKUP '@weekly'
@@ -498,10 +498,10 @@ CREATE SCHEDULE full_weekly_daily_incr
 ```
 
 ```text
-     schedule_id     |          name          |                     status                     |            first_run            | schedule |                                                     backup_stmt
----------------------+------------------------+------------------------------------------------+---------------------------------+----------+------------------------------------------------------------------------------------------------------------------------------------------
-  598144849357733899 | full_weekly_daily_incr | PAUSED: Waiting for initial backup to complete | NULL                            | @daily   | BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
-  598144851305857035 | full_weekly_daily_incr | ACTIVE                                         | 2020-10-13 17:21:55.42497+00:00 | @weekly  | BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
+     schedule_id     | label  |                     status                     |            first_run             | schedule |                                                               backup_stmt
+---------------------+--------+------------------------------------------------+----------------------------------+----------+------------------------------------------------------------------------------------------------------------------------------------------
+  598169895033896961 | weekly | PAUSED: Waiting for initial backup to complete | NULL                             | @daily   | BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
+  598169897925541889 | weekly | ACTIVE                                         | 2020-10-13 19:29:10.756144+00:00 | @weekly  | BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
 (2 rows)
 ```
 
@@ -512,11 +512,11 @@ SHOW SCHEDULES;
 ```
 
 ```text
-          id         |         label          | schedule_status |         next_run          | state | recurrence | jobsrunning | owner |             created              |                                    command
----------------------+------------------------+-----------------+---------------------------+-------+------------+-------------+-------+----------------------------------+-------------------------------------------------------------------------------------
-  598144851305857035 | full_weekly_daily_incr | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 17:22:01.000173+00:00 | {"backup_statement": "BACKUP INTO 's3://backup/weekly
-  598144849357733899 | full_weekly_daily_incr | ACTIVE          | 2020-10-14 00:00:00+00:00 | NULL  | @daily     |           0 | root  | 2020-10-13 17:21:55.424988+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup/weekly?, "backup_type": 1}
-(2 rows)
+          id         |         label          | schedule_status |         next_run          |                 state                  | recurrence | jobsrunning | owner |             created              |                                                                                                   command
+---------------------+------------------------+-----------------+---------------------------+----------------------------------------+------------+-------------+-------+----------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  598169895033896961 | weekly                 | ACTIVE          | 2020-10-14 00:00:00+00:00 |       | @daily     |           0 | root  | 2020-10-13 19:29:16.627381+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fs3mock%3A9090&AWS_SECRET_ACCESS_KEY=redacted' WITH detached", "backup_type": 1}
+  598169897925541889 | weekly                 | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 19:29:20.901034+00:00 | {"backup_statement": "BACKUP INTO 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fs3mock%3A9090&AWS_SECRET_ACCESS_KEY=redacted' WITH detached"}
+(6 rows)
 ```
 
 As we set the `first_run` to `now`, the first backup job was started, and most likely it just finished, confirm in the Admin UI > Jobs page. Being the first backup, this is necessarely a Full Backup regardless of the schedule.
@@ -536,14 +536,14 @@ We got an error: this is because the scheduler creates a directory structure for
 You can see this structure in S3Mock
 
 ```bash
-/tmp/s3mockFileStore1602536464462/backup/weekly/2020/10/13-172155%002E42 # ls -l
-total 164
-drwxr-xr-x    2 root     root          4096 Oct 13 17:22 598144905179955205%002Esst
-[...]]
-drwxr-xr-x    2 root     root          4096 Oct 13 17:22 BACKUP-CHECKPOINT-CHECKSUM
-drwxr-xr-x    2 root     root          4096 Oct 13 17:22 BACKUP-STATISTICS
-drwxr-xr-x    2 root     root          4096 Oct 13 17:22 BACKUP_MANIFEST
-drwxr-xr-x    2 root     root          4096 Oct 13 17:22 BACKUP_MANIFEST-CHECKSUM
+/tmp/s3mockFileStore1602613493412/backup/weekly/2020/10/13-192910%002E75 # ls -l
+total 236
+drwxr-xr-x    2 root     root          4096 Oct 13 19:29 598169993547481095%002Esst
+[...]
+drwxr-xr-x    2 root     root          4096 Oct 13 19:29 BACKUP-CHECKPOINT-CHECKSUM
+drwxr-xr-x    2 root     root          4096 Oct 13 19:30 BACKUP-STATISTICS
+drwxr-xr-x    2 root     root          4096 Oct 13 19:30 BACKUP_MANIFEST
+drwxr-xr-x    2 root     root          4096 Oct 13 19:30 BACKUP_MANIFEST-CHECKSUM
 ```
 
 So what we can use instead is below statement which gives us a list of all backup paths for any given location.
@@ -555,41 +555,41 @@ SHOW BACKUPS IN 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_K
 ```text
           path
 ------------------------
-  2020/10/13-172155.42
+  2020/10/13-192910.75
 ```
 
 Now we can use this information to view the backup
 
 ```sql
-SHOW BACKUP 's3://backup/weekly/2020/10/13-172155.42?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup/weekly/2020/10/13-192910.75?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
 ```
 
 ```text
-  database_name | parent_schema_name |        object_name         | object_type | start_time |            end_time             | size_bytes | rows | is_full_cluster
-----------------+--------------------+----------------------------+-------------+------------+---------------------------------+------------+------+------------------
-  NULL          | NULL               | system                     | database    | NULL       | 2020-10-13 17:21:55.42497+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |         99 |    2 |      true
-  system        | public             | zones                      | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |        201 |    7 |      true
-  system        | public             | settings                   | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |        371 |    5 |      true
-  system        | public             | ui                         | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |        155 |    1 |      true
-  system        | public             | jobs                       | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |      78727 |   47 |      true
-  system        | public             | locations                  | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |        360 |    7 |      true
-  system        | public             | role_members               | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |         94 |    1 |      true
-  system        | public             | comments                   | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |          0 |    0 |      true
-  NULL          | NULL               | defaultdb                  | database    | NULL       | 2020-10-13 17:21:55.42497+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | NULL       | 2020-10-13 17:21:55.42497+00:00 |       NULL | NULL |      true
-  defaultdb     | public             | jobsview                   | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |          0 |    0 |      true
-  NULL          | NULL               | bank                       | database    | NULL       | 2020-10-13 17:21:55.42497+00:00 |       NULL | NULL |      true
-  bank          | public             | bank                       | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |     114634 | 1000 |      true
-  NULL          | NULL               | movr                       | database    | NULL       | 2020-10-13 17:21:55.42497+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |       4911 |   50 |      true
-  movr          | public             | vehicles                   | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |       3182 |   15 |      true
-  movr          | public             | rides                      | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |     156387 |  500 |      true
-  movr          | public             | vehicle_location_histories | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |      73918 | 1000 |      true
-  movr          | public             | promo_codes                | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |     219973 | 1000 |      true
-  movr          | public             | user_promo_codes           | table       | NULL       | 2020-10-13 17:21:55.42497+00:00 |          0 |    0 |      true
+  database_name | parent_schema_name |        object_name         | object_type | start_time |             end_time             | size_bytes | rows | is_full_cluster
+----------------+--------------------+----------------------------+-------------+------------+----------------------------------+------------+------+------------------
+  NULL          | NULL               | system                     | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
+  system        | public             | users                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |         99 |    2 |      true
+  system        | public             | zones                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        201 |    7 |      true
+  system        | public             | settings                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        374 |    5 |      true
+  system        | public             | ui                         | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        155 |    1 |      true
+  system        | public             | jobs                       | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |      94732 |   41 |      true
+  system        | public             | locations                  | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        360 |    7 |      true
+  system        | public             | role_members               | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |         94 |    1 |      true
+  system        | public             | comments                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
+  system        | public             | role_options               | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
+  system        | public             | scheduled_jobs             | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |       1425 |    4 |      true
+  NULL          | NULL               | defaultdb                  | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
+  NULL          | NULL               | postgres                   | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
+  defaultdb     | public             | jobsview                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
+  NULL          | NULL               | bank                       | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
+  bank          | public             | bank                       | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |     114634 | 1000 |      true
+  NULL          | NULL               | movr                       | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
+  movr          | public             | users                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |       4911 |   50 |      true
+  movr          | public             | vehicles                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |       3182 |   15 |      true
+  movr          | public             | rides                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |     156387 |  500 |      true
+  movr          | public             | vehicle_location_histories | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |      73918 | 1000 |      true
+  movr          | public             | promo_codes                | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |     219973 | 1000 |      true
+  movr          | public             | user_promo_codes           | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
 (23 rows)
 ```
 
