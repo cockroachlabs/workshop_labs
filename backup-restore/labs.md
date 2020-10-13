@@ -491,7 +491,7 @@ You can run this schedule from CockroachDB directly, without using tolls like `c
 
 ```sql
 CREATE SCHEDULE full_weekly_daily_incr
-  FOR BACKUP INTO 's3://backup/full-weekly-daily-incr?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+  FOR BACKUP INTO 's3://backup?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
     RECURRING '@daily'
     FULL BACKUP '@weekly'
     WITH SCHEDULE OPTIONS first_run = 'now';
