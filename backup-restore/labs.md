@@ -811,4 +811,5 @@ Our new node `roach-london-4` is up and running, we repaved in a matter of secon
 ## Summary
 
 In this labs we have learned how to backup and restore your data, how to create a schedule and where to look into the Documentation for further features and options.
+
 We also practice the technique of Repaving and, while we worked on Docker, the same principles can be applied to VMs or to Kubernetes Pods.
