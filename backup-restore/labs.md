@@ -79,7 +79,8 @@ Good job, we are now ready to perform our first backup job.
 Backup the entire cluster to S3. Please note: we must include the "KEYS" parameter even though none are required for S3Mock.
 
 ```sql
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '-10s';
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+  AS OF SYSTEM TIME '-10s';
 ```
 
 Check the Job progress in the Admin UI
@@ -205,7 +206,8 @@ With the new data added, let's take another backup.
 As in the specified location `s3://backup/2020-01` there is already a Full Backup, Cockroach will create a separate directory and put the incremental backup files in there.
 
 ```sql
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '-10s';
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+  AS OF SYSTEM TIME '-10s';
 ```
 
 Check the JOBS table to confirm the backup is complete
@@ -311,10 +313,14 @@ Another "day" has passed. Let's take another incremental backup
 
 ```sql
 -- ??? Who did this, what's going on?!?
-UPDATE movr.users SET NAME = 'malicious user' WHERE id IN ('ae147ae1-47ae-4800-8000-000000000022', 'b3333333-3333-4000-8000-000000000023', 'b851eb85-1eb8-4000-8000-000000000024');
+UPDATE movr.users SET NAME = 'malicious user'
+WHERE id IN ('ae147ae1-47ae-4800-8000-000000000022',
+            'b3333333-3333-4000-8000-000000000023',
+            'b851eb85-1eb8-4000-8000-000000000024');
 
 -- wait 10 seconds else the above changes won't be captured!
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '-10s';
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+  AS OF SYSTEM TIME '-10s';
 ```
 
 in S3Mock, another folder has been added for the new timestamp
@@ -429,7 +435,8 @@ DROP DATABASE movr CASCADE;
 
 -- check note below re timestamp precision - notice I added a trailing 5 to the microseconds...
 RESTORE DATABASE movr
-FROM 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' AS OF SYSTEM TIME '2020-10-12 21:19:27.0533485+00:00';
+FROM 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' 
+  AS OF SYSTEM TIME '2020-10-12 21:19:27.0533485+00:00';
 ```
 
 ```text
@@ -491,10 +498,10 @@ CREATE SCHEDULE full_weekly_daily_incr
 ```
 
 ```text
-     schedule_id     |          name          |                     status                     |            first_run            | schedule |                                                                       backup_stmt
----------------------+------------------------+------------------------------------------------+---------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------------------------
-  598144849357733899 | full_weekly_daily_incr | PAUSED: Waiting for initial backup to complete | NULL                            | @daily   | BACKUP INTO LATEST IN 's3://backup/full-weekly-daily-incr?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
-  598144851305857035 | full_weekly_daily_incr | ACTIVE                                         | 2020-10-13 17:21:55.42497+00:00 | @weekly  | BACKUP INTO 's3://backup/full-weekly-daily-incr?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
+     schedule_id     |          name          |                     status                     |            first_run            | schedule |                                                     backup_stmt
+---------------------+------------------------+------------------------------------------------+---------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------
+  598144849357733899 | full_weekly_daily_incr | PAUSED: Waiting for initial backup to complete | NULL                            | @daily   | BACKUP INTO LATEST IN 's3://backup?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
+  598144851305857035 | full_weekly_daily_incr | ACTIVE                                         | 2020-10-13 17:21:55.42497+00:00 | @weekly  | BACKUP INTO 's3://backup?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
 (2 rows)
 ```
 
@@ -505,10 +512,10 @@ SHOW SCHEDULES;
 ```
 
 ```text
-          id         |         label          | schedule_status |         next_run          | state | recurrence | jobsrunning | owner |             created              |                                              command
----------------------+------------------------+-----------------+---------------------------+-------+------------+-------------+-------+----------------------------------+----------------------------------------------------------------------------------------------------------
-  598144851305857035 | full_weekly_daily_incr | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 17:22:01.000173+00:00 | {"backup_statement": "BACKUP INTO 's3://backup/full-weekly-daily-incr
-  598144849357733899 | full_weekly_daily_incr | ACTIVE          | 2020-10-14 00:00:00+00:00 | NULL  | @daily     |           0 | root  | 2020-10-13 17:21:55.424988+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup/full-weekly-daily-incr?, "backup_type": 1}
+          id         |         label          | schedule_status |         next_run          | state | recurrence | jobsrunning | owner |             created              |                                  command
+---------------------+------------------------+-----------------+---------------------------+-------+------------+-------------+-------+----------------------------------+------------------------------------------------------------------------------
+  598144851305857035 | full_weekly_daily_incr | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 17:22:01.000173+00:00 | {"backup_statement": "BACKUP INTO 's3://backup
+  598144849357733899 | full_weekly_daily_incr | ACTIVE          | 2020-10-14 00:00:00+00:00 | NULL  | @daily     |           0 | root  | 2020-10-13 17:21:55.424988+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup?, "backup_type": 1}
 (2 rows)
 ```
 
@@ -517,7 +524,7 @@ As we set the `first_run` to `now`, the first backup job was started, and most l
 Let's verify we can see the first backup
 
 ```sql
-SHOW BACKUP 's3://backup/full-weekly-daily-incr?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
 ```
 
 ```text
@@ -529,7 +536,7 @@ We got an error: this is because the scheduler creates a directory structure for
 You can see this structure in S3Mock
 
 ```bash
-/tmp/s3mockFileStore1602536464462/backup/full-weekly-daily-incr/2020/10/13-172155%002E42 # ls -l
+/tmp/s3mockFileStore1602536464462/backup/2020/10/13-172155%002E42 # ls -l
 total 164
 drwxr-xr-x    2 root     root          4096 Oct 13 17:22 598144905179955205%002Esst
 [...]]
@@ -542,7 +549,7 @@ drwxr-xr-x    2 root     root          4096 Oct 13 17:22 BACKUP_MANIFEST-CHECKSU
 So what we can use instead is below statement which gives us a list of all backup paths for any given location.
 
 ```sql
-SHOW BACKUPS IN 's3://backup/full-weekly-daily-incr?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUPS IN 's3://backup?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
 ```
 
 ```text
@@ -554,7 +561,7 @@ SHOW BACKUPS IN 's3://backup/full-weekly-daily-incr?AWS_ENDPOINT=http://s3mock:9
 Now we can use this information to view the backup
 
 ```sql
-SHOW BACKUP 's3://backup/full-weekly-daily-incr/2020/10/13-172155.42?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup/2020/10/13-172155.42?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
 ```
 
 ```text
