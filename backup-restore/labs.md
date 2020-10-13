@@ -1,10 +1,12 @@
 # Backup and Restorre - Student Labs
 
-synopsys In this lab TODO
+In these labs we will familiarize with the Backup & Restore functionality in CockroachDB. We also include a lab to practice Repaving.
 
 ## Overview
 
-5 lines overivew TODO
+CockroachDB is by design fault tolerant and resilient, so Backup is only required for DR. Still, it is good practice to backup your entire database on at least a weekly basis with hourly/daily incremental backups.
+
+You can read this excellent [blog post](https://www.cockroachlabs.com/blog/distributed-database-performance/) about how to architecture CockroachDB and the importance of Backups, but also how CockroachDB naturally brings RPO to zero.
 
 ## Labs Prerequisites
 
@@ -805,3 +807,8 @@ root@roach-newyork-1:/cockroach# cockroach node status --insecure
 ```
 
 Our new node `roach-london-4` is up and running, we repaved in a matter of seconds!
+
+## Summary
+
+In this labs we have learned how to backup and restore your data, how to create a schedule and where to look into the Documentation for further features and options.
+We also practice the technique of Repaving and, while we worked on Docker, the same principles can be applied to VMs or to Kubernetes Pods.
