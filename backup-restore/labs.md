@@ -158,7 +158,7 @@ Check how the backup files are actually stored. In a new terminal window, connec
 docker exec -it s3mock /bin/sh
 ```
 
-Then drill into the `backup` bucket directory inside `/tmp`
+Then drill into the `backup` bucket directory inside `/tmp` to see the `sst` files and the `MANIFEST`s.
 
 ```bash
 / # ls -ltr /tmp/s3mockFileStore*/backup/2020-01/
