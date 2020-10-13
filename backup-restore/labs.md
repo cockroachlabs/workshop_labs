@@ -40,10 +40,10 @@ Now that the infrastructure is in place, let's create a database and load some d
 docker exec -it roach-newyork-1 bash
 ```
 
-In the container, generate a sample database with data. Please note, this will take few minutes to complete. While it works, you can read about the `workload` function and the `movr` database in [here](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html)
+In the container, generate a sample database with data. Please note, this will take few minutes to complete. While it works, you can read about the `workload` function and the `movr` database in [here](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
 
 ```bash
-cockroach workload init movr
+cockroach workload init movr --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100
 ```
 
 Once done, connect to the database
