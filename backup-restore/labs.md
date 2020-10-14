@@ -1,4 +1,4 @@
-# Backup and Restorre - Student Labs
+# Backup and Restore - Student Labs
 
 In these labs we will familiarize with the Backup & Restore functionality in CockroachDB. We also include a lab to practice Repaving.
 
