@@ -460,8 +460,8 @@ CREATE SCHEDULE weekly
 ```
 
 ```text
-     schedule_id     | label  |                     status                     |            first_run             | schedule |                                                               backup_stmt
----------------------+--------+------------------------------------------------+----------------------------------+----------+------------------------------------------------------------------------------------------------------------------------------------------
+     schedule_id     | label  |                     status                     |            first_run             | schedule |                                                                    backup_stmt
+---------------------+--------+------------------------------------------------+----------------------------------+----------+---------------------------------------------------------------------------------------------------------------------------------------------------------
   598169895033896961 | weekly | PAUSED: Waiting for initial backup to complete | NULL                             | @daily   | BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin' WITH detached
   598169897925541889 | weekly | ACTIVE                                         | 2020-10-13 19:29:10.756144+00:00 | @weekly  | BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin' WITH detached
 (2 rows)
