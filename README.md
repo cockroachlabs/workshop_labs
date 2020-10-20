@@ -32,12 +32,12 @@ This repository contains instructions for the various labs that are part of  the
 
 ## Topology Patterns
 
-- [Labs](/topology-patterns/labs.md)
+- [Labs](/topology-patterns/README.md)
 
 ## Serializable Transactions
 
-- [Labs](/serializable-transactions/labs.md)
+- [Labs](/serializable-transactions/README.md)
 
 ## Backup and Restore
 
-- [Labs](/backup-restore/labs.md)
+- [Labs](/backup-restore/README.md)
