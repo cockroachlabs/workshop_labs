@@ -513,7 +513,7 @@ SHOW BACKUPS IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KE
 Now we can use this information to view the backup
 
 ```sql
-SHOW BACKUP 's3://backup/weekly/2020/10/13-192910.75?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
+SHOW BACKUP '2020/10/13-192910.75' IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
 ```text
