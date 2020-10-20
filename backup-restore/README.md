@@ -22,18 +22,23 @@ You can read this excellent [blog post](https://www.cockroachlabs.com/blog/distr
 
 ## Lab 0 - Create S3 Compatible service and sample database
 
-We will use a S3 compatible service to store our backup files. For this workshop, we will use [Adobe S3Mock](https://github.com/adobe/S3Mock).
+We will use a S3 compatible service to store our backup files. For this workshop, we will use [MinIO](https://min.io/).
 
-Start a container and attach it to the 3 regional networks so that every cluster node can reach it.
+MinIO is a S3 compatible object storage service and it is very popular among private cloud deployments.
+
+Start MinIO, then head to the MinIO UI at <http://localhost:9000>. The default Access Key and Secret Key is `minioadmin`.
 
 ```bash
-# start s3mock. A bucket called 'backup' is automatically created
-docker run --name s3mock -p 9090:9090 -p 9191:9191 -t --hostname s3mock -d -e initialBuckets=backup adobe/s3mock
+# start container minio
+docker run --name minio --rm -d \
+  -p 9000:9000 \
+  -v minio-data:/data \
+  minio/minio server /data
 
 # attach networks
-docker network connect us-west2-net s3mock
-docker network connect us-east4-net s3mock
-docker network connect eu-west2-net s3mock
+docker network connect us-west2-net minio
+docker network connect us-east4-net minio
+docker network connect eu-west2-net minio
 ```
 
 Now that the infrastructure is in place, let's create a database and load some data. Connect to cluster node `roach-newyork-1`
@@ -78,10 +83,12 @@ Good job, we are now ready to perform our first backup job.
 
 ## Lab 1 - Full Cluster Backup
 
-Backup the entire cluster to S3. Please note: we must include the "KEYS" parameter even though none are required for S3Mock.
+In Minio UI, create a bucket called `backup`.
+
+Connect to the SQL client, then backup the entire cluster to MinIO.
 
 ```sql
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
   AS OF SYSTEM TIME '-10s';
 ```
 
@@ -113,7 +120,7 @@ SELECT * FROM jobsview ORDER BY created DESC LIMIT 5;
 ```text
         job_id       |   job_type    |                      short_description                      |  status   |             created              |    duration     | pct_done | error
 ---------------------+---------------+-------------------------------------------------------------+-----------+----------------------------------+-----------------+----------+--------
-  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=id&AWS_END | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
+  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=minioadmin | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
   597905751889248257 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:18.564897 |        1 |
   597905748751515649 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:03.050331 |        1 |
   597905649737793537 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:03.039549 |        1 |
@@ -123,7 +130,7 @@ SELECT * FROM jobsview ORDER BY created DESC LIMIT 5;
 Verify what was backed up remotely
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
 ```text
@@ -154,25 +161,9 @@ SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_
 
 Very good! The output shows both the `system` and `movr` databases backups are safely stored in S3!
 
-Check how the backup files are actually stored. In a new terminal window, connect to container `s3mock`
+Check how the backup files are actually stored in the MinIO server.
 
-```bash
-docker exec -it s3mock /bin/sh
-```
-
-Then drill into the `backup` bucket directory inside `/tmp` to see the `sst` files and the `MANIFEST`s.
-
-```bash
-/ # ls -ltr /tmp/s3mockFileStore*/backup/2020-01/
-total 188
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-CHECKPOINT-CHECKSUM
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 597906131332562949%002Esst
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 597906130090360841%002Esst
-[...]
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST-CHECKSUM
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-STATISTICS
-```
+![minio](media/minio.png)
 
 These are the files for our **Full Cluster** backup. In the next lab we will run an **incremental** backup and see how the files will be nicely organized.
 
@@ -208,7 +199,7 @@ With the new data added, let's take another backup.
 As in the specified location `s3://backup/2020-01` there is already a Full Backup, Cockroach will create a separate directory and put the incremental backup files in there.
 
 ```sql
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
   AS OF SYSTEM TIME '-10s';
 ```
 
@@ -221,43 +212,19 @@ SELECT * FROM jobsview ORDER BY created DESC LIMIT 5;
 ```text
         job_id       |   job_type    |                      short_description                      |  status   |             created              |    duration     | pct_done | error
 ---------------------+---------------+-------------------------------------------------------------+-----------+----------------------------------+-----------------+----------+--------
-  597908447545393153 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=id&AWS_END | succeeded | 2020-10-12 21:19:37.595622+00:00 | 00:00:31.972327 |        1 |
-  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=id&AWS_END | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
+  597908447545393153 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=minioadmin | succeeded | 2020-10-12 21:19:37.595622+00:00 | 00:00:31.972327 |        1 |
+  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=minioadmin | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
   597905751889248257 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:18.564897 |        1 |
   597905748751515649 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:03.050331 |        1 |
   597905652866678785 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:18.768623 |        1 |
 ````
 
-Check in S3Mock how the files are organized. You can see that there is a new folder `20201012` (today's date).
-
-```bash
-/ # ls -ltr /tmp/s3mockFileStore*/backup/2020-01/
-total 192
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-CHECKPOINT-CHECKSUM
-[...]
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST-CHECKSUM
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP_MANIFEST
-drwxr-xr-x    2 root     root          4096 Oct 12 21:07 BACKUP-STATISTICS
-drwxr-xr-x    3 root     root          4096 Oct 12 21:19 20201012
-```
-
-And in that folder another folder with the timestamp and the backup files
-
-```bash
-/ # ls -ltr /tmp/s3mockFileStore1602536464462/backup/2020-01/20201012/211927\%002E05/
-total 68
-drwxr-xr-x    2 root     root          4096 Oct 12 21:19 BACKUP-CHECKPOINT-CHECKSUM
-drwxr-xr-x    2 root     root          4096 Oct 12 21:20 597908528448012289%002Esst
-[...]]
-drwxr-xr-x    2 root     root          4096 Oct 12 21:20 BACKUP_MANIFEST-CHECKSUM
-drwxr-xr-x    2 root     root          4096 Oct 12 21:20 BACKUP_MANIFEST
-drwxr-xr-x    2 root     root          4096 Oct 12 21:20 BACKUP-STATISTICS
-```
+Check in MinIO how the files are organized. You can see that there is a new folder `20201012` (today's date).
 
 Now let's see the available backups at the new location
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
 ```text
@@ -321,23 +288,16 @@ WHERE id IN ('ae147ae1-47ae-4800-8000-000000000022',
             'b851eb85-1eb8-4000-8000-000000000024');
 
 -- wait 10 seconds else the above changes won't be captured!
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
   AS OF SYSTEM TIME '-10s';
 ```
 
-in S3Mock, another folder has been added for the new timestamp
-
-```bash
-/ # ls -ltr /tmp/s3mockFileStore1602536464462/backup/2020-01/20201012/
-total 8
-drwxr-xr-x   19 root     root          4096 Oct 12 21:20 211927%002E05
-drwxr-xr-x   11 root     root          4096 Oct 12 21:29 212824%002E80
-```
+Check MinIO: another folder has been added for the new timestamp.
 
 Confirm the backup looks good
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
 ```text
@@ -437,7 +397,7 @@ DROP DATABASE movr CASCADE;
 
 -- check note below re timestamp precision - notice I added a trailing 5 to the microseconds...
 RESTORE DATABASE movr
-FROM 's3://backup/2020-01?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+FROM 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
   AS OF SYSTEM TIME '2020-10-12 21:19:27.0533485+00:00';
 ```
 
@@ -493,7 +453,7 @@ You can run this schedule from CockroachDB directly, without using tolls like `c
 
 ```sql
 CREATE SCHEDULE weekly
-  FOR BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key'
+  FOR BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
     RECURRING '@daily'
     FULL BACKUP '@weekly'
     WITH SCHEDULE OPTIONS first_run = 'now';
@@ -502,8 +462,8 @@ CREATE SCHEDULE weekly
 ```text
      schedule_id     | label  |                     status                     |            first_run             | schedule |                                                               backup_stmt
 ---------------------+--------+------------------------------------------------+----------------------------------+----------+------------------------------------------------------------------------------------------------------------------------------------------
-  598169895033896961 | weekly | PAUSED: Waiting for initial backup to complete | NULL                             | @daily   | BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
-  598169897925541889 | weekly | ACTIVE                                         | 2020-10-13 19:29:10.756144+00:00 | @weekly  | BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key' WITH detached
+  598169895033896961 | weekly | PAUSED: Waiting for initial backup to complete | NULL                             | @daily   | BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin' WITH detached
+  598169897925541889 | weekly | ACTIVE                                         | 2020-10-13 19:29:10.756144+00:00 | @weekly  | BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin' WITH detached
 (2 rows)
 ```
 
@@ -516,8 +476,8 @@ SHOW SCHEDULES;
 ```text
           id         |         label          | schedule_status |         next_run          | state | recurrence | jobsrunning | owner |             created              |                                                                                            command
 ---------------------+------------------------+-----------------+---------------------------+-------+------------+-------------+-------+----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  598169895033896961 | weekly                 | ACTIVE          | 2020-10-14 00:00:00+00:00 |       | @daily     |           0 | root  | 2020-10-13 19:29:16.627381+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fs3mock%3A9090&AWS_SECRET_ACCESS_KEY=redacted' WITH detached", "backup_type": 1}
-  598169897925541889 | weekly                 | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 19:29:20.901034+00:00 | {"backup_statement": "BACKUP INTO 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fs3mock%3A9090&AWS_SECRET_ACCESS_KEY=redacted' WITH detached"}
+  598169895033896961 | weekly                 | ACTIVE          | 2020-10-14 00:00:00+00:00 |       | @daily     |           0 | root  | 2020-10-13 19:29:16.627381+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fminio%3A9000&AWS_SECRET_ACCESS_KEY=redacted' WITH detached", "backup_type": 1}
+  598169897925541889 | weekly                 | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 19:29:20.901034+00:00 | {"backup_statement": "BACKUP INTO 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fminio%3A9000&AWS_SECRET_ACCESS_KEY=redacted' WITH detached"}
 (2 rows)
 ```
 
@@ -526,7 +486,7 @@ As we set the `first_run` to `now`, the first backup job was started, and most l
 Let's verify we can see the first backup
 
 ```sql
-SHOW BACKUP 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
 ```text
@@ -535,23 +495,13 @@ ERROR: s3 object does not exist: NoSuchKey: The specified key does not exist.
 ```
 
 We got an error: this is because the scheduler creates a directory structure for the backups, and the structure is `your-location/yyyy/mm/dd-hhmmss.00`.
-You can see this structure in S3Mock
 
-```bash
-/tmp/s3mockFileStore1602613493412/backup/weekly/2020/10/13-192910%002E75 # ls -l
-total 236
-drwxr-xr-x    2 root     root          4096 Oct 13 19:29 598169993547481095%002Esst
-[...]
-drwxr-xr-x    2 root     root          4096 Oct 13 19:29 BACKUP-CHECKPOINT-CHECKSUM
-drwxr-xr-x    2 root     root          4096 Oct 13 19:30 BACKUP-STATISTICS
-drwxr-xr-x    2 root     root          4096 Oct 13 19:30 BACKUP_MANIFEST
-drwxr-xr-x    2 root     root          4096 Oct 13 19:30 BACKUP_MANIFEST-CHECKSUM
-```
+Check this structure in MinioUI
 
 So what we can use instead is below statement which gives us a list of all backup paths for any given location.
 
 ```sql
-SHOW BACKUPS IN 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUPS IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
 ```text
@@ -563,7 +513,7 @@ SHOW BACKUPS IN 's3://backup/weekly?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_K
 Now we can use this information to view the backup
 
 ```sql
-SHOW BACKUP 's3://backup/weekly/2020/10/13-192910.75?AWS_ENDPOINT=http://s3mock:9090&AWS_ACCESS_KEY_ID=id&AWS_SECRET_ACCESS_KEY=key';
+SHOW BACKUP 's3://backup/weekly/2020/10/13-192910.75?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
 ```text
