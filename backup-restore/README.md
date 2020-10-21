@@ -549,7 +549,169 @@ Perfect! Let it run for a few days, ideally until next week so you can see the s
 
 You can learn more about [Backup Schedule](https://www.cockroachlabs.com/docs/v20.2/manage-a-backup-schedule.html) and the SQL command [CREATE SCHEDULE FOR BACKUP](https://www.cockroachlabs.com/docs/v20.2/create-schedule-for-backup) in our docs.
 
-## Lab 5 - Repaving
+## Lab 5 - Locality-aware Backups
+
+You can create [locality-aware backups](https://www.cockroachlabs.com/docs/dev/take-and-restore-locality-aware-backups.html) such that each node writes files only to the backup destination that matches the node locality configured at node startup.
+
+This is useful for:
+
+- Reducing cloud storage data transfer costs by keeping data within cloud regions.
+- Helping you comply with data domiciling requirements, like GDPR.
+
+Setup `movr` so that European Union data is partitioned and stored in EU located nodes.
+
+```sql
+USE movr;
+
+-- partition tables into regions based on city
+ALTER TABLE rides PARTITION BY LIST (city) (
+  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+);
+
+ALTER TABLE users PARTITION BY LIST (city) (
+  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+);
+
+ALTER TABLE vehicle_location_histories PARTITION BY LIST (city) (
+  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+);
+
+ALTER TABLE vehicles PARTITION BY LIST (city) (
+  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+);
+
+-- pin partition eu_west2 to nodes located in region eu-west2
+ALTER PARTITION eu_west2 OF INDEX rides@*
+CONFIGURE ZONE USING
+  num_replicas = 3,
+  constraints = '{"+region=eu-west2"}',
+  lease_preferences = '[[+region=eu-west2]]';
+
+ALTER PARTITION eu_west2 OF INDEX users@*
+CONFIGURE ZONE USING
+  num_replicas = 3,
+  constraints = '{"+region=eu-west2"}',
+  lease_preferences = '[[+region=eu-west2]]';
+
+ALTER PARTITION eu_west2 OF INDEX vehicle_location_histories@*
+CONFIGURE ZONE USING
+  num_replicas = 3,
+  constraints = '{"+region=eu-west2"}',
+  lease_preferences = '[[+region=eu-west2]]';
+
+ALTER PARTITION eu_west2 OF INDEX vehicles@*
+CONFIGURE ZONE USING
+  num_replicas = 3,
+  constraints = '{"+region=eu-west2"}',
+  lease_preferences = '[[+region=eu-west2]]';
+```
+
+Wait 5 minutes for range reshuffle to complete, then verify the ranges for the `eu_west2` partitions are stored in the `eu-west2` nodes.
+
+```sql
+-- check ranges for table users - repeat if you want for all other tables
+SELECT SUBSTRING(start_key, 2, 15) AS start, SUBSTRING(end_key, 2, 15) AS end, lease_holder AS lh, lease_holder_locality, replicas, replica_localities
+FROM [SHOW RANGES FROM TABLE users]
+WHERE start_key IS NOT NULL AND start_key NOT LIKE '%Prefix%' AND substring(start_key, 3, 4) IN ('amst', 'pari', 'rome');
+```
+
+```text
+       start      |       end       | lh | lease_holder_locality  | replicas |                              replica_localities
+------------------+-----------------+----+------------------------+----------+-------------------------------------------------------------------------------
+  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
+  "paris"         | "paris"/"\xcc\x |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
+  "paris"/"\xcc\x | "paris"/PrefixE |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=b | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
+(5 rows)
+```
+
+Notice from column `replica_localities` how all replicas are `eu-west2` based.
+
+Create a new MinIO server `minio-eu` that simulates your Object Storage based in the EU.
+
+```bash
+# start container minio-eu
+docker run --name minio-eu --rm -d \
+  -p 19000:9000 \
+  -v minio-eu-data:/data \
+  minio/minio server /data
+
+# attach networks
+docker network connect us-west2-net minio-eu
+docker network connect us-east4-net minio-eu
+docker network connect eu-west2-net minio-eu
+```
+
+Open the `minio-eu` UI at <http://localhost:19000> and create bucket `backup-eu`.
+
+Backup the data that is stored in region `eu-west2` in `minio-eu`, and all other data in the default `minio` server as before. Check the ENDPOINT URLs in below command.
+
+```sql
+BACKUP TO
+  ('s3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin',
+   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west2&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin')
+  AS OF SYSTEM TIME '-10s';
+```
+
+Verify data is stored in both MinIO servers: left side is `minio`, right side is `minio-eu`.
+
+![minio-minio-eu](media/minio-minio-eu.png)
+
+Using SQL, point the command to the default location to view the entire backup
+
+```sql
+SHOW BACKUP
+  's3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
+```
+
+You can also view the individual backup files and the ranges they correspond to and confirm the files are stored in the correct bucket.
+
+```sql
+SELECT path, substring(start_pretty, 0, 25) AS start, substring(end_pretty, 0, 25) AS end
+FROM
+    [SHOW BACKUP FILES
+     's3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'];
+```
+
+```text
+           path          |             start             |              end
+-------------------------+-------------------------------+--------------------------------
+[...]
+  600397201844666377.sst | /Table/53/1/"amsterdam"       | /Table/53/1/"amsterdam"/"\xb3
+  600397201847517192.sst | /Table/53/1/"amsterdam"/"\xb3 | /Table/53/1/"amsterdam"/Prefi
+  600397202053070852.sst | /Table/53/1/"amsterdam"/Prefi | /Table/53/1/"boston"/"333333D
+  600397201648549892.sst | /Table/53/1/"boston"/"333333D | /Table/53/1/"los angeles"/"\x
+  600397201648582660.sst | /Table/53/1/"los angeles"/"\x | /Table/53/1/"new york"/"\x19\
+  600397201649926148.sst | /Table/53/1/"new york"/"\x19\ | /Table/53/1/"paris"
+  600397201849417736.sst | /Table/53/1/"paris"           | /Table/53/1/"paris"/"\xcc\xcc
+  600397201897947144.sst | /Table/53/1/"paris"/"\xcc\xcc | /Table/53/1/"paris"/PrefixEnd
+  600397201881628680.sst | /Table/53/1/"rome"            | /Table/53/1/"rome"/PrefixEnd
+  600397202088984577.sst | /Table/53/1/"rome"/PrefixEnd  | /Table/53/1/"san francisco"/"
+[...]
+```
+
+Optionally, you can drop `movr` and restore it
+
+```sql
+DROP DATABASE movr CASCADE;
+
+RESTORE DATABASE movr FROM
+  ('s3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin',
+   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west2&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin');
+```
+
+Good stuff! You have practiced a lot of Backup & Restore techniques, time to learn something new! In the next session, we'll review **Repaving** for our CockroachDB cluster nodes.
+
+## Lab 6 - Repaving
 
 In this lab, we practice the technique of **Repaving**, the process of rebuilding the environment from a known clean state, useful as a cybersecurity measure.
 
