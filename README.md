@@ -30,14 +30,18 @@ This repository contains instructions for the various labs that are part of  the
 
 - [Lab #1](lab1_student_migration_postgres.md)
 
-## Topology Patterns
+## Backup and Restore
 
-- [Labs](/topology-patterns/README.md)
+- [Labs](/backup-restore/README.md)
+
+## Query Optimization
+
+- [Labs](/query-optimization/README.md)
 
 ## Serializable Transactions
 
 - [Labs](/serializable-transactions/README.md)
 
-## Backup and Restore
+## Topology Patterns
 
-- [Labs](/backup-restore/README.md)
+- [Labs](/topology-patterns/README.md)
