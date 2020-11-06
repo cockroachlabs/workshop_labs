@@ -369,7 +369,7 @@ ORDER BY ol_number;
 Time: 2ms total (execution 1ms / network 1ms)
 ```
 
-Very good! As expected, the Optimizer choose `idx_ol_amount_storing_ol_quantity` over `primary` for the lower estimated rows required to be scanned (6,673 vs 5,599,606).
+Very good! As expected, the Optimizer chose `idx_ol_amount_storing_ol_quantity` over `primary` for the lower estimated rows required to be scanned (6,673 vs 5,599,606).
 
 You might however wonder how storing `ol_quantity` in the 2nd index affected the speed of execution so drammatically. Pull the verbose plan for the query using the index `idx_ol_amount`
 
