@@ -16,25 +16,12 @@ The following labs will take you through various query tuning scenarios and allo
 
 ## Lab 0 - Create database and load data
 
-Connect to any node and run the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html). Please note that loading the data can take up to 5 minutes.
+Connect to any node and run the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
 
-You have 2 options to create the database:
-
-- restoring it from a backup - fast
-- recreating it from scratch - slow
-
-### Restoring from backup
+Load the TPC-C data with 50 warehouses - it will take about 25 minutes
 
 ```bash
-docker run --name minio --rm -d \
-  -p 9000:9000 \
-  -v tpcc50w-data:/data \
-  minio/minio server /data
-
-# attach networks
-docker network connect us-west2-net minio
-docker network connect us-east4-net minio
-docker network connect eu-west2-net minio
+docker exec -it roach-newyork-1 bash -c "./cockroach workload init tpcc --drop --db tpcc --warehouses 50 postgres://root@127.0.0.1:26257?sslmode=disable"
 ```
 
 Connect to the database
@@ -50,40 +37,11 @@ cockroach sql --url "postgresql://localhost:26258/tpcc?sslmode=disable"
 psql -h localhost -p 26257 -U root tpcc
 ```
 
-Restore the entire database from the backup, it will take about 5 minutes
-
-```sql
-RESTORE FROM 's3://cockroach?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
-```
-
-```text
-        job_id       |  status   | fraction_completed |   rows   | index_entries |   bytes
----------------------+-----------+--------------------+----------+---------------+-------------
-  604334058000646147 | succeeded |                  1 | 25054972 |       8000190 | 3656062370
-(1 row)
-
-Time: 267.900s total (execution 267.897s / network 0.003s)
-```
-
----
-
-### Recreating workload
-
-Alternatively, recreate the TPCC workload - it will take about 30 minutes
-
-```bash
-docker exec -it roach-newyork-1 bash -c "./cockroach workload init tpcc --drop --db tpcc --warehouses 8 postgres://root@127.0.0.1:26257?sslmode=disable"
-```
-
----
-
 ## Lab 1 - Optimization
 
 Run the following query and observe the performance.
 
 ```sql
-USE tpcc;
-
 SELECT ol_number, SUM(ol_quantity)
 FROM order_line
 WHERE ol_w_id > 30
@@ -112,13 +70,13 @@ ORDER BY ol_number;
          15 |  100
 (15 rows)
 
-Time: 2.464s total (execution 2.464s / network -0.001s)
+Time: 3.361s total (execution 3.362s / network -0.001s)
 ```
 
-This is taking too long! We want the Response Time to be much faster. Let's check the query plan for this query using `EXPLAIN` to see how we can optimize it
+This is taking too long! We want the Response Time to be much faster. Let's check the verbose query plan using `EXPLAIN (VERBOSE)` to see how we can optimize it
 
 ```sql
-EXPLAIN SELECT ol_number, SUM(ol_quantity)
+EXPLAIN (VERBOSE) SELECT ol_number, SUM(ol_quantity)
 FROM order_line
 WHERE ol_w_id > 30
    AND ol_amount > 9990
@@ -127,23 +85,31 @@ ORDER BY ol_number;
 ```
 
 ```text
-         tree         |        field        |    description
-----------------------+---------------------+---------------------
-                      | distribution        | full
-                      | vectorized          | true
-  sort                |                     |
-   │                  | order               | +ol_number
-   └── group          |                     |
-        │             | group by            | ol_number
-        └── filter    |                     |
-             │        | filter              | ol_amount > 9990
-             └── scan |                     |
-                      | estimated row count | 5652121
-                      | table               | order_line@primary
-                      | spans               | [/31 - ]
+            tree           |        field        |    description     |                   columns                    |  ordering
+---------------------------+---------------------+--------------------+----------------------------------------------+-------------
+                           | distribution        | full               |                                              |
+                           | vectorized          | true               |                                              |
+  sort                     |                     |                    | (ol_number, sum)                             | +ol_number
+   │                       | estimated row count | 15                 |                                              |
+   │                       | order               | +ol_number         |                                              |
+   └── group               |                     |                    | (ol_number, sum)                             |
+        │                  | estimated row count | 15                 |                                              |
+        │                  | aggregate 0         | sum(ol_quantity)   |                                              |
+        │                  | group by            | ol_number          |                                              |
+        └── project        |                     |                    | (ol_number, ol_quantity)                     |
+             └── filter    |                     |                    | (ol_w_id, ol_number, ol_quantity, ol_amount) |
+                  │        | estimated row count | 6157               |                                              |
+                  │        | filter              | ol_amount > 9990   |                                              |
+                  └── scan |                     |                    | (ol_w_id, ol_number, ol_quantity, ol_amount) |
+                           | estimated row count | 5608610            |                                              |
+                           | table               | order_line@primary |                                              |
+                           | spans               | /31-               |                                              |
+(17 rows)
+
+Time: 2ms total (execution 1ms / network 1ms)
 ```
 
-Let's confirm what fields make up the `primary` index of table `order_line`.
+It is estimating the need to scan 5,608,610 rows, a lot! Let's confirm what fields make up the `primary` index of table `order_line`.
 
 ```sql
 SHOW CREATE TABLE order_line;
@@ -170,9 +136,9 @@ SHOW CREATE TABLE order_line;
              | )
 ```
 
-We can see that `primary` includes `ol_w_id` so it can leverage the index to quickly jump to the right key, but it doesn't include `ol_amount` or `ol_number` which are other fields used to filter, group and order by our query.
+We can see that `primary` includes `ol_w_id` so it can leverage the index to quickly jump to the right key, but it doesn't include `ol_amount` which is a field used to filter.
 
-We can create an index on `ol_amount` to improve the performance. For testing, we will create 2 indexes to show the value of `STORING`.
+We can create an index on `ol_amount` to reduce the rows to scan and improve the performance. For testing, we will create 2 indexes to show the value of `STORING`.
 
 Before, however, let's gather an explain plan with statistics used by the optimizer. We use `EXPLAIN` with `OPT,VERBOSE` as parameters.
 
@@ -187,12 +153,12 @@ ORDER BY ol_number;
 
 ```text
                                                                                                                                             text
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   sort
    ├── columns: ol_number:4 sum:13
    ├── immutable
    ├── stats: [rows=15, distinct(4)=15, null(4)=0]
-   ├── cost: 7291383.79
+   ├── cost: 7223657.24
    ├── key: (4)
    ├── fd: (4)-->(13)
    ├── ordering: +4
@@ -202,37 +168,41 @@ ORDER BY ol_number;
         ├── grouping columns: ol_number:4
         ├── immutable
         ├── stats: [rows=15, distinct(4)=15, null(4)=0]
-        ├── cost: 7291382.31
+        ├── cost: 7223655.76
         ├── key: (4)
         ├── fd: (4)-->(13)
         ├── prune: (13)
         ├── select
         │    ├── columns: ol_w_id:3 ol_number:4 ol_quantity:8 ol_amount:9
         │    ├── immutable
-        │    ├── stats: [rows=4715.93429, distinct(3)=19, null(3)=0, distinct(4)=15, null(4)=0, distinct(9)=800.634516, null(9)=0, distinct(3,9)=4715.93429, null(3,9)=0]
-        │    │   histogram(3)=  0 259.15 0 242.87 0 247.88 0 245.37 0 260.4 0 246.63 0 232.86 0 234.11 0 269.16 0 225.34 0 259.15 0 226.59 0 276.67 0 274.17 0 261.65 0 252.88 0 246.63 0 249.13 0 205.31
-        │    │                <---- 31 ----- 32 ----- 33 ----- 34 ---- 35 ----- 36 ----- 37 ----- 38 ----- 39 ----- 40 ----- 41 ----- 42 ----- 43 ----- 44 ----- 45 ----- 46 ----- 47 ----- 48 ----- 49 -
-        │    │   histogram(9)=  0   0    3321.2  1394.8
-        │    │                <--- 9990 -------- 9998.19
-        │    ├── cost: 7291240.66
+        │    ├── stats: [rows=5335.03271, distinct(3)=19, null(3)=0, distinct(4)=15, null(4)=0, distinct(9)=939.439645, null(9)=0, distinct(3,9)=5335.03271, null(3,9)=0]
+        │    │   histogram(3)=  0 258.75 0 243.02 0 294.48 0 271.61 0 281.62 0 248.74 0 270.18 0 281.62 0 301.63 0 290.2 0 301.63 0 268.75 0 278.76 0 295.91 0 295.91 0 285.91 0 264.46 0 294.48 0 307.35
+        │    │                <---- 31 ----- 32 ----- 33 ----- 34 ----- 35 ----- 36 ----- 37 ----- 38 ----- 39 ---- 40 ----- 41 ----- 42 ----- 43 ----- 44 ----- 45 ----- 46 ----- 47 ----- 48 ----- 49 -
+        │    │   histogram(9)=  0   0    3953.2  1381.8
+        │    │                <--- 9990 -------- 9999.61
+        │    ├── cost: 7223495.54
         │    ├── prune: (4,8)
         │    ├── interesting orderings: (+3)
         │    ├── scan order_line
         │    │    ├── columns: ol_w_id:3 ol_number:4 ol_quantity:8 ol_amount:9
         │    │    ├── constraint: /3/2/-1/4: [/31 - ]
-        │    │    ├── stats: [rows=5652121.42, distinct(3)=19, null(3)=0]
-        │    │    │   histogram(3)=  0 3.1059e+05 0 2.9108e+05 0 2.9708e+05 0 2.9408e+05 0 3.1209e+05 0 2.9558e+05 0 2.7908e+05 0 2.8058e+05 0 3.2259e+05 0 2.7008e+05 0 3.1059e+05 0 2.7158e+05 0 3.316e+05 0 3.2859e+05 0 3.1359e+05 0 3.0309e+05 0 2.9558e+05 0 2.9858e+05 0 2.4607e+05
-        │    │    │                <------ 31 --------- 32 --------- 33 --------- 34 --------- 35 --------- 36 --------- 37 --------- 38 --------- 39 --------- 40 --------- 41 --------- 42 -------- 43 --------- 44 --------- 45 --------- 46 --------- 47 --------- 48 --------- 49 ---
-        │    │    ├── cost: 7234719.42
+        │    │    ├── stats: [rows=5599605.82, distinct(3)=19, null(3)=0]
+        │    │    │   histogram(3)=  0 2.7158e+05 0 2.5507e+05 0 3.0909e+05 0 2.8508e+05 0 2.9558e+05 0 2.6107e+05 0 2.8358e+05 0 2.9558e+05 0 3.1659e+05 0 3.0459e+05 0 3.1659e+05 0 2.8208e+05 0 2.9258e+05 0 3.1059e+05 0 3.1059e+05 0 3.0009e+05 0 2.7758e+05 0 3.0909e+05 0 3.2259e+05
+        │    │    │                <------ 31 --------- 32 --------- 33 --------- 34 --------- 35 --------- 36 --------- 37 --------- 38 --------- 39 --------- 40 --------- 41 --------- 42 --------- 43 --------- 44 --------- 45 --------- 46 --------- 47 --------- 48 --------- 49 ---
+        │    │    ├── cost: 7167499.46
         │    │    └── interesting orderings: (+3)
         │    └── filters
         │         └── ol_amount:9 > 9990 [outer=(9), immutable, constraints=(/9: (/9990 - ]; tight)]
         └── aggregations
              └── sum [as=sum:13, outer=(8)]
                   └── ol_quantity:8
+(42 rows)
+
+Time: 3ms total (execution 1ms / network 2ms)
 ```
 
 TODO: definition of cost
+TODO: brief explanation of what we're looking at
 
 Adding keyword `ANALYZE` will both show the plan, in a graphical format, and execute it, too. This will show the query runtime performance
 
@@ -246,12 +216,17 @@ ORDER BY ol_number;
 ```
 
 ```text
-  automatic |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  url
-------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    true    | https://cockroachdb.github.io/distsqlplan/decode.html#eJzEld9u4kYUxu_7FKNzFdQJ9oz_-wqyYVtUAikkatMWIQcfEUu2hx2Pu6FRHqsv0CerbNIFE6_X2SzpJWd8hu_7nePPD5B9iMGHwa-Xo_5wTPrj_ujmtwE5OR_OrmY_jzpkNhgN3l0RES_SPLlFSUmWJyciXnzIg1RFatMh76eTCyJkiHIRRymSX34cTAekeObjIgrJH7muG0gMvUP64_OyHiQiT9V_J57n6R3yw3RyfUnObnZ_RSbT88G0UgIKqQhxHCSYgf87GEDBAgo2zCmspVhilglZHD2UDw7De_B1ClG6zlVRnlNYCongP4CKVIzgw1VwG-MUgxClpgOFEFUQxeX1O1O9tYySQG6AwmwdpJlPNIOdaqauMV3j3DA1BhTeR7FC6ZOet-_N9_3zwbvhRX8EFCa58knPpD0XKNwGanmHGRG5Whd1y_KAgsrX8V7R0wtVwwlRUYI-4V3LsG3Gs6J_ozAjEoPQJ5xZ5CI6AwpSfPxU9BxXd2yYP1LY3vcEIVPBCsFnj7Q9qP5qJXEVKCE1XuXUK8z3xzeL8eRqMb4ejU56rFOgur446fFOjVP23CcrBon3uMxVJNInt06XMzspvCbBPfkTl0rI6C8MSYKJkBsSxLFYBgpDnzCuk5-iswOvO_m3G3IXZHfPlM8fdzz4Z3ns7snTci0wrNxU3tJAzDwGMV5DjDH-z9_tgLE6YDsYxkuWYyakQqnZhza_f4UV023rpNmIWTHCaqdaN9NSfu1gx-JUrDW3-vShTbPljjObFT4_p96qqOftw4y9IMz2g-z0WySZ7jx379hGNclMh3uud5hkzLNrkszhhue2TbIvUNp7L423SjKr6zj_W5Lxb5hk1hGIGXWvhcmOEmRf2I2nIHO-MsjqnLitjXxtjtX4mGK2FmmGB7Otv1kvZo7hCrcLkolcLvFSimWZ-9ufk7KvLISYqe0p2_4YptujQuB-MztsZvvNvNLMSjWqNkrbfjF41zINl7NWtLn7CfdLVDuvUV23Hrxr6w4z3Oy5Et4I32iGbzQ2m0eBbzKrxobZqMRrtmE1NtvNzfabL6Dp6rx2ls1SjrBVpuM5Hn_dq-A0wneb4bvHW8DaD0bX8pykID9__O7fAAAA__-YlMyf
+  automatic |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          url
+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    true    | https://cockroachdb.github.io/distsqlplan/decode.html#eJy8Vttu4zYQfe9XEPMUo0ositT1yc7G2xp17NRO0KatYSjWwBEgiVqK6sYN8ln9gX5ZITm7thytVs46-6ghZ3jOmeGhHiH7EIEHg9-vRv3hmPTH_dHtHwNycjGcXc9-HXXIbDAavLsmIlokeXyHUiNZHp-IaPEh9xMVqnWHvJ9OLomQAcpFFCZIfvt5MB2QYs_HRRiQv3JdZ0iY3iH98UUZ92ORJ-rTiuu6eof8NJ3cXJHz2-1RZDK9GEwrIdAgEQGO_Rgz8P4EChowmGuQSrHELBOyCD-Wm4bBA3i6BmGS5qoIzzVYCongPYIKVYTgwbV_F-EU_QBlt6gVoPLDqCy9JdRLZRj7cg0azFI_yTzSZXbX7ToO7dJT0OB9GCmUHum5u5Q8z7sYvBte9kegwSRXHulxreeABne-Wt5jRkSu0iJuOcXZKk-jnSDVOQMNhhOiwhg9ws44ZZZlZ0WBtcKMSPQDjxgWI5fhOWggxcdPQWZxalId5k8abAo-C5Apf4Xg0SetvUj91UriyldCdllVo16Buz--XYwn14vxzWh00qOdQqaby5Oe0amhWkfUBA3wAZe5CkXyzJaecW7HBdfYfyB_41IJGf6DAYkxFnJN_CgSS19h4BFq6OSX8HyP6xb-3Zrc-9n9C-Tzp60exhf12NbJk3IkMKhUKqs0KGa-gWKsRjDD_O_fdnLROrm2UrBDRmMmpELZtfdJ_vh6Ik5bHs00eIuO1vWzBF_b1LE4FWnXqe7eJ8nbznfB8kvYzQp22t7C9EMsjJ7u2NgRXIw57CV5y9B3TYyeuSa3LHPfxCh3X5qYoVu6aRotTewrMu1cSeN7mZhrWW2H-egeRo_oYfwtBDPqboXF38TFvjIbzy5mvdLFaqmw1kxe62M1RKaYpSLJcK-79ZX1ousYrHAzIpnI5RKvpFiWx2w-J2VeGQgwU5tVuvkYJpulAuBuMt1PprvJdiWZlmhUrZW2VvqMU5vatPTTQ6AY3wKl7umiLVtuOJ97XsVrNOrOmnVnjcm8SnY_mTcmu80nm43JVnOy9Z3HpXiCbIO739apZtTHnyzuPv8wVGHYjco7zco7hwzMkS6qZRsFjfnTD_8HAAD__xGesv4=
+(1 row)
+
+Time: 3.432s total (execution 3.433s / network -0.001s)
 ```
 
 ![plan-1](media/plan-1.png)
+
+TODO: explanation of the plan
 
 With this information at hand, let's proceed with creating the indexes
 
@@ -259,7 +234,7 @@ With this information at hand, let's proceed with creating the indexes
 -- these will take few minutes to create
 CREATE INDEX idx_ol_amount ON order_line(ol_amount);
 -- same as above but storing ol_quantity as a value - useful for our sum()
-CREATE INDEX idx_ol_amount_storing ON order_line(ol_amount) STORING (ol_quantity);
+CREATE INDEX idx_ol_amount_storing_ol_quantity ON order_line(ol_amount) STORING (ol_quantity);
 ```
 
 Let's review again the Response Time by specifically selecting what Index to use. Remember, `primary` is the main index of the table.
@@ -283,7 +258,7 @@ ORDER BY ol_number;
 
 -- using the index that stores also the ol_quantity
 SELECT ol_number, SUM(ol_quantity)
-FROM order_line@idx_ol_amount_storing
+FROM order_line@idx_ol_amount_storing_ol_quantity
 WHERE ol_w_id > 30
    AND ol_amount > 9990
 GROUP BY ol_number
@@ -310,7 +285,7 @@ ORDER BY ol_number;
          15 |  100
 (15 rows)
 
-Time: 2.967s total (execution 2.968s / network -0.001s)
+Time: 4.267s total (execution 4.268s / network -0.001s)
 
   ol_number | sum
 ------------+-------
@@ -331,7 +306,7 @@ Time: 2.967s total (execution 2.968s / network -0.001s)
          15 |  100
 (15 rows)
 
-Time: 757ms total (execution 757ms / network 1ms)
+Time: 98ms total (execution 96ms / network 2ms)
 
   ol_number | sum
 ------------+-------
@@ -352,13 +327,13 @@ Time: 757ms total (execution 757ms / network 1ms)
          15 |  100
 (15 rows)
 
-Time: 7ms total (execution 6ms / network 1ms)
+Time: 15ms total (execution 14ms / network 2ms)
 ```
 
-Review the query plan of the original query to see what the optimizer will choose
+Review the query plan of the original query to see what the optimizer will choose now that we have added the indexes.
 
 ```sql
-EXPLAIN SELECT ol_number, SUM(ol_quantity)
+EXPLAIN (VERBOSE) SELECT ol_number, SUM(ol_quantity)
 FROM order_line
 WHERE ol_w_id > 30
    AND ol_amount > 9990
@@ -367,28 +342,36 @@ ORDER BY ol_number;
 ```
 
 ```text
-         tree         |        field        |           description
-----------------------+---------------------+-----------------------------------
-                      | distribution        | full
-                      | vectorized          | true
-  sort                |                     |
-   │                  | order               | +ol_number
-   └── group          |                     |
-        │             | group by            | ol_number
-        └── filter    |                     |
-             │        | filter              | ol_w_id > 30
-             └── scan |                     |
-                      | estimated row count | 2722
-                      | table               | order_line@idx_ol_amount_storing
-                      | spans               | (/9990 - ]
+            tree           |        field        |           description            |                   columns                    |  ordering
+---------------------------+---------------------+----------------------------------+----------------------------------------------+-------------
+                           | distribution        | full                             |                                              |
+                           | vectorized          | true                             |                                              |
+  sort                     |                     |                                  | (ol_number, sum)                             | +ol_number
+   │                       | estimated row count | 15                               |                                              |
+   │                       | order               | +ol_number                       |                                              |
+   └── group               |                     |                                  | (ol_number, sum)                             |
+        │                  | estimated row count | 15                               |                                              |
+        │                  | aggregate 0         | sum(ol_quantity)                 |                                              |
+        │                  | group by            | ol_number                        |                                              |
+        └── project        |                     |                                  | (ol_number, ol_quantity)                     |
+             └── filter    |                     |                                  | (ol_w_id, ol_number, ol_quantity, ol_amount) |
+                  │        | estimated row count | 6157                             |                                              |
+                  │        | filter              | ol_w_id > 30                     |                                              |
+                  └── scan |                     |                                  | (ol_w_id, ol_number, ol_quantity, ol_amount) |
+                           | estimated row count | 6673                             |                                              |
+                           | table               | order_line@idx_ol_amount_storing_ol_quantity |                                              |
+                           | spans               | /9.99E+3/PrefixEnd-              |                                              |
+(17 rows)
+
+Time: 2ms total (execution 1ms / network 1ms)
 ```
 
-Very good! As expected, the Optimizer choose the most efficient index, `idx_ol_amount_storing`.
+Very good! As expected, the Optimizer choose `idx_ol_amount_storing_ol_quantity` over `primary` for the lower estimated rows (6,673 vs 5,599,606) required to be scanned.
 
-You might wonder how storing `ol_quantity` in the 2nd index affected the speed of execution. Pull the plan for the query using the first index
+You might however wonder how storing `ol_quantity` in the 2nd index affected the speed of execution so drammatically. Pull the verbose plan for the query using the index `idx_ol_amount`
 
 ```sql
-EXPLAIN SELECT ol_number, SUM(ol_quantity)
+EXPLAIN (VERBOSE) SELECT ol_number, SUM(ol_quantity)
 FROM order_line@idx_ol_amount
 WHERE ol_w_id > 30
    AND ol_amount > 9990
@@ -397,28 +380,38 @@ ORDER BY ol_number;
 ```
 
 ```text
-            tree           |        field        |       description
----------------------------+---------------------+---------------------------
-                           | distribution        | full
-                           | vectorized          | true
-  sort                     |                     |
-   │                       | order               | +ol_number
-   └── group               |                     |
-        │                  | group by            | ol_number
-        └── index join     |                     |
-             │             | table               | order_line@primary
-             └── filter    |                     |
-                  │        | filter              | ol_w_id > 30
-                  └── scan |                     |
-                           | estimated row count | 2722
-                           | table               | order_line@idx_ol_amount
-                           | spans               | (/9990 - ]
+              tree              |        field        |             description              |                      columns                      |  ordering
+--------------------------------+---------------------+--------------------------------------+---------------------------------------------------+-------------
+                                | distribution        | full                                 |                                                   |
+                                | vectorized          | true                                 |                                                   |
+  sort                          |                     |                                      | (ol_number, sum)                                  | +ol_number
+   │                            | estimated row count | 15                                   |                                                   |
+   │                            | order               | +ol_number                           |                                                   |
+   └── group                    |                     |                                      | (ol_number, sum)                                  |
+        │                       | estimated row count | 15                                   |                                                   |
+        │                       | aggregate 0         | sum(ol_quantity)                     |                                                   |
+        │                       | group by            | ol_number                            |                                                   |
+        └── project             |                     |                                      | (ol_number, ol_quantity)                          |
+             └── index join     |                     |                                      | (ol_w_id, ol_number, ol_quantity, ol_amount)      |
+                  │             | estimated row count | 6157                                 |                                                   |
+                  │             | table               | order_line@primary                   |                                                   |
+                  │             | key columns         | ol_w_id, ol_d_id, ol_o_id, ol_number |                                                   |
+                  └── filter    |                     |                                      | (ol_o_id, ol_d_id, ol_w_id, ol_number, ol_amount) |
+                       │        | estimated row count | 2494                                 |                                                   |
+                       │        | filter              | ol_w_id > 30                         |                                                   |
+                       └── scan |                     |                                      | (ol_o_id, ol_d_id, ol_w_id, ol_number, ol_amount) |
+                                | estimated row count | 6673                                 |                                                   |
+                                | table               | order_line@idx_ol_amount             |                                                   |
+                                | spans               | /9.99E+3/PrefixEnd-                  |                                                   |
+(21 rows)
+
+Time: 3ms total (execution 2ms / network 1ms)
 ```
 
-As index `idx_ol_amount` doesn't have `ol_quantity`, a join operation with `primary` is required to get this field to compute the sum operation.
-This extra steps is expensive and thus takes longer to execute.
+As index `idx_ol_amount` doesn't store field `ol_quantity`, a join operation with `primary` is required to get this field to compute the sum operation.
+This extra steps is expensive and thus takes longer to execute; compare it with the plan selected by the optimizer.
 
-You can the 2nd index now
+Drop `idx_ol_amount`
 
 ```sql
 DROP INDEX idx_ol_amount;
@@ -455,7 +448,7 @@ Time: 7.249s total (execution 7.252s / network -0.004s)
 It's a bit slow... Check the query plan
 
 ```sql
-EXPLAIN SELECT w_name, w_city, sum(ol_amount)
+EXPLAIN (VERBOSE) SELECT w_name, w_city, sum(ol_amount)
 FROM order_line
 INNER JOIN warehouse ON (w_id = ol_supply_w_id)
 WHERE ol_supply_w_id > 40
@@ -463,31 +456,39 @@ GROUP BY 1,2;
 ```
 
 ```text
-         tree         |        field        |        description
-----------------------+---------------------+----------------------------
-                      | distribution        | full
-                      | vectorized          | true
-  group               |                     |
-   │                  | group by            | w_name, w_city
-   └── hash join      |                     |
-        │             | equality            | (ol_supply_w_id) = (w_id)
-        │             | right cols are key  |
-        ├── filter    |                     |
-        │    │        | filter              | ol_supply_w_id > 40
-        │    └── scan |                     |
-        │             | estimated row count | 15004305
-        │             | table               | order_line@primary
-        │             | spans               | FULL SCAN
-        └── scan      |                     |
-                      | estimated row count | 9
-                      | table               | warehouse@primary
-                      | spans               | [/41 - ]
+             tree             |        field        |        description        |                      columns                      | ordering
+------------------------------+---------------------+---------------------------+---------------------------------------------------+-----------
+                              | distribution        | full                      |                                                   |
+                              | vectorized          | true                      |                                                   |
+  group                       |                     |                           | (w_name, w_city, sum)                             |
+   │                          | estimated row count | 9                         |                                                   |
+   │                          | aggregate 0         | sum(ol_amount)            |                                                   |
+   │                          | group by            | w_name, w_city            |                                                   |
+   └── project                |                     |                           | (ol_amount, w_name, w_city)                       |
+        └── hash join (inner) |                     |                           | (ol_supply_w_id, ol_amount, w_id, w_name, w_city) |
+             │                | estimated row count | 2701275                   |                                                   |
+             │                | equality            | (ol_supply_w_id) = (w_id) |                                                   |
+             │                | right cols are key  |                           |                                                   |
+             ├── filter       |                     |                           | (ol_supply_w_id, ol_amount)                       |
+             │    │           | estimated row count | 2701275                   |                                                   |
+             │    │           | filter              | ol_supply_w_id > 40       |                                                   |
+             │    └── scan    |                     |                           | (ol_supply_w_id, ol_amount)                       |
+             │                | estimated row count | 15004305                  |                                                   |
+             │                | table               | order_line@primary        |                                                   |
+             │                | spans               | FULL SCAN                 |                                                   |
+             └── scan         |                     |                           | (w_id, w_name, w_city)                            |
+                              | estimated row count | 9                         |                                                   |
+                              | table               | warehouse@primary         |                                                   |
+                              | spans               | /41-                      |                                                   |
+(22 rows)
+
+Time: 4ms total (execution 3ms / network 1ms)
 ```
 
-Let's force this query to use all join methods: `LOOKUP`, `HASH`, `MERGE`.
+It's using a hash join. For the sake of testing and question the Optimizer choice, let's force this query to use all join methods: `LOOKUP`, `HASH`, `MERGE`.
 
 ```sql
--- INNER LOOKUP
+-- INNER LOOKUP JOIN
 SELECT w_name, w_city, sum(ol_amount)
 FROM order_line
 INNER LOOKUP JOIN warehouse ON (w_id = ol_supply_w_id)
@@ -498,17 +499,17 @@ GROUP BY 1,2;
 ```text
   w_name | w_city |     sum
 ---------+--------+---------------
+  9      | 20     | 452794529.04
+  7      | 14     | 896184081.57
+  7      | 19     | 449416001.35
+  10     | 19     | 449060385.59
   9      | 11     | 447365923.46
   6      | 12     | 449354824.30
-  7      | 14     | 896184081.57
-  9      | 20     | 452794529.04
-  10     | 19     | 449060385.59
   9      | 18     | 452314890.95
   9      | 17     | 451801641.36
-  7      | 19     | 449416001.35
 (8 rows)
 
-Time: 10.233s total (execution 10.218s / network 0.015s)
+Time: 7.989s total (execution 7.994s / network -0.005s)
 ```
 
 ```sql
@@ -521,7 +522,8 @@ GROUP BY 1,2;
 ```
 
 ```text
-Time: 10.213s total (execution 10.198s / network 0.015s)
+[...]
+Time: 6.704s total (execution 6.707s / network -0.003s)
 ```
 
 ```sql
@@ -534,15 +536,16 @@ GROUP BY 1,2;
 ```
 
 ```text
-Time: 11.760s total (execution 11.746s / network 0.014s)
+[...]
+Time: 8.320s total (execution 8.304s / network 0.016s)
 ```
 
-A `MERGE` join would be our best mechanism. Let's create an index to store `ol_supply_w_id` so we avoid a full scan.
+A `MERGE` join is usually the best join mechanism. Let's create an index to store `ol_supply_w_id` so we avoid a full scan.
 
 ```sql
 CREATE INDEX idx_ol_supp_w_id ON order_line(ol_supply_w_id) STORING (ol_amount);
 
-EXPLAIN SELECT w_name, w_city, sum(ol_amount)
+EXPLAIN (VERBOSE) SELECT w_name, w_city, sum(ol_amount)
 FROM order_line
 INNER JOIN warehouse ON (w_id = ol_supply_w_id)
 WHERE ol_supply_w_id > 40
@@ -550,27 +553,34 @@ GROUP BY 1,2;
 ```
 
 ```text
-       tree       |        field        |         description
-------------------+---------------------+------------------------------
-                  | distribution        | full
-                  | vectorized          | true
-  group           |                     |
-   │              | group by            | w_name, w_city
-   └── merge join |                     |
-        │         | equality            | (ol_supply_w_id) = (w_id)
-        │         | right cols are key  |
-        ├── scan  |                     |
-        │         | estimated row count | 2688021
-        │         | table               | order_line@idx_ol_supp_w_id
-        │         | spans               | [/41 - ]
-        └── scan  |                     |
-                  | estimated row count | 9
-                  | table               | warehouse@primary
-                  | spans               | [/41 - ]
+              tree             |        field        |         description         |                      columns                      |    ordering
+-------------------------------+---------------------+-----------------------------+---------------------------------------------------+------------------
+                               | distribution        | full                        |                                                   |
+                               | vectorized          | true                        |                                                   |
+  group                        |                     |                             | (w_name, w_city, sum)                             |
+   │                           | estimated row count | 9                           |                                                   |
+   │                           | aggregate 0         | sum(ol_amount)              |                                                   |
+   │                           | group by            | w_name, w_city              |                                                   |
+   └── project                 |                     |                             | (ol_amount, w_name, w_city)                       |
+        └── merge join (inner) |                     |                             | (ol_supply_w_id, ol_amount, w_id, w_name, w_city) |
+             │                 | estimated row count | 2683769                     |                                                   |
+             │                 | equality            | (ol_supply_w_id) = (w_id)   |                                                   |
+             │                 | right cols are key  |                             |                                                   |
+             │                 | merge ordering      | +"(ol_supply_w_id=w_id)"    |                                                   |
+             ├── scan          |                     |                             | (ol_supply_w_id, ol_amount)                       | +ol_supply_w_id
+             │                 | estimated row count | 2683769                     |                                                   |
+             │                 | table               | order_line@idx_ol_supp_w_id |                                                   |
+             │                 | spans               | /41-                        |                                                   |
+             └── scan          |                     |                             | (w_id, w_name, w_city)                            | +w_id
+                               | estimated row count | 9                           |                                                   |
+                               | table               | warehouse@primary           |                                                   |
+                               | spans               | /41-                        |                                                   |
+(20 rows)
 
+Time: 3ms total (execution 2ms / network 1ms)
 ```
 
-Perfect, we have a merge join using our new index
+Perfect, we have a merge join using our new index. Let's see how it performs
 
 ```sql
 SELECT w_name, w_city, sum(ol_amount)
@@ -583,20 +593,22 @@ GROUP BY 1,2;
 ```text
   w_name | w_city |     sum
 ---------+--------+---------------
-  6      | 12     | 449354824.30
-  10     | 19     | 449060385.59
-  9      | 18     | 452314890.95
-  9      | 17     | 451801641.36
   9      | 11     | 447365923.46
+  6      | 12     | 449354824.30
   9      | 20     | 452794529.04
   7      | 14     | 896184081.57
+  9      | 18     | 452314890.95
   7      | 19     | 449416001.35
+  10     | 19     | 449060385.59
+  9      | 17     | 451801641.36
 (8 rows)
 
-Time: 3.420s total (execution 3.421s / network -0.001s)
+Time: 2.905s total (execution 2.905s / network -0.001s)
 ```
 
-## Lab 3 - Performance
+Good job, we were able to cut Response Time in half! Mind, we still have to scan over 2,683,769 rows.
+
+## Lab 3 - Reading a previous snapshot
 
 The following report query is run to populate a dashboard within your application.
 
@@ -623,7 +635,7 @@ ORDER BY 1;
        9 | 30000
 (10 rows)
 
-Time: 1.990s total (execution 1.983s / network 0.007s)
+Time: 158ms total (execution 156ms / network 1ms)
 ```
 
 When experimenting, someone accidently uploaded some old data with todays date. Please run the following query:
@@ -663,7 +675,7 @@ ORDER BY 1;
 You can use the `AS OF SYSTEM TIME` clause to query the table at a previous state. You can leverage this feature to exclude the recently added data.
 
 ```sql
-SELECT h_w_id, count(*) AS snapshot_count
+SELECT h_w_id, count(*)
 FROM history AS OF SYSTEM TIME '-1hr'
 WHERE h_w_id < 10
 GROUP BY 1
@@ -671,18 +683,21 @@ ORDER BY 1;
 ```
 
 ```text
-  h_w_id | snapshot_count
----------+-----------------
-       0 |          30000
-       1 |          30000
-       2 |          30000
-       3 |          30000
-       4 |          30000
-       5 |          30000
-       6 |          30000
-       7 |          30000
-       8 |          30000
-       9 |          30000
+  h_w_id | count
+---------+--------
+       0 | 30000
+       1 | 30000
+       2 | 30000
+       3 | 30000
+       4 | 30000
+       5 | 30000
+       6 | 30000
+       7 | 30000
+       8 | 30000
+       9 | 30000
+(10 rows)
+
+Time: 270ms total (execution 269ms / network 1ms)
 ```
 
 Bingo! You can find more info about `AS OF SYSTEM TIME` in the [docs](https://www.cockroachlabs.com/docs/v20.1/as-of-system-time.html).
@@ -695,30 +710,21 @@ From the Admin UI you can gain a lot of information related to your database: si
 
 ![admin-ui-1](media/admin-ui-1.png)
 
-From the above screenshot, we see that the database size is 2.9GiB spread over 9 tables and 35 ranges. The biggest table is `stock` with 1.1 GiB in size.
+From the above screenshot, we see that the database size is 3.8GiB spread over 9 tables and 45 ranges. The biggest table is `order_line` with 1.9 GiB in size.
 
 Over to the **Statements** page, we can see the most recent statements being executed along with some statistics
 
 ![admin-ui-2](media/admin-ui-2.png)
 
-The query that is taking the most time is our query with the `merge join` operation, taking a little over 7 seconds on avarage.
-You can click on the query to see more details, including the Logical Plan and Execution Stats
-
-You can enable Diagnostics on any statement. Enable tracing on the history query by clicking on the **Activate** link under the **Diagnostics** column.
-
-Run the query again.
-
-```sql
-SELECT h_w_id, count(*)
-FROM history
-WHERE h_w_id < 10
-GROUP BY 1
-ORDER BY 1;
-```
-
-Collect the stmt-bundle from the AdminUI.
+Hover over a query and the full skeleton will appear. Click on the query to see more details, including the Logical Plan and Execution Stats
 
 ![admin-ui-3](media/admin-ui-3.png)
+
+You can enable Diagnostics on any statement. Enable tracing on any query by clicking on the **Activate** link under the **Diagnostics** column.
+
+Run the query again, then collect the **bundle zip file** from the AdminUI.
+
+![admin-ui-4](media/admin-ui-4.png)
 
 Explore the data gathered for query execution. This data will be helpful if you are experiencing a performance issues and need advise from Cockroach Labs.
 
