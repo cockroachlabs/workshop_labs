@@ -16,9 +16,7 @@ The following labs will take you through various query tuning scenarios and allo
 
 ## Lab 0 - Create database and load data
 
-Connect to any node and run the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
-
-Load the TPC-C data with 50 warehouses - it will take about 25 minutes
+Connect to any node and use the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html) to load the TPC-C data with 50 warehouses - it will take about 25 minutes
 
 ```bash
 docker exec -it roach-newyork-1 bash -c "./cockroach workload init tpcc --drop --db tpcc --warehouses 50 postgres://root@127.0.0.1:26257?sslmode=disable"
@@ -73,7 +71,9 @@ ORDER BY ol_number;
 Time: 3.361s total (execution 3.362s / network -0.001s)
 ```
 
-This is taking too long! We want the Response Time to be much faster. Let's check the verbose query plan using `EXPLAIN (VERBOSE)` to see how we can optimize it
+This is taking too long! We want the Response Time to be much faster. To view the query plan, we can use [the `EXPLAIN` command](https://www.cockroachlabs.com/docs/stable/explain.html).
+
+Let's check the verbose query plan using `EXPLAIN (VERBOSE)` to see how we can optimize it
 
 ```sql
 EXPLAIN (VERBOSE) SELECT ol_number, SUM(ol_quantity)
@@ -167,7 +167,8 @@ ORDER BY ol_number;
         ├── columns: ol_number:4 sum:13
         ├── grouping columns: ol_number:4
         ├── immutable
-        ├── stats: [rows=15, distinct(4)=15, null(4)=0]
+        ├── stats: [rows=15, distinct(4)=15, null(4
+        )=0]
         ├── cost: 7223655.76
         ├── key: (4)
         ├── fd: (4)-->(13)
@@ -226,7 +227,9 @@ Time: 3.432s total (execution 3.433s / network -0.001s)
 
 ![plan-1](media/plan-1.png)
 
-TODO: explanation of the plan
+TODO: explain plan
+
+You can find in [our docs](https://www.cockroachlabs.com/docs/stable/explain-analyze#distsql-plan-viewer) the instructions to read every section of the plan.
 
 With this information at hand, let's proceed with creating the indexes
 
@@ -366,7 +369,7 @@ ORDER BY ol_number;
 Time: 2ms total (execution 1ms / network 1ms)
 ```
 
-Very good! As expected, the Optimizer choose `idx_ol_amount_storing_ol_quantity` over `primary` for the lower estimated rows (6,673 vs 5,599,606) required to be scanned.
+Very good! As expected, the Optimizer choose `idx_ol_amount_storing_ol_quantity` over `primary` for the lower estimated rows required to be scanned (6,673 vs 5,599,606).
 
 You might however wonder how storing `ol_quantity` in the 2nd index affected the speed of execution so drammatically. Pull the verbose plan for the query using the index `idx_ol_amount`
 
@@ -409,13 +412,15 @@ Time: 3ms total (execution 2ms / network 1ms)
 ```
 
 As index `idx_ol_amount` doesn't store field `ol_quantity`, a join operation with `primary` is required to get this field to compute the sum operation.
-This extra steps is expensive and thus takes longer to execute; compare it with the plan selected by the optimizer.
+This extra step is expensive and thus takes longer to execute: compare it with the plan selected by the optimizer, above.
 
-Drop `idx_ol_amount`
+When you are content with this lab, feel free to drop `idx_ol_amount`
 
 ```sql
 DROP INDEX idx_ol_amount;
 ```
+
+You can learn more about the the [Cost-Based Optimizer](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer) in our docs.
 
 ## Lab 2 - Joining mechanisms
 
@@ -485,7 +490,8 @@ GROUP BY 1,2;
 Time: 4ms total (execution 3ms / network 1ms)
 ```
 
-It's using a hash join. For the sake of testing and question the Optimizer choice, let's force this query to use all join methods: `LOOKUP`, `HASH`, `MERGE`.
+It's using a hash join. For the sake of testing, let's put into question the choice taken by the Optimizer.
+Let's force this query to use [all suported CockroachDB join methods](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer#supported-join-algorithms): `LOOKUP`, `HASH`, `MERGE` and compare the Response Time.
 
 ```sql
 -- INNER LOOKUP JOIN
@@ -540,7 +546,7 @@ GROUP BY 1,2;
 Time: 8.320s total (execution 8.304s / network 0.016s)
 ```
 
-A `MERGE` join is usually the best join mechanism. Let's create an index to store `ol_supply_w_id` so we avoid a full scan.
+A `MERGE` join is usually the [preferred](https://www.cockroachlabs.com/docs/stable/joins#merge-joins) join mechanism. Let's create an index to store `ol_supply_w_id` so we avoid a full scan.
 
 ```sql
 CREATE INDEX idx_ol_supp_w_id ON order_line(ol_supply_w_id) STORING (ol_amount);
@@ -607,6 +613,8 @@ Time: 2.905s total (execution 2.905s / network -0.001s)
 ```
 
 Good job, we were able to cut Response Time in half! Mind, we still have to scan over 2,683,769 rows.
+
+Find out more about Joins [in our docs](https://www.cockroachlabs.com/docs/stable/joins.html).
 
 ## Lab 3 - Reading a previous snapshot
 
@@ -700,11 +708,12 @@ ORDER BY 1;
 Time: 270ms total (execution 269ms / network 1ms)
 ```
 
-Bingo! You can find more info about `AS OF SYSTEM TIME` in the [docs](https://www.cockroachlabs.com/docs/v20.1/as-of-system-time.html).
+Bingo! You can find more info about reading historical snapshot data using `AS OF SYSTEM TIME` in [here](https://www.cockroachlabs.com/docs/v20.1/as-of-system-time.html).
 
 ## Lab 4 - Query Troubleshooting
 
-Connect to the Admin UI at <http://localhost:8080>.
+Connect to the Admin UI at <http://localhost:8080>. We are going to cover how to Monitor and Analyse our CockroachDB cluster.
+You can find the [Overview](https://www.cockroachlabs.com/docs/stable/admin-ui-overview.html) page a great place to start to learn more about it.
 
 From the Admin UI you can gain a lot of information related to your database: size, number of tables, vie the `CREATE TABLE` statements, table ranges and columns, etc.
 
@@ -748,6 +757,15 @@ Open the Jaeger UI at <http://localhost:16686> and import the `trace-jaeger.json
 
 ![jaeger-ui](media/jaeger-ui.png)
 
-From here you can analyse every step of its execution and find out possible bottlenecks.
+From here you can analyse every step of its execution and discover possible bottlenecks.
 
-Congratulations! You are now familiar with many of the techniques used to optimize the performance of your cluster, you have a deeper understanding of the architecture and the role that secondary indexes can play, and got practice with troubleshooting and diagnosing a slow running query!
+## Final thoughts
+
+Congratulations! You are now familiar with many of the techniques used to optimize the performance of your cluster, you have a deeper understanding of the architecture and the role that secondary indexes can play. You also practiced with troubleshooting and diagnosing a slow running query.
+
+Some suggested material to further expand on this topic are found in our docs:
+
+- [Performance Overview](https://www.cockroachlabs.com/docs/stable/performance.html)
+- [Monitoring and Alerting](https://www.cockroachlabs.com/docs/stable/monitoring-and-alerting.html)
+- [Indexes](https://www.cockroachlabs.com/docs/stable/indexes)
+- [Vectorized Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html)
