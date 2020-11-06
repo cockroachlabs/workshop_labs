@@ -491,7 +491,7 @@ Time: 4ms total (execution 3ms / network 1ms)
 ```
 
 It's using a hash join. For the sake of testing, let's put into question the choice taken by the Optimizer.
-Let's force this query to use [all suported CockroachDB join methods](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer#supported-join-algorithms): `LOOKUP`, `HASH`, `MERGE` and compare the Response Time.
+Let's force this query to use [all supported CockroachDB join methods](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer#supported-join-algorithms): `LOOKUP`, `HASH`, `MERGE` and compare the Response Time.
 
 ```sql
 -- INNER LOOKUP JOIN
@@ -546,7 +546,7 @@ GROUP BY 1,2;
 Time: 8.320s total (execution 8.304s / network 0.016s)
 ```
 
-A `MERGE` join is usually the [preferred](https://www.cockroachlabs.com/docs/stable/joins#merge-joins) join mechanism. Let's create an index to store `ol_supply_w_id` so we avoid a full scan.
+The hash join was indeed the fastest, so the Optimizer chose correctly. However, a `MERGE` join is usually the [preferred](https://www.cockroachlabs.com/docs/stable/joins#merge-joins) join mechanism. Let's create an index to store `ol_supply_w_id` so we avoid a full scan and a hash join.
 
 ```sql
 CREATE INDEX idx_ol_supp_w_id ON order_line(ol_supply_w_id) STORING (ol_amount);
@@ -614,7 +614,7 @@ Time: 2.905s total (execution 2.905s / network -0.001s)
 
 Good job, we were able to cut Response Time in half! Mind, we still have to scan over 2,683,769 rows.
 
-Find out more about Joins [in our docs](https://www.cockroachlabs.com/docs/stable/joins.html).
+Read more about Joins [in our docs](https://www.cockroachlabs.com/docs/stable/joins.html).
 
 ## Lab 3 - Reading a previous snapshot
 
@@ -646,7 +646,7 @@ ORDER BY 1;
 Time: 158ms total (execution 156ms / network 1ms)
 ```
 
-When experimenting, someone accidently uploaded some old data with todays date. Please run the following query:
+When experimenting, someone accidently uploaded some old data with today's date
 
 ```sql
 INSERT INTO history (h_c_id, h_c_d_id, h_c_w_id, h_d_id, h_w_id, h_date, h_amount, h_data)
