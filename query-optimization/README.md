@@ -202,8 +202,10 @@ ORDER BY ol_number;
 Time: 3ms total (execution 1ms / network 2ms)
 ```
 
-TODO: definition of cost
-TODO: brief explanation of what we're looking at
+Cost is roughly calculated by:
+
+- Estimating how much time each node in the query plan will use to process all results
+- Modeling how data flows through the query plan
 
 Adding keyword `ANALYZE` will both show the plan, in a graphical format, and execute it, too. This will show the query runtime performance
 
@@ -227,9 +229,21 @@ Time: 3.432s total (execution 3.433s / network -0.001s)
 
 ![plan-1](media/plan-1.png)
 
-TODO: explain plan
+In above plan, for example, we see that 2 nodes are required to execute the query: as `ol_w_id` is part of the primary key of index/table `order_line@primary`, the optimizer can easely apply the filter condition `WHERE ol_w_id > 30` by spanning only over the ranges where this condition is true. The ranges are spread over 2 nodes:
 
-You can find in [our docs](https://www.cockroachlabs.com/docs/stable/explain-analyze#distsql-plan-viewer) the instructions to read every section of the plan.
+- Node3 spans ranges 31-37;
+- Node1 spans ranges 37 till the end.
+
+This is done by the `TableReader` process, and you can see that this process also applies the filter `ol_amount > 9990` as it reads through the rows. It outputs column `@4` and `@8`, that is, `ol_number` and `ol_quantity` in _batches_ of _tuples_ as the execution is **vectorized**.
+
+The `Aggregator` process receives such tuples and:
+
+- performs the grouping `by hash @1`, where `@1` is the first element in the tuple, `ol_number`;
+- computes the sum `SUM(@2` where `@2` is the second element in the tuple, `ol_quantity`.
+
+The output is sent to the `Sorter` process that performs the `ORDER BY ol_number` part of the query (`ordered @1+`), before the gateway nodes sends back the result set to the client. 
+
+Refer to [our docs](https://www.cockroachlabs.com/docs/stable/explain-analyze#distsql-plan-viewer) for the complete instructions on how to read every section of the plan.
 
 With this information at hand, let's proceed with creating the indexes
 
@@ -769,3 +783,7 @@ Some suggested material to further expand on this topic are found in our docs:
 - [Monitoring and Alerting](https://www.cockroachlabs.com/docs/stable/monitoring-and-alerting.html)
 - [Indexes](https://www.cockroachlabs.com/docs/stable/indexes)
 - [Vectorized Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html)
+
+Blog:
+
+- [Cost-Based Optimizer](https://www.cockroachlabs.com/blog/cost-based-optimizer-20-1/)
