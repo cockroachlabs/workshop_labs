@@ -4,7 +4,7 @@ This repository contains instructions for the various labs that are part of  the
 
 ## Provision Infrastructure and Platform
 
-- [Build multi-region CockroachDB cluster on localhost using Docker](infrastructure/multi-regions-local-docker-cluster.md)
+- [Build multi-region CockroachDB cluster on localhost using Docker](https://dev.to/cockroachlabs/simulating-a-multi-region-cockroachdb-cluster-on-localhost-with-docker-59f6)
 - [Build single-region CockroachDB cluster on localhost using Docker](infrastructure/single-region-local-docker-cluster.md)
 - [Build multi-region CockroachDB cluster on Kubernetes using Minikube](https://dev.to/cockroachlabs/simulating-a-multi-region-cockroachdb-cluster-on-kubernetes-with-minikube-4jd9)
 
