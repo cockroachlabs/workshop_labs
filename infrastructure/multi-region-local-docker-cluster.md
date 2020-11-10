@@ -14,6 +14,37 @@ Below is the high level architecture diagram. Each region will host 3 nodes:
 
 ## Setup
 
+### Dockerfile
+
+Create a custom image based on the official [CockroachDB image](https://hub.docker.com/r/cockroachdb/cockroach) as we need to add package `iproute-tc`, required to simulate the latency between the cluster nodes.
+
+Save locally as file 'Dockerfile'.
+
+```bash
+FROM cockroachdb/cockroach:latest
+RUN echo -e "[BaseOS] \nname=CentOS-\$releasever - Base \nmirrorlist=http://mirrorlist.centos.org/?release=\$releasever&arch=\$basearch&repo=BaseOS&infra=\$infra\ngpgcheck=0\nenabled=1\n" > /etc/yum.repos.d/Centos8-Repo.repo
+RUN microdnf install -y iproute-tc && rm -rf /var/cache/yum
+```
+
+Build the image with tag name `crdb`.
+
+```bash
+docker build -t crdb .
+```
+
+Verify the image is available to Docker
+
+```bash
+$ docker images                                                                                                                                                                                    
+REPOSITORY                        TAG                 IMAGE ID            CREATED             SIZE
+crdb                              latest              636a1478ca1d        7 minutes ago       338MB
+cockroachdb/cockroach             latest              eb9d4ec20cc9        21 hours ago        327MB
+```
+
+Good job! The image is ready
+
+### Docker Networks
+
 Create the required networks. We create 1 network for each region, plus 1 network for each inter-regional connection.
 
 ```bash
@@ -34,8 +65,8 @@ Create the `haproxy.cfg` files for the HAProxy in each region.
 
 ```bash
 # us-east4
-mkdir -p data/infrastructure/us-east4
-cat - >data/infrastructure/us-east4/haproxy.cfg <<EOF
+mkdir -p data/us-east4
+cat - >data/us-east4/haproxy.cfg <<EOF
 
 global
   maxconn 4096
@@ -45,8 +76,8 @@ defaults
     # Timeout values should be configured for your specific use.
     # See: https://cbonte.github.io/haproxy-dconv/1.8/configuration.html#4-timeout%20connect
     timeout connect     10s
-    timeout client      10m
-    timeout server      10m
+    timeout client      1m
+    timeout server      1m
     # TCP keep-alive on client side. Server already enables them.
     option              clitcpka
 
@@ -62,8 +93,8 @@ listen psql
 EOF
 
 # us-west2
-mkdir data/infrastructure/us-west2
-cat - >data/infrastructure/us-west2/haproxy.cfg <<EOF
+mkdir data/us-west2
+cat - >data/us-west2/haproxy.cfg <<EOF
 
 global
   maxconn 4096
@@ -73,8 +104,8 @@ defaults
     # Timeout values should be configured for your specific use.
     # See: https://cbonte.github.io/haproxy-dconv/1.8/configuration.html#4-timeout%20connect
     timeout connect     10s
-    timeout client      10m
-    timeout server      10m
+    timeout client      1m
+    timeout server      1m
     # TCP keep-alive on client side. Server already enables them.
     option              clitcpka
 
@@ -90,8 +121,8 @@ listen psql
 EOF
 
 # eu-west2
-mkdir data/infrastructure/eu-west2
-cat - >data/infrastructure/eu-west2/haproxy.cfg <<EOF
+mkdir data/eu-west2
+cat - >data/eu-west2/haproxy.cfg <<EOF
 
 global
   maxconn 4096
@@ -101,8 +132,8 @@ defaults
     # Timeout values should be configured for your specific use.
     # See: https://cbonte.github.io/haproxy-dconv/1.8/configuration.html#4-timeout%20connect
     timeout connect     10s
-    timeout client      10m
-    timeout server      10m
+    timeout client      1m
+    timeout server      1m
     # TCP keep-alive on client side. Server already enables them.
     option              clitcpka
 
@@ -115,31 +146,31 @@ listen psql
     server cockroach8 roach-london-2:26257 check port 8080
     server cockroach9 roach-london-3:26257 check port 8080
 EOF
-```
+``` 
 
 Create the docker containers
 
 ```bash
 # Seattle
-docker run -d --name=roach-seattle-1 --hostname=roach-seattle-1 --ip=172.27.0.11 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8080:8080 -v "roach-seattle-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=a
-docker run -d --name=roach-seattle-2 --hostname=roach-seattle-2 --ip=172.27.0.12 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8081:8080 -v "roach-seattle-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=b
-docker run -d --name=roach-seattle-3 --hostname=roach-seattle-3 --ip=172.27.0.13 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8082:8080 -v "roach-seattle-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=c
+docker run -d --name=roach-seattle-1 --hostname=roach-seattle-1 --ip=172.27.0.11 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8080:8080 -v "roach-seattle-1-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=a
+docker run -d --name=roach-seattle-2 --hostname=roach-seattle-2 --ip=172.27.0.12 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8081:8080 -v "roach-seattle-2-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=b
+docker run -d --name=roach-seattle-3 --hostname=roach-seattle-3 --ip=172.27.0.13 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8082:8080 -v "roach-seattle-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=c
 # Seattle HAProxy
-docker run -d --name haproxy-seattle --ip=172.27.0.10 -p 26257:26257 --net=us-west2-net -v `pwd`/data/infrastructure/us-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
+docker run -d --name haproxy-seattle --ip=172.27.0.10 -p 26257:26257 --net=us-west2-net -v `pwd`/data/us-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
 
 # New York
-docker run -d --name=roach-newyork-1 --hostname=roach-newyork-1 --ip=172.28.0.11 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8180:8080 -v "roach-newyork-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=a
-docker run -d --name=roach-newyork-2 --hostname=roach-newyork-2 --ip=172.28.0.12 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8181:8080 -v "roach-newyork-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=b
-docker run -d --name=roach-newyork-3 --hostname=roach-newyork-3 --ip=172.28.0.13 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8182:8080 -v "roach-newyork-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=c
+docker run -d --name=roach-newyork-1 --hostname=roach-newyork-1 --ip=172.28.0.11 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8180:8080 -v "roach-newyork-1-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=a
+docker run -d --name=roach-newyork-2 --hostname=roach-newyork-2 --ip=172.28.0.12 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8181:8080 -v "roach-newyork-2-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=b
+docker run -d --name=roach-newyork-3 --hostname=roach-newyork-3 --ip=172.28.0.13 --cap-add NET_ADMIN --net=us-east4-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8182:8080 -v "roach-newyork-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east4,zone=c
 # New York HAProxy
-docker run -d --name haproxy-newyork --ip=172.28.0.10 -p 26258:26257 --net=us-east4-net -v `pwd`/data/infrastructure/us-east4/:/usr/local/etc/haproxy:ro haproxy:1.7  
+docker run -d --name haproxy-newyork --ip=172.28.0.10 -p 26258:26257 --net=us-east4-net -v `pwd`/data/us-east4/:/usr/local/etc/haproxy:ro haproxy:1.7  
 
 # London
-docker run -d --name=roach-london-1 --hostname=roach-london-1 --ip=172.29.0.11 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8280:8080 -v "roach-london-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=a
-docker run -d --name=roach-london-2 --hostname=roach-london-2 --ip=172.29.0.12 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8281:8080 -v "roach-london-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=b
-docker run -d --name=roach-london-3 --hostname=roach-london-3 --ip=172.29.0.13 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8282:8080 -v "roach-london-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=c
+docker run -d --name=roach-london-1 --hostname=roach-london-1 --ip=172.29.0.11 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8280:8080 -v "roach-london-1-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=a
+docker run -d --name=roach-london-2 --hostname=roach-london-2 --ip=172.29.0.12 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8281:8080 -v "roach-london-2-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=b
+docker run -d --name=roach-london-3 --hostname=roach-london-3 --ip=172.29.0.13 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8282:8080 -v "roach-london-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=c
 # London HAProxy
-docker run -d --name haproxy-london --ip=172.29.0.10 -p 26259:26257 --net=eu-west2-net -v `pwd`/data/infrastructure/eu-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
+docker run -d --name haproxy-london --ip=172.29.0.10 -p 26259:26257 --net=eu-west2-net -v `pwd`/data/eu-west2/:/usr/local/etc/haproxy:ro haproxy:1.7  
 ```
 
 Initialize the cluster
@@ -160,7 +191,6 @@ for j in 1 2 3
 do
     docker network connect uswest-useast-net roach-seattle-$j
     docker network connect uswest-euwest-net roach-seattle-$j
-    docker exec roach-seattle-$j bash -c "apt-get update && apt-get install -y iproute2 iputils-ping dnsutils"
     docker exec roach-seattle-$j tc qdisc add dev eth1 root netem delay 30ms
     docker exec roach-seattle-$j tc qdisc add dev eth2 root netem delay 90ms
 done
@@ -170,7 +200,6 @@ for j in 1 2 3
 do
     docker network connect uswest-useast-net roach-newyork-$j
     docker network connect useast-euwest-net roach-newyork-$j
-    docker exec roach-newyork-$j bash -c "apt-get update && apt-get install -y iproute2 iputils-ping dnsutils"
     docker exec roach-newyork-$j tc qdisc add dev eth1 root netem delay 32ms
     docker exec roach-newyork-$j tc qdisc add dev eth2 root netem delay 60ms
 done
@@ -180,7 +209,6 @@ for j in 1 2 3
 do
     docker network connect useast-euwest-net roach-london-$j
     docker network connect uswest-euwest-net roach-london-$j
-    docker exec roach-london-$j bash -c "apt-get update && apt-get install -y iproute2 iputils-ping dnsutils"
     docker exec roach-london-$j tc qdisc add dev eth1 root netem delay 62ms
     docker exec roach-london-$j tc qdisc add dev eth2 root netem delay 88ms
 done
@@ -190,7 +218,7 @@ done
 
 You will require an Enterprise license to unlock some of the features described below, like the Map view. You can [request a Trial license](https://www.cockroachlabs.com/get-cockroachdb/enterprise/) or, alternatively, just skip the license registration step - the deployment will still succeed.
 
-Open a SQL shell. You can [download the `cockroachdb` binary](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux) which includes a built in SQL client or, thanks to CockroachDB's compliance with the PostgreSQL wire protocol, you can use the `psql` client.
+Open a SQL shell. You can [download the `cockroachdb` binary](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux) which includes a built in SQL client or, thanks to CockroachDB's compliance with the PostgreSQL wire protocol, you can use the `psql` client. 
 
 ```bash
 # ----------------------------
