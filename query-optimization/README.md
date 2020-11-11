@@ -241,7 +241,7 @@ The `Aggregator` process receives such tuples and:
 - performs the grouping `by hash @1`, where `@1` is the first element in the tuple, `ol_number`;
 - computes the sum `SUM(@2` where `@2` is the second element in the tuple, `ol_quantity`.
 
-The output is sent to the `Sorter` process that performs the `ORDER BY ol_number` part of the query (`ordered @1+`), before the gateway nodes sends back the result set to the client. 
+The output is sent to the `Sorter` process that performs the `ORDER BY ol_number` part of the query (`ordered @1+`), before the gateway nodes sends back the result set to the client.
 
 Refer to [our docs](https://www.cockroachlabs.com/docs/stable/explain-analyze#distsql-plan-viewer) for the complete instructions on how to read every section of the plan.
 
