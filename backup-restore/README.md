@@ -10,7 +10,7 @@ You can read this excellent [blog post](https://www.cockroachlabs.com/blog/distr
 
 ## Labs Prerequisites
 
-1. Build the dev cluster following [these instructions](/infrastructure/multi-region-local-docker-cluster.md).
+1. Build the dev cluster following [these instructions](/infrastructure/single-region-local-docker-cluster.md).
 
 2. You also need:
 
