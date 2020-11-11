@@ -17,7 +17,7 @@ There are 6 recommended topology patterns:
 
 ## Labs Prerequisites
 
-1. Build the dev cluster following [these instructions](/infrastructure/multi-region-local-docker-cluster.md).
+1. Build the dev cluster following [these instructions](https://dev.to/cockroachlabs/simulating-a-multi-region-cockroachdb-cluster-on-localhost-with-docker-59f6).
 
 2. You also need:
 
