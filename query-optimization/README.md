@@ -698,7 +698,7 @@ You can use the `AS OF SYSTEM TIME` clause to query the table at a previous stat
 
 ```sql
 SELECT h_w_id, count(*)
-FROM history AS OF SYSTEM TIME '-1hr'
+FROM history AS OF SYSTEM TIME '-10m'
 WHERE h_w_id < 10
 GROUP BY 1
 ORDER BY 1;
