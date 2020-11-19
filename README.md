@@ -45,3 +45,7 @@ This repository contains instructions for the various labs that are part of  the
 ## Topology Patterns
 
 - [Labs](/topology-patterns/README.md)
+
+## Troubleshooting
+
+- [Labs](/troubleshooting/README.md)
