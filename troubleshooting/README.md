@@ -453,11 +453,11 @@ Check the **Hardware** dashboard again
 
 ![cpu-even](media/cpu-even.png)
 
+Much better, good job! Let's see how the ranges for the index are spread out:
+
 ```sql
 SELECT lease_holder, lease_holder_locality FROM [SHOW RANGES FROM INDEX offers@offers_token_idx];
 ```
-
-Much better, good job! Let's see how the ranges for the index are spread out:
 
 ```text
   lease_holder |           lease_holder_locality
