@@ -699,7 +699,7 @@ ALTER INDEX offers@primary_copy CONFIGURE ZONE USING
 
 ## Part 3 - Validate the theory
 
-Re run the first part of query Q1 from both regions. Check the query plan using `EXPLAIN (VERBOSE)`. You should
+Re run the first part of query Q1 from both regions. Check the query plan using `EXPLAIN (VERBOSE)`.
 
 From node 1 (US East region):
 
@@ -744,9 +744,6 @@ WHERE (((c.status = 'ACTIVE')
                  | estimated row count | 2                                                                                     |                                                        |
                  | table               | coupons@coupons_pid_idx                                                               |                                                        |
                  | spans               | /3124791208-/3124791209                                                               |                                                        |
-(11 rows)
-
-Time: 1ms total (execution 1ms / network 0ms)
 ```
 
 Same queries above run on node 12 (US West region):
@@ -775,3 +772,25 @@ Time: 2ms total (execution 2ms / network 0ms)
                  | table               | coupons@coupons_pid_idx_copy                                                          |                                                        |
                  | spans               | /3124791208-/3124791209                                                               |                                                        |
 ```
+
+Perfect, we've low latency from both regions! Now start the workload again and let's measure teh overall latency.
+
+Mind, the workload still has the hardcoded values `1` and  `2`. Upload and inspect `final.sql` which should be closer to the real workflow.
+
+```text
+_elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(ms)
+  339.0s        0          361.8          365.4     88.1    151.0    167.8    192.9  9: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a')
+  339.0s        0          357.8          365.3     79.7    130.0    159.4    176.2 10: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a');
+  339.0s        0          349.8          365.2     83.9    134.2    167.8    192.9 11: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '3002738477') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '9ff60a37-6ab3-5e2e-67a2-4552a44b2231')
+  339.0s        0          355.8          365.1     79.7    134.2    151.0    167.8 12: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '5fe1efc3-a038-2e27-816c-7f082b223af0');
+  339.0s        0          380.8          365.1     92.3    151.0    167.8    184.5 13: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '2189670715') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = 'c009288d-8e63-224e-4db6-9ec31441987a')
+  339.0s        0          385.8          365.0     50.3    130.0    159.4    201.3 14: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '3fe561ed-a778-891e-228c-21cd77254201');
+  339.0s        0          394.8          365.0     88.1    134.2    159.4    176.2 15: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = 'e00d75b0-9bbf-6c69-6620-2d312813806e')
+  339.0s        0          406.8          364.9     48.2    130.0    184.5    192.9 16: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
+```
+
+Compare to the initial result: the workload are nowhuge improvement in performance!
+
+![final](media/final.png)
+
+Congratulations, you reached the end of the Troubleshooting workshop! We hope you have now a better understanding on the process to troubleshoot an underperforming cluster.
