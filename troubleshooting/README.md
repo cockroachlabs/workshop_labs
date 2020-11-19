@@ -639,7 +639,7 @@ DROP INDEX offers_id_code_token_key CASCADE;
 ### Part 2 - Create duplicate indexes and pin to region
 
 Now that we have our tables well organized, we need to resolve the latency issue.
-We need our read latency to be the same regardless of where the data originates.
+We need our read latency to be the same regardless of where the query originates.
 The customer told us they cannot change the App, so the Follower Reads pattern  is unfortunately not available.
 The best solution thus is to follow the Duplicate Index pattern: we create a copy of each index and table.
 Then, we pin Tables to US West and Indexes to US East.
