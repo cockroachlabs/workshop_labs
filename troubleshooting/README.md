@@ -1,6 +1,6 @@
 # Troubleshooting Workshop - Student labs
 
-Ths workshop walks through the process of troubleshooting a problematic cluster.
+This workshop walks through the process of troubleshooting a problematic cluster.
 
 ## Lab 0 - Understanding the Problem
 
@@ -14,7 +14,7 @@ You ask the DBA to provide you with the required information to replicate the is
 - the workload run, in form of SQL queries.
 
 The customer informs you the UAT environment runs on 12 nodes across 4 datacenters in 2 regions, US East and US West.
-They are using CockroachDB v20.1.6 on 4 vCPUs/16GB Mem instances with standard storage.
+They are using CockroachDB v20.2.x on 4 vCPUs/16GB Mem instances with standard storage.
 
 The customer sent you the tarball with the backup files, `load.tar.gz`, and the SQL queries run as part of the load test, `workload.sql`.
 
@@ -114,7 +114,7 @@ Good, the Jumpbox can connect to the cluster!
 
 ## Lab 2 - Analyse the CockroachDB cluster
 
-Before diving into running the workload, let's review the database we just imported, as well as analyze the SQL queries in the workload.
+Before running the workload, let's review the database we just imported, as well as analyze the SQL queries in the workload.
 
 Open a new Terminal, the **SQL Terminal**, and connect to n1
 
@@ -265,7 +265,7 @@ While it runs, check the Metrics in the AdminUI. Open the **Hardware** dashboard
 
 ![cpu](media/cpu.png)
 
-Notice how node 10 and 7 have very high CPU usage compared to all other nodes. Take notice of the TPS and P99 latency, too.
+Notice how node 10 and 7 have very high CPU usage compared to all other nodes. Take notice in the **Summary** of the values for QPS and P99 latency, too.
 
 Check the latency for these 2 queries. Open the **Statements** page or review the scrolling stats in your terminal.
 
