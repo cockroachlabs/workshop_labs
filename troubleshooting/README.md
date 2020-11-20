@@ -73,7 +73,8 @@ Cool, you've successfully created the cluster and restored the data!
 
 ### Create the jumpbox server
 
-Next, let's create a Jumpbox server from which to run the workload to simulate the App.
+Next, open a new terminal window. We will refer to this terminal as the **Jumpbox Terminal**.
+Let's create a Jumpbox server from which to run the workload to simulate the App.
 
 ```bash
 roachprod create `whoami`-jump -c gce -n 1
@@ -115,7 +116,7 @@ Good, the Jumpbox can connect to the cluster!
 
 Before diving into running the workload, let's review the database we just imported, as well as analyze the SQL queries in the workload.
 
-Open a new Terminal and connect to n1
+Open a new Terminal, the **SQL Terminal**, and connect to n1
 
 ```bash
 roachprod sql `whoami`-labs:1
@@ -197,7 +198,7 @@ Time: 608ms total (execution 608ms / network 0ms)
 
 Notice how table `offers` has 1 secondary index, and the table is empty (`range_size_mb` is 0).
 
-Now let's inspect the workload that's run against this database. Here's a formatted view of the queries in `workload.sql`.
+Now, let's inspect the workload that's run against this database. Here's a formatted view of the 2 queries in `workload.sql`.
 
 Please note, `1` and `2` are placeholder for variables, the customer has not supplied those so we hardcoded using `1` and `2`.
 
@@ -243,7 +244,7 @@ $ roachprod pgurl `whoami`-labs
 'postgres://root@10.150.0.108:26257?sslmode=disable' 'postgres://root@10.150.0.109:26257?sslmode=disable' 'postgres://root@10.150.0.107:26257?sslmode=disable' 'postgres://root@10.150.0.105:26257?sslmode=disable' 'postgres://root@10.150.0.106:26257?sslmode=disable' 'postgres://root@10.150.0.110:26257?sslmode=disable' 'postgres://root@10.138.0.23:26257?sslmode=disable' 'postgres://root@10.138.0.15:26257?sslmode=disable' 'postgres://root@10.138.0.24:26257?sslmode=disable' 'postgres://root@10.138.0.28:26257?sslmode=disable' 'postgres://root@10.138.0.27:26257?sslmode=disable' 'postgres://root@10.138.0.31:26257?sslmode=disable'
 ```
 
-In the jumpbox terminal, run the workload simulation passing all URLs. We are running this workload with 512 active connections, which is far more than the cluster is designed for, which is approximately 12 nodes \* 4 vCPUs \* 4 Active Connections per vCPU = 192 Active Connections. We do so to simulate the highest load.
+In the Jumpbox Terminal, run the workload simulation passing all URLs. We are running this workload with 512 active connections, which is far more than the cluster is designed for, which is approximately 12 nodes \* 4 vCPUs \* 4 Active Connections per vCPU = 192 Active Connections. We do so to simulate the highest load.
 
 ```bash
 ./workload run querybench --query-file workload.sql --db=defaultdb --concurrency=512 'postgres://root@10.150.0.110:26257?sslmode=disable' 'postgres://root@10.150.0.95:26257?sslmode=disable' 'postgres://root@10.150.0.111:26257?sslmode=disable' 'postgres://root@10.150.0.109:26257?sslmode=disable' 'postgres://root@10.150.0.92:26257?sslmode=disable' 'postgres://root@10.150.0.93:26257?sslmode=disable' 'postgres://root@10.138.0.2:26257?sslmode=disable' 'postgres://root@10.138.0.8:26257?sslmode=disable' 'postgres://root@10.138.0.9:26257?sslmode=disable' 'postgres://root@10.138.0.18:26257?sslmode=disable' 'postgres://root@10.138.0.10:26257?sslmode=disable' 'postgres://root@10.138.0.39:26257?sslmode=disable'
@@ -264,7 +265,7 @@ While it runs, check the Metrics in the AdminUI. Open the **Hardware** dashboard
 
 ![cpu](media/cpu.png)
 
-Notice how node 10 and 7 have very high CPU usage compared to all other nodes.
+Notice how node 10 and 7 have very high CPU usage compared to all other nodes. Take notice of the TPS and P99 latency, too.
 
 Check the latency for these 2 queries. Open the **Statements** page or review the scrolling stats in your terminal.
 
@@ -280,7 +281,7 @@ Stop the workload now. You can definitely replicate the customer scenario: high 
 
 Switch to the SQL Terminal. We want to pull the query plan for each query
 
-### Plan for Q1
+### Q1 Query Plan
 
 Let's start with Q1, and let's break it down into 2 parts, and let's pull the plan for the 1st part. Again, here the value `1` is a placeholder for a value passed by the application.
 
@@ -317,7 +318,7 @@ So the optimizer is leveraging index `coupons@coupons_pid_idx` to filter rows th
 
 Wouldn't it be better if it didn't have to do this join and instead accessing just 1 index?
 
-### Q2
+### Q2 Query Plan
 
 Let's now pull the plan for Q2.
 
@@ -356,7 +357,7 @@ Here we see that the optimizer is choosing an index to filter from the `offers` 
 
 ## Lab 5 - Addressing the Hotspot
 
-Let's first tackle the high CPU usage issue first. Why is it so, why is node 10 using all the CPU?
+Let's tackle the high CPU usage issue first. Why is it so, why is node 10 using all the CPU?
 We can start by trying to isolate the issue by running only Q2 in our workload, and let's see if the problem persist.
 
 Update `workload.sql` by commenting Q1 out, then restart the workload. Give it a couple of minutes, and you should see that n10 is hot again, so we know that Q2 is the culprit.
@@ -473,6 +474,8 @@ Better! On average we can expect the load to be spread across 5 ranges in 4 node
 
 ## Lab 6 - Addressing the Latency
 
+### Understanding where the latency comes from
+
 On the SQL shell, let's run a few queries and see the Response Time. Mind, in your cluster the Response Time might vary as ranges can be located on different zones.
 
 Show my locality first
@@ -579,6 +582,8 @@ SHOW RANGE FROM TABLE coupons FOR ROW(400033, '10ug031bch0f');
 ```
 
 A-ha! This table is in US West, so we're paying the latency price to go to the other region to fetch the data.
+
+The problem is twofold: sub-optimal tables/indexes, cross-regional reads.
 
 ### Part 1 - Optimize the table primary and secondary indexes
 
@@ -697,7 +702,7 @@ ALTER INDEX offers@primary_copy CONFIGURE ZONE USING
   lease_preferences = '[[+region=us-west1]]';
 ```
 
-## Part 3 - Validate the theory
+### Part 3 - Validate the theory
 
 Re run the first part of query Q1 from both regions. Check the query plan using `EXPLAIN (VERBOSE)`.
 
@@ -773,7 +778,7 @@ Time: 2ms total (execution 2ms / network 0ms)
                  | spans               | /3124791208-/3124791209                                                               |                                                        |
 ```
 
-Perfect, we've low latency from both regions! Now start the workload again and let's measure teh overall latency.
+Perfect, we've low latency from both regions! Now start the workload again and let's measure the overall latency.
 
 Mind, the workload still has the hardcoded values `1` and  `2`. Upload and inspect `final.sql` which should be closer to the real workflow.
 
@@ -789,7 +794,7 @@ _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(
   339.0s        0          406.8          364.9     48.2    130.0    184.5    192.9 16: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
 ```
 
-Compare to the initial result: the workload are nowhuge improvement in performance!
+Compare to the initial result: huge improvement in performance!
 
 ![final](media/final.png)
 
