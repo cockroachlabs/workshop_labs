@@ -476,7 +476,7 @@ Better! On average we can expect the load to be spread across 5 ranges in 4 node
 
 ### Understanding where the latency comes from
 
-On the SQL shell, let's run a few queries and see the Response Time. Mind, in your cluster the Response Time might vary as ranges can be located on different zones.
+On the SQL Terminal, let's run a few queries and see the Response Time. Mind, in your cluster the Response Time might vary as ranges can be located on different zones.
 
 Show my locality first
 
@@ -553,7 +553,7 @@ SHOW RANGE FROM INDEX coupons@coupons_pid_idx FOR ROW(3124791208, 400033, '10ug0
   /2945789655/385668/"us625n6ljf0" | /3405705299/400044/"11bh0t1jnl8t" |       67 |            3 | cloud=gce,region=us-east1,zone=us-east1-b | {3,7,10} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
 ```
 
-Ok, the range is local, this should only take 1ms.. From the query plan we see that is has to join with `coupons@primary` to fetch the other columns.
+Ok, the range is local, this should only take 1ms.. From the query plan we see that there is a join with `coupons@primary` to fetch the other columns.
 Let's see how long that takes
 
 ```sql
@@ -569,7 +569,7 @@ SELECT * FROM  coupons@primary WHERE id = 400033 AND code = '10ug031bch0f';
 Time: 65ms total (execution 65ms / network 0ms)
 ```
 
-65ms! Let's do the same exercise as before and find out where this is located.
+65ms! Let's do the same exercise as before and find out where this range is located.
 
 ```sql
 SHOW RANGE FROM TABLE coupons FOR ROW(400033, '10ug031bch0f');
@@ -798,4 +798,4 @@ Compare to the initial result: huge improvement in performance!
 
 ![final](media/final.png)
 
-Congratulations, you reached the end of the Troubleshooting workshop! We hope you have now a better understanding on the process to troubleshoot an underperforming cluster.
+Congratulations, you reached the end of the Troubleshooting workshop! We hope you have now a better understanding on the process of troubleshoot an underperforming cluster.
