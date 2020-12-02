@@ -436,6 +436,8 @@ DROP INDEX idx_ol_amount;
 
 You can learn more about the the [Cost-Based Optimizer](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer) in our docs.
 
+[Vectorized Query Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html)
+
 ## Lab 2 - Joining mechanisms
 
 Run the following query:
@@ -808,3 +810,14 @@ Some suggested material to further expand on this topic are found in our docs:
 Blog:
 
 - [Cost-Based Optimizer](https://www.cockroachlabs.com/blog/cost-based-optimizer-20-1/)
+
+## References
+
+[SQL Best Practices](https://www.cockroachlabs.com/docs/stable/performance-best-practices-overview.html)
+[EXPLAIN](https://www.cockroachlabs.com/docs/stable/explain.html)
+[EXPLAIN ANALYZE](https://www.cockroachlabs.com/docs/stable/explain-analyze.html)
+[Column Families](https://www.cockroachlabs.com/docs/stable/column-families.html)
+[Vectorized Query Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html)
+[Cost Based Optimizer](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer.html)
+[Indexes including Covered Indexes](https://www.cockroachlabs.com/docs/stable/indexes.html)
+[Time Travel Queries](https://www.cockroachlabs.com/docs/stable/as-of-system-time.html)
