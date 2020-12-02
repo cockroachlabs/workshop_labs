@@ -726,6 +726,9 @@ Time: 270ms total (execution 269ms / network 1ms)
 
 Bingo! You can find more info about reading historical snapshot data using `AS OF SYSTEM TIME` in [here](https://www.cockroachlabs.com/docs/v20.1/as-of-system-time.html).
 
+Time Travel Queries are also useful to resolve a hot spot condition by relaxing the requirement to read solely from the leaseholder and instead use all replicas for reading requests.
+Read more in the [Follower Reads](https://www.cockroachlabs.com/docs/stable/topology-follower-reads.html) topology.
+
 ## Lab 4 - Query Tracing and Troubleshooting
 
 Connect to the Admin UI at <http://localhost:8080>. We are going to cover how to Monitor and Analyse our CockroachDB cluster.
