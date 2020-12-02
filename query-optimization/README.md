@@ -562,7 +562,7 @@ GROUP BY 1,2;
 Time: 8.320s total (execution 8.304s / network 0.016s)
 ```
 
-The hash join was indeed the fastest, so the Optimizer chose correctly. However, a `MERGE` join is usually the [preferred](https://www.cockroachlabs.com/docs/stable/joins#merge-joins) join mechanism. Let's create an index to store `ol_supply_w_id` so we avoid a full scan and a hash join.
+The hash join was indeed the fastest, so the Optimizer chose correctly. However, a `MERGE` join is usually the [preferred](https://www.cockroachlabs.com/docs/stable/joins#merge-joins) join mechanism. Let's create an index on `ol_supply_w_id` storing also `ol_amount` so we avoid a full scan and a hash join.
 
 ```sql
 CREATE INDEX idx_ol_supp_w_id ON order_line(ol_supply_w_id) STORING (ol_amount);
