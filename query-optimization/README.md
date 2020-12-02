@@ -436,7 +436,7 @@ DROP INDEX idx_ol_amount;
 
 You can learn more about the the [Cost-Based Optimizer](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer) in our docs.
 
-[Vectorized Query Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html)
+Lear more about the [Vectorized Query Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html).
 
 ## Lab 2 - Joining mechanisms
 
@@ -506,7 +506,7 @@ GROUP BY 1,2;
 Time: 4ms total (execution 3ms / network 1ms)
 ```
 
-It's using a hash join. For the sake of testing, let's put into question the choice taken by the Optimizer.
+It's using a **hash join**. For the sake of testing, let's put into question the choice taken by the Optimizer.
 Let's force this query to use [all supported CockroachDB join methods](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer#supported-join-algorithms): `LOOKUP`, `HASH`, `MERGE` and compare the Response Time.
 
 ```sql
@@ -632,7 +632,7 @@ Good job, we were able to cut Response Time in half! Mind, we still have to scan
 
 Read more about Joins [in our docs](https://www.cockroachlabs.com/docs/stable/joins.html).
 
-## Lab 3 - Reading a previous snapshot
+## Lab 3 - Time Travel Queries: reading a previous snapshot
 
 The following report query is run to populate a dashboard within your application.
 
@@ -726,7 +726,7 @@ Time: 270ms total (execution 269ms / network 1ms)
 
 Bingo! You can find more info about reading historical snapshot data using `AS OF SYSTEM TIME` in [here](https://www.cockroachlabs.com/docs/v20.1/as-of-system-time.html).
 
-## Lab 4 - Query Troubleshooting
+## Lab 4 - Query Tracing and Troubleshooting
 
 Connect to the Admin UI at <http://localhost:8080>. We are going to cover how to Monitor and Analyse our CockroachDB cluster.
 You can find the [Overview](https://www.cockroachlabs.com/docs/stable/admin-ui-overview.html) page a great place to start to learn more about it.
