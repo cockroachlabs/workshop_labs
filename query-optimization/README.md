@@ -804,15 +804,6 @@ Some suggested material to further expand on this topic are found in our docs:
 
 - [Performance Overview](https://www.cockroachlabs.com/docs/stable/performance.html)
 - [Monitoring and Alerting](https://www.cockroachlabs.com/docs/stable/monitoring-and-alerting.html)
-- [Indexes](https://www.cockroachlabs.com/docs/stable/indexes)
-- [Vectorized Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html)
-
-Blog:
-
-- [Cost-Based Optimizer](https://www.cockroachlabs.com/blog/cost-based-optimizer-20-1/)
-
-## References
-
 - [SQL Best Practices](https://www.cockroachlabs.com/docs/stable/performance-best-practices-overview.html)
 - [EXPLAIN](https://www.cockroachlabs.com/docs/stable/explain.html)
 - [EXPLAIN ANALYZE](https://www.cockroachlabs.com/docs/stable/explain-analyze.html)
@@ -821,3 +812,7 @@ Blog:
 - [Cost Based Optimizer](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer.html)
 - [Indexes including Covered Indexes](https://www.cockroachlabs.com/docs/stable/indexes.html)
 - [Time Travel Queries](https://www.cockroachlabs.com/docs/stable/as-of-system-time.html)
+
+Blog:
+
+- [Cost-Based Optimizer](https://www.cockroachlabs.com/blog/cost-based-optimizer-20-1/)
