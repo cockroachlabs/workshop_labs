@@ -436,7 +436,7 @@ DROP INDEX idx_ol_amount;
 
 You can learn more about the the [Cost-Based Optimizer](https://www.cockroachlabs.com/docs/stable/cost-based-optimizer) in our docs.
 
-Lear more about the [Vectorized Query Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html).
+Learn more about the [Vectorized Query Execution](https://www.cockroachlabs.com/docs/stable/vectorized-execution.html).
 
 ## Lab 2 - Joining mechanisms
 
