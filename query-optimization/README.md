@@ -749,6 +749,27 @@ Run the query again, then collect the **bundle zip file** from the AdminUI.
 
 ![admin-ui-4](media/admin-ui-4.png)
 
+Alternatively, you can create the Statement Bundle from the SQL prompt:
+
+```sql
+EXPLAIN ANALYZE (DEBUG) SELECT w_name, w_city, sum(ol_amount)
+FROM order_line
+INNER JOIN warehouse ON (w_id = ol_supply_w_id)
+WHERE ol_supply_w_id > 40
+GROUP BY 1,2;
+```
+
+```text
+                                        text
+------------------------------------------------------------------------------------
+  Statement diagnostics bundle generated. Download from the Admin UI (Advanced
+  Debug -> Statement Diagnostics History), via the direct link below, or using
+  the command line.
+  Admin UI: http://roach-newyork-1:8080
+  Direct link: http://roach-newyork-1:8080/_admin/v1/stmtbundle/612293770916331521
+  Command line: cockroach statement-diag list / download
+```
+
 Explore the data gathered for query execution. This data will be helpful if you are experiencing a performance issues and need advise from Cockroach Labs.
 
 Let's start [Jaeger](https://www.jaegertracing.io/) to view the trace file
