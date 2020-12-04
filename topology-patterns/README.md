@@ -42,6 +42,10 @@ Connect to the database to confirm it loaded successfully
 cockroach sql --insecure -d movr
 
 # or use the --url param for any another host:
+# port mapping:
+# 26257 --> us-west2 (Seattle)
+# 26258 --> us-east4 (New York)
+# 26259 --> eu-west2 (London)
 cockroach sql --url "postgresql://localhost:26258/movr?sslmode=disable"
 
 # or use psql
@@ -308,24 +312,17 @@ Good, as expected! The leaseholder is now located in the same region the cities 
 
 Experiment running the same queries in **all** regions and observe the **Time**, printed at the bottom.
 
-Connect with separate SQL connections to each region. Use iTerm2 with broadcast, or just open 3 terminals.  Run the following queries in each (in this example, I only show the result from the `roach-newyork-1` node)
+Open 2 more terminals and connect with separate SQL connections to each region.  Run the following queries in each (in this example, I only show the result from the `us-east4` node, **New York**).
+
+Please note, you might need to run the queries a few times before you get the expected latency as the gateway node has to refresh the metadata table with the addresses of the leaseholders for the range requested.
 
 ```sql
 -- confirm location for the current node
 SHOW LOCALITY;
 -- query data from other regions will incur latency as the leaseholders are in the other regions
-SELECT id, start_address, 'us-west2' AS region
-FROM rides
-WHERE city = 'seattle'
-LIMIT 1;
-SELECT id, start_address, 'us-east4' as region
-FROM rides
-WHERE city = 'new york'
-LIMIT 1;
-SELECT id, start_address, 'eu-west2' AS region
-FROM rides
-WHERE city = 'rome'
-LIMIT 1;
+SELECT id, start_address, 'us-west2' AS region FROM rides WHERE city = 'seattle' LIMIT 1;
+SELECT id, start_address, 'us-east4' as region FROM rides WHERE city = 'new york' LIMIT 1;
+SELECT id, start_address, 'eu-west2' AS region FROM rides WHERE city = 'rome' LIMIT 1;
 ```
 
 ```text
@@ -360,7 +357,7 @@ Time: 128.969ms
 
 As expected, we get fast responses when we query local data, but the delay is noticeable when the gateway node has to reach out to leaseholders in other regions to get their data.
 
-Connect to the Admin UI and go to the **Network Latency** tab on the left. Compare the latency measured with your findings running SQL queries.
+Connect to the DB Console and go to the **Network Latency** tab on the left. Compare the latency measured with your findings running SQL queries.
 
 With the Geo-Partitioned Leaseholders topology you were able to achieve fast local reads and still be able to survive a region failure.
 
@@ -388,18 +385,15 @@ SHOW LOCALITY;
 
 SELECT id, start_address, 'us-west2' as region
 FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
-WHERE city = 'seattle'
-LIMIT 1;
+WHERE city = 'seattle' LIMIT 1;
 
 SELECT id, start_address, 'us-east4' as region
 FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
-WHERE city = 'new york'
-LIMIT 1;
+WHERE city = 'new york' LIMIT 1;
 
 SELECT id, start_address, 'eu-west2' as region
 FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
-WHERE city = 'rome'
-LIMIT 1;
+WHERE city = 'rome' LIMIT 1;
 ```
 
 ```text
@@ -439,18 +433,15 @@ SHOW LOCALITY;
 
 SELECT id, start_address
 FROM rides AS OF SYSTEM TIME INTERVAL '-1m'
-WHERE city = 'seattle'
-LIMIT 1;
+WHERE city = 'seattle' LIMIT 1;
 
 SELECT id, start_address
 FROM rides AS OF SYSTEM TIME INTERVAL '-1m'
-WHERE city = 'new york'
-LIMIT 1;
+WHERE city = 'new york' LIMIT 1;
 
 SELECT id, start_address
 FROM rides AS OF SYSTEM TIME INTERVAL '-1m'
-WHERE city = 'rome'
-LIMIT 1;
+WHERE city = 'rome' LIMIT 1;
 ```
 
 You should see that the response times for each city is comparable to the local city response time (single digit ms response time). What is happening, the database is querying the local replica of that range - remember each region has a replica of every range.
@@ -699,7 +690,7 @@ SHOW RANGES FROM INDEX idx_us_east_rides;
 (1 row)
 ```
 
-Awesome! We can now delete the indexes
+Check the `lease_holder_locality` column, the index is local! We can now delete the indexes
 
 ```sql
 DROP INDEX idx_us_west_rides;
@@ -741,7 +732,7 @@ Simulate region failure. Ensure to run all following `docker` commands on a new 
 docker stop haproxy-seattle roach-seattle-1 roach-seattle-2 roach-seattle-3
 ```
 
-Check the Admin UI - you might have to use a different port as the host bound to port 8080 died. Use port 8180 instead.
+Check the DB Console - you might have to use a different port as the host bound to port 8080 died. Use port 8180 instead.
 In a little over a minute, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
 
 ![dead-nodes](media/dead-nodes.png)
@@ -777,12 +768,11 @@ From above table we can see that the US West data was successfully and evenly re
 Create a new running docker container using the `cockroachdb` image. This will be our SQL client app connecting from Seattle.
 
 ```bash
-docker run -d --name=seattle-client --hostname=seattle-client --cap-add NET_ADMIN --net=us-west2-net cockroachdb/cockroach:v20.1.5 start --insecure --join=fake1,fake2,fake3
+docker run -d --name=seattle-client --hostname=seattle-client --cap-add NET_ADMIN --net=us-west2-net crdb start --insecure --join=fake1,fake2,fake3
 
 # add network connections and latency to seattle-client
 docker network connect uswest-useast-net seattle-client
 docker network connect uswest-euwest-net seattle-client
-docker exec seattle-client bash -c "apt-get update && apt-get install -y iproute2 iputils-ping dnsutils"
 docker exec seattle-client tc qdisc add dev eth1 root netem delay 30ms
 docker exec seattle-client tc qdisc add dev eth2 root netem delay 90ms
 
@@ -813,7 +803,7 @@ Time: 182.096ms
 
 Very good, you can now simulate an App in Seattle that is routed to the London endpoint due to the unavailable US West region.
 
-Reading Seattle data will incour the client roundtrip from US West to EU West, ~180ms, plus the roundtrip from EU West to US East (~125ms) for the leaseholder read for a total of ~305ms.
+Reading Seattle data will incur the client roundtrip from US West to EU West, ~180ms, plus the roundtrip from EU West to US East (~125ms) for the leaseholder read for a total of ~305ms.
 
 ```sql
 -- Please note: depending on how your cluster replicated the ranges
@@ -850,8 +840,8 @@ So we can expect the latency for an `INSERT` to be
 -- Please note: depending on how your cluster replicated the ranges
 -- you might not be able to replicate the result for below commands.
 -- I thus suggest you just read along.
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-000000125882', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-000000135882', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES (gen_random_uuid(), 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES (gen_random_uuid(), 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 ```
 
 ```text
@@ -866,7 +856,7 @@ Time: 430.9846ms
 Cool! You can always check the replicas location for a key as follows:
 
 ```sql
-SHOW RANGE FROM TABLE rides FOR ROW ('5555c52e-72da-4400-8888-000000125882', 'seattle', null, null, null, null,null, null,null, null);
+SHOW RANGE FROM TABLE rides FOR ROW ('put-uuid-here', 'seattle', null, null, null, null,null, null,null, null);
 SHOW RANGE FROM TABLE rides FOR ROW ('5555c52e-72da-4400-8888-000000135882', 'los angeles', null, null, null, null,null, null,null, null);
 ```
 
@@ -899,9 +889,9 @@ docker network create --driver=bridge --subnet=172.33.0.0/16 --ip-range=172.33.0
 docker network create --driver=bridge --subnet=172.34.0.0/16 --ip-range=172.34.0.0/24 --gateway=172.34.0.1 euwest-eucentral-net
 
 # create 3 nodes in Frankfurt - no need for HAProxy...
-docker run -d --name=roach-frankfurt-1 --hostname=roach-frankfurt-1 --ip=172.26.0.11 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8480:8080 -v "roach-frankfurt-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=a
-docker run -d --name=roach-frankfurt-2 --hostname=roach-frankfurt-2 --ip=172.26.0.12 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8481:8080 -v "roach-frankfurt-2-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=b
-docker run -d --name=roach-frankfurt-3 --hostname=roach-frankfurt-3 --ip=172.26.0.13 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8482:8080 -v "roach-frankfurt-3-data:/cockroach/cockroach-data" cockroachdb/cockroach:v20.1.5 start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=c
+docker run -d --name=roach-frankfurt-1 --hostname=roach-frankfurt-1 --ip=172.26.0.11 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8480:8080 -v "roach-frankfurt-1-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=a
+docker run -d --name=roach-frankfurt-2 --hostname=roach-frankfurt-2 --ip=172.26.0.12 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8481:8080 -v "roach-frankfurt-2-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=b
+docker run -d --name=roach-frankfurt-3 --hostname=roach-frankfurt-3 --ip=172.26.0.13 --cap-add NET_ADMIN --net=eu-central-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8482:8080 -v "roach-frankfurt-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central,zone=c
 
 # attach networks and add latency
 # Frankfurt
@@ -909,7 +899,6 @@ for j in 1 2 3
 do
     docker network connect useast-eucentral-net roach-frankfurt-$j
     docker network connect euwest-eucentral-net roach-frankfurt-$j
-    docker exec roach-frankfurt-$j bash -c "apt-get update && apt-get install -y iproute2 iputils-ping dnsutils"
     docker exec roach-frankfurt-$j tc qdisc add dev eth1 root netem delay 62ms
     docker exec roach-frankfurt-$j tc qdisc add dev eth2 root netem delay 5ms
 done
@@ -933,7 +922,7 @@ Update the location map with the geo location for our new region
 INSERT into system.locations VALUES ('region', 'eu-central', 50.110922, 8.682127);
 ```
 
-Check the Admin UI: slowly, you should see the live nodes increasing from 6 to 9. If you refresh the map, you should see the Frankfurt datacenter.
+Check the DB Console: slowly, you should see the live nodes increasing from 6 to 9. If you refresh the map, you should see the Frankfurt datacenter.
 
 ![eu-central-map](media/eu-central-map.png)
 
@@ -1044,10 +1033,10 @@ Very nice! We have reduced overall read latency from ~305ms to ~180ms as we move
 Let's test with writes. We expect latency to be the sum of the SQL client roundtrip (~180ms), the Raft consensus roundtrip (15ms - to Frankfurt) for a total of ~195ms. Remember the leaseholder has been pinned to the region the client app connects to and Frankfurt is very close.
 
 ```sql
--- we use different UUIDs from before...
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000125811', 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135816', 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO rides VALUES ('5555c52e-72da-4400-8888-160000135817', 'san francisco', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+-- gen_random_uuid() creates a new UUID for us, very handy!
+INSERT INTO rides VALUES (gen_random_uuid(), 'seattle', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES (gen_random_uuid(), 'los angeles', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO rides VALUES (gen_random_uuid(), 'san francisco', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 ```
 
 ```text
