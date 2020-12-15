@@ -1,4 +1,4 @@
-# Serializable Transactions - Student Labs
+# Optimizing Serializable Transactions - Student Labs
 
 In this lab we will explore how to best use Serializable transactions with CockroachDB.
 
