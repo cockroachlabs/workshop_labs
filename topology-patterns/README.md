@@ -6,7 +6,7 @@ In these labs we will work with CockroachDB [Topology Patterns](https://www.cock
 
 There are 6 recommended topology patterns:
 
-| topology                                                                                                             | description | pros | cons |
+| Topology                                                                                                             | Description | Pros | Cons |
 |----------------------------------------------------------------------------------------------------------------------|-------------|------|------|
 | [Basic Production](https://www.cockroachlabs.com/docs/stable/topology-basic-production.html)                         | Single region deployment | Fast r/w | Can't survive region failure |
 | [Geo-Partitioned Replicas](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-replicas.html)         | Multi-region deployment where data is partitioned and pinned to a specific region, ideal for GDPR or similar legal compliance | Fast r/w if client is connected to the region which holds the data is querying | Locked data can't survive region failure - it would require multiple regions in the same country|
