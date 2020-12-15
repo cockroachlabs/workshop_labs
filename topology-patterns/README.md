@@ -6,14 +6,14 @@ In these labs we will work with CockroachDB [Topology Patterns](https://www.cock
 
 There are 6 recommended topology patterns:
 
-| topology | description | pros | cons|
-|-|-|-|-|
-| [Basic Production](https://www.cockroachlabs.com/docs/stable/topology-basic-production.html) | Single region deployment | Fast r/w | Can't survive region failure |
-| [Geo-Partitioned Replicas](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-replicas.html) | Multi-region deployment where data is partitioned and pinned to a specific region, ideal for GDPR or similar legal compliance | Fast r/w if client is connected to the region which holds the data is querying | Locked data can't survive region failure - it would require multiple regions in the same country|
+| topology                                                                                                             | description | pros | cons |
+|----------------------------------------------------------------------------------------------------------------------|-------------|------|------|
+| [Basic Production](https://www.cockroachlabs.com/docs/stable/topology-basic-production.html)                         | Single region deployment | Fast r/w | Can't survive region failure |
+| [Geo-Partitioned Replicas](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-replicas.html)         | Multi-region deployment where data is partitioned and pinned to a specific region, ideal for GDPR or similar legal compliance | Fast r/w if client is connected to the region which holds the data is querying | Locked data can't survive region failure - it would require multiple regions in the same country|
 | [Geo-Partitioned Leaseholders](https://www.cockroachlabs.com/docs/stable/topology-geo-partitioned-leaseholders.html) | Multi-region deployment where leaseholder is pinned to a specific region | Fast reads if client connects to region which holds the data; can survive region failure | Slightly slower writes as leaseholder has to seek consensus outside its region |
-| [Duplicate Indexes](https://www.cockroachlabs.com/docs/stable/topology-duplicate-indexes.html) | Most used indexes are duplicated by the amount of regions and the index leaseholders are pinned 1 per region; ideal for data that doesn't frequently updates  | Fast reads from any region | Slower writes as every index needs to be updated; duplicate data increases storage |
-| [Follower Reads](https://www.cockroachlabs.com/docs/stable/topology-follower-reads.html) | Special feature that enables reading from any of the replicas | fast reads as the closest replica can be queried instead of the leaseholder, which can be in another region; no added storage cost | data can be slightly historical |
-| [Follow-the-Workload](https://www.cockroachlabs.com/docs/stable/topology-follow-the-workload.html) | Default topology. Leaseholder moves automatically to the region where most of the queries originate | - | - |
+| [Duplicate Indexes](https://www.cockroachlabs.com/docs/stable/topology-duplicate-indexes.html)                       | Most used indexes are duplicated by the amount of regions and the index leaseholders are pinned 1 per region; ideal for data that doesn't frequently updates  | Fast reads from any region | Slower writes as every index needs to be updated; duplicate data increases storage |
+| [Follower Reads](https://www.cockroachlabs.com/docs/stable/topology-follower-reads.html)                             | Special feature that enables reading from any of the replicas | fast reads as the closest replica can be queried instead of the leaseholder, which can be in another region; no added storage cost | data can be slightly historical |
+| [Follow-the-Workload](https://www.cockroachlabs.com/docs/stable/topology-follow-the-workload.html)                   | Default topology. Leaseholder moves automatically to the region where most of the queries originate | - | - |
 
 ## Labs Prerequisites
 
@@ -378,21 +378,21 @@ Cons:
 
 - data is slightly historical
 
-There are 2 ways to use the Follower Reads functionality: the first is by using `experimental_follower_read_timestamp()`. Run these queries on all your regions:
+There are 2 ways to use the Follower Reads functionality: the first is by using `follower_read_timestamp()`. Run these queries on all your regions:
 
 ```sql
 SHOW LOCALITY;
 
 SELECT id, start_address, 'us-west2' as region
-FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
+FROM rides AS OF SYSTEM TIME follower_read_timestamp()
 WHERE city = 'seattle' LIMIT 1;
 
 SELECT id, start_address, 'us-east4' as region
-FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
+FROM rides AS OF SYSTEM TIME follower_read_timestamp()
 WHERE city = 'new york' LIMIT 1;
 
 SELECT id, start_address, 'eu-west2' as region
-FROM rides AS OF SYSTEM TIME experimental_follower_read_timestamp()
+FROM rides AS OF SYSTEM TIME follower_read_timestamp()
 WHERE city = 'rome' LIMIT 1;
 ```
 
@@ -448,7 +448,7 @@ You should see that the response times for each city is comparable to the local 
 
 Try using with an interval of `-2s`. Response times will go back the same as prior to using Follower Reads. This is because the time interval is not long enough to pickup the copy at that interval and the query is therefore routed to the leaseholder.
 
-You can use `AS OF SYSTEM TIME experimental_follower_read_timestamp()` to ensure Follower Reads queries use local ranges with the least time lag.
+You can use `AS OF SYSTEM TIME follower_read_timestamp()` to ensure Follower Reads queries use local ranges with the least time lag.
 
 With the Follower Read topology, albeit slightly historical, you get fast reads cheaply. This is ideal for some scheduled reporting, for examples, sales in the past hour/minutes, etc.
 
