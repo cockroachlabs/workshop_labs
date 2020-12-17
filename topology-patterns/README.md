@@ -70,6 +70,14 @@ SHOW TABLES;
 Time: 133.429ms
 ```
 
+Open the DB Console at <http://localhost:8080>. Check the **Advanced Debug > Localities** page to see the localities associated with your nodes.
+
+![localities](media/localities.png)
+
+Also, you can see the distribution of your node using the **Map View**.
+
+![map](media/map.png)
+
 ## Lab 1 - Explore Range distribution
 
 Now that you have imported the data, review how the ranges are distributed in the `rides` table. We create our own view to only project columns of interest. Feel free to modify as you see fit.
@@ -732,7 +740,8 @@ Simulate region failure. Ensure to run all following `docker` commands on a new 
 docker stop haproxy-seattle roach-seattle-1 roach-seattle-2 roach-seattle-3
 ```
 
-Check the DB Console - you might have to use a different port as the host bound to port 8080 died. Use port 8180 instead.
+Check the DB Console: the website is down as the node that serves port 8080 died. **Use port 8180 instead**.
+
 In a little over a minute, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
 
 ![dead-nodes](media/dead-nodes.png)
