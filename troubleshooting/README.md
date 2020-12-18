@@ -16,20 +16,27 @@ You ask the DBA to provide you with the required information to replicate the is
 The customer informs you the UAT environment runs on 12 nodes across 4 datacenters in 2 regions, US East and US West.
 They are using CockroachDB v20.2.x on 4 vCPUs/16GB Mem instances with standard storage.
 
-The customer sent you the tarball with the backup files, `load.tar.gz`, and the SQL queries run as part of the load test, `workload.sql`.
+The customer sent you a sample of the data, below, the schema `schema.sql` and the SQL queries run as part of the load test, `workload.sql`.
+
+```text
+# table coupons ~7.5mio rows
+17,f5da34d7-6c8a-4c1c-af05-e09d41f9fca2,O,2223248,2020-12-10 02:05:14,A,2020-12-25 02:39:30
+21,496bffa4-57d9-4c00-a038-1677ab00384c,R,1966446,2020-12-22 00:22:05,A,2020-04-28 12:57:07
+19,d64858e1-f43e-4983-924d-68087e384995,R,180638,2020-12-20 16:58:00,A,2020-10-02 22:00:17
+```
 
 ## Lab 1 - Recreate the customer environment
 
 ### Create the CockroachDB cluster
 
-Create the CockroachDB cluster on GCP
+Create the CockroachDB cluster. You can use [roachprod](https://github.com/cockroachdb/cockroach/tree/master/pkg/cmd/roachprod) or your favorite DevOps tool.
 
 ```bash
 # default machine type is n1-standard-4 (4 vCPUs / 16GB MEM)
-roachprod create `whoami`-labs -c gce -n 12 --gce-zones us-east1-b,us-east1-c,us-west1-b,us-west1-c
-roachprod stage `whoami`-labs release v20.2.0
-roachprod start `whoami`-labs
-roachprod adminurl `whoami`-labs
+roachprod create ${USER}-labs -c gce -n 12 --gce-zones us-east1-b,us-east1-c,us-west1-b,us-west1-c --gce-image ubuntu-2004-focal-v20201211
+roachprod stage ${USER}-labs release v20.2.2
+roachprod start ${USER}-labs
+roachprod adminurl ${USER}-labs
 ```
 
 Open Admin UI and confirm nodes are grouped into 4 zones, and zones are grouped into 2 regions.
@@ -40,36 +47,81 @@ Check the latency: should be minimal within zones of the same region.
 
 ![network-latency](media/network-latency.png)
 
-Upload the backup tarball file and restore the database tables.
+### Recreate the dataset
+
+We wil be using [carota](https://pypi.org/project/carota/) to generate the random datasets. SSH into one of the servers
 
 ```bash
-roachprod put `whoami`-labs:1 load.tar.gz
-roachprod run `whoami`-labs:1 "tar xvf load.tar.gz"
-roachprod run `whoami`-labs:1 "sudo mkdir -p /mnt/data1/cockroach/extern/"
-roachprod run `whoami`-labs:1 "sudo mv load /mnt/data1/cockroach/extern/"
-roachprod sql `whoami`-labs:1
+roachprod ssh ${USER}-labs:1
 ```
 
-At the SQL prompt:
+Once connected, install `pip3` if not already available, and create the dataset.
+
+```bash
+# install pip3
+sudo apt-get update && sudo apt-get install python3-pip -y
+# install carota
+pip3 install --user --upgrade pip carota
+export PATH=/home/ubuntu/.local/bin:$PATH
+# create the dataset 'coupons' with 7,500,000 rows
+carota -r 7500000 -t "int::start=1,end=28,seed=0; uuid::seed=0; choices::list=O R,weights=9 1,seed=0; int::start=1,end=3572420,seed=0; date::start=2020-12-15,delta=7,seed=0; choices::list=A R,weights=99 1,seed=0; date::start=2020-10-10,delta=180,seed=0" -o c.csv
+```
+
+Creating the dataset might take a few minutes. Once completed, we move the csv into the `extern` folder, used by CockroachDB to look for files to import.
+
+```bash
+sudo mkdir -p /mnt/data1/cockroach/extern/
+sudo mv c.csv /mnt/data1/cockroach/extern/
+```
+
+Now you can exit from the box and connect to the database using your SQL client.
+
+```bash
+roachprod sql ${USER}-labs:1
+```
+
+At the SQL prompt, create the schema and import the data
 
 ```sql
 -- add enterprise license
 SET CLUSTER SETTING cluster.organization = 'ABC Corp';
 SET CLUSTER SETTING enterprise.license = 'xxxx-yyyy-zzzz';
 
-RESTORE offers,coupons FROM 'nodelocal://1/load';
+-- create the schema
+CREATE TABLE coupons (
+    id INT2 NOT NULL,
+    code UUID NOT NULL,
+    channel STRING(1) NOT NULL,
+    pid INT4 NOT NULL,
+    exp_date DATE NOT NULL,
+    status STRING(1) NOT NULL,
+    start_date DATE NOT NULL,
+    CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC),
+    INDEX coupons_pid_idx (pid ASC),
+    INDEX coupons_code_id_idx (code ASC, id ASC) STORING (channel, status, exp_date, start_date),
+    FAMILY "primary" (id, code, channel, pid, exp_date, status, start_date)
+);
+
+CREATE TABLE offers (
+    id INT4 NOT NULL,
+    code UUID NOT NULL,
+    token UUID NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC, token ASC),
+    INDEX offers_token_idx (token ASC),
+    FAMILY "primary" (id, code, token)
+);
+
+-- import the dataset
+IMPORT INTO coupons CSV DATA ('nodelocal://1/c.csv');
 ```
 
-```text
-        job_id       |  status   | fraction_completed |  rows   | index_entries |   bytes
----------------------+-----------+--------------------+---------+---------------+-------------
-  606935886222589953 | succeeded |                  1 | 7309726 |      14619446 | 1203433654
-(1 row)
+You can monitor the import in the DB Console in the **Jobs** page
 
-Time: 1m8.146552901s
-```
+![import-jop](media/import-job.png)
 
-Cool, you've successfully created the cluster and restored the data!
+Cool, you've successfully created the cluster as per customer specifications, recreated the database schema and imported the dataset of dummy data into the database!
 
 ### Create the jumpbox server
 
@@ -77,13 +129,14 @@ Next, open a new terminal window. We will refer to this terminal as the **Jumpbo
 Let's create a Jumpbox server from which to run the workload to simulate the App.
 
 ```bash
-roachprod create `whoami`-jump -c gce -n 1
-roachprod stage `whoami`-jump release v20.2.0
-roachprod put `whoami`-jump workload.sql
-# get the internal IP
-roachprod ip `whoami`-labs:1
+# simple ubuntu box on a starndard 4cpu/16 mem VM
+roachprod create ${USER}-jump -c gce -n 1
+# install cockroachdb just to have the sql client
+roachprod stage ${USER}-jump release v20.2.2
+# get the internal IP of one of the cluster nodes
+roachprod ip ${USER}-labs:1
 # ssh into the jumpbox
-roachprod ssh `whoami`-jump
+roachprod ssh ${USER}-jump:1
 ```
 
 In the jumpbox, download the standalone `workload` binary, used to run the load test.
@@ -103,7 +156,7 @@ You should see below output:
 ```text
   schema_name | table_name | type  | estimated_row_count
 --------------+------------+-------+----------------------
-  public      | coupons    | table |             7309720
+  public      | coupons    | table |             7500000
   public      | offers     | table |                   0
 (2 rows)
 
@@ -119,7 +172,7 @@ Before running the workload, let's review the database we just imported, as well
 Open a new Terminal, the **SQL Terminal**, and connect to n1
 
 ```bash
-roachprod sql `whoami`-labs:1
+roachprod sql ${USER}-labs:1
 ```
 
 We've imported 2 tables, let's see what they look like in terms of size, columns, ranges, indexes. You can view these details using the AdminUI and/or with the `SHOW RANGES` command.
@@ -137,33 +190,30 @@ SHOW RANGES FROM TABLE coupons;
   table_name |                                         create_statement
 -------------+----------------------------------------------------------------------------------------------------
   coupons    | CREATE TABLE public.coupons (
-             |     id INT8 NOT NULL,
-             |     code STRING NOT NULL,
-             |     channel STRING NOT NULL,
-             |     pid INT8 NOT NULL,
+             |     id INT2 NOT NULL,
+             |     code UUID NOT NULL,
+             |     channel STRING(1) NOT NULL,
+             |     pid INT4 NOT NULL,
              |     exp_date DATE NOT NULL,
-             |     status STRING NOT NULL,
-             |     created TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
-             |     modified TIMESTAMPTZ NULL DEFAULT now():::TIMESTAMPTZ,
+             |     status STRING(1) NOT NULL,
              |     start_date DATE NOT NULL,
              |     CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC),
              |     INDEX coupons_pid_idx (pid ASC),
              |     INDEX coupons_code_id_idx (code ASC, id ASC) STORING (channel, status, exp_date, start_date),
-             |     FAMILY "primary" (id, code, channel, pid, exp_date, status, created, modified, start_date)
+             |     FAMILY "primary" (id, code, channel, pid, exp_date, status, start_date)
              | )
 (1 row)
 
-Time: 818ms total (execution 818ms / network 0ms)
+Time: 2.702s total (execution 2.702s / network 0.000s)
 
-                   start_key                  |                   end_key                   | range_id | range_size_mb | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
-----------------------------------------------+---------------------------------------------+----------+---------------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
-  NULL                                        | /201/"0091f193-2e9b-4b1b-a860-a1b931c94a45" |       42 |             0 |           12 | cloud=gce,region=us-west1,zone=us-west1-c | {1,8,12} | {"cloud=gce,region=us-east4,zone=us-east4-b","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
-  /201/"0091f193-2e9b-4b1b-a860-a1b931c94a45" | /400033/"1148sx0rvfqw"                      |      110 |    233.341283 |            1 | cloud=gce,region=us-east4,zone=us-east4-b | {1,8,11} | {"cloud=gce,region=us-east4,zone=us-east4-b","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
-  /400033/"1148sx0rvfqw"                      | /400044/"11c8vvly94m2"                      |      109 |    232.505187 |           11 | cloud=gce,region=us-west1,zone=us-west1-c | {1,8,11} | {"cloud=gce,region=us-east4,zone=us-east4-b","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
-  /400044/"11c8vvly94m2"                      | NULL                                        |       51 |    211.510939 |            5 | cloud=gce,region=us-east4,zone=us-east4-c | {3,5,7}  | {"cloud=gce,region=us-east4,zone=us-east4-b","cloud=gce,region=us-east4,zone=us-east4-c","cloud=gce,region=us-west1,zone=us-west1-b"}
-(4 rows)
+                        start_key                       |                        end_key                        | range_id | range_size_mb | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
+--------------------------------------------------------+-------------------------------------------------------+----------+---------------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
+  NULL                                                  | /1/"\x00\x05\x16\x80\xf7\xcbL䣵w\x81\x1a\x1d\xd6\xf6" |       38 |      0.000728 |            3 | cloud=gce,region=us-east1,zone=us-east1-b | {3,4,8}  | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-b"}
+  /1/"\x00\x05\x16\x80\xf7\xcbL䣵w\x81\x1a\x1d\xd6\xf6" | /15/"\x15\xd3\xe7\xb3_\xa9A\"\xb5p\xa2\xf5\xb9Ba'"    |       40 |    225.468243 |            3 | cloud=gce,region=us-east1,zone=us-east1-b | {3,4,10} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-c"}
+  /15/"\x15\xd3\xe7\xb3_\xa9A\"\xb5p\xa2\xf5\xb9Ba'"    | NULL                                                  |       41 |    222.721298 |            4 | cloud=gce,region=us-east1,zone=us-east1-c | {3,4,8}  | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-b"}
+(3 rows)
 
-Time: 782ms total (execution 782ms / network 0ms)
+Time: 2.559s total (execution 2.558s / network 0.000s)
 ```
 
 ```sql
@@ -175,62 +225,62 @@ SHOW RANGES FROM TABLE offers;
   table_name |                          create_statement
 -------------+----------------------------------------------------------------------
   offers     | CREATE TABLE public.offers (
-             |     id INT8 NOT NULL,
-             |     code STRING NOT NULL,
-             |     token STRING NOT NULL,
-             |     created TIMESTAMPTZ NOT NULL DEFAULT now():::TIMESTAMPTZ,
-             |     modified TIMESTAMPTZ NOT NULL DEFAULT now():::TIMESTAMPTZ,
+             |     id INT4 NOT NULL,
+             |     code UUID NOT NULL,
+             |     token UUID NOT NULL,
+             |     start_date DATE,
+             |     end_date DATE,
              |     CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC, token ASC),
              |     INDEX offers_token_idx (token ASC),
-             |     FAMILY "primary" (id, code, token, created, modified)
+             |     FAMILY "primary" (id, code, token)
              | )
 (1 row)
 
-Time: 821ms total (execution 820ms / network 0ms)
+Time: 1.909s total (execution 1.909s / network 0.000s)
 
   start_key | end_key | range_id | range_size_mb | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
 ------------+---------+----------+---------------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
-  NULL      | NULL    |       36 |             0 |           10 | cloud=gce,region=us-west1,zone=us-west1-c | {4,8,10} | {"cloud=gce,region=us-east4,zone=us-east4-c","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
+  NULL      | NULL    |       37 |             0 |            3 | cloud=gce,region=us-east1,zone=us-east1-b | {3,4,12} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-c"}
 (1 row)
 
-Time: 608ms total (execution 608ms / network 0ms)
+Time: 2.557s total (execution 2.557s / network 0.000s)
 ```
 
 Notice how table `offers` has 1 secondary index, and the table is empty (`range_size_mb` is 0).
 
 Now, let's inspect the workload that's run against this database. Here's a formatted view of the 2 queries in `workload.sql`.
 
-Please note, `1` and `2` are placeholder for variables, the customer has not supplied those so we hardcoded using `1` and `2`.
+Please note, `000000` and `c744250a-1377-4cdf-a1f4-5b85a4d29aaa` are just placeholders for real variables: the customer has not supplied those so we hardcoded them.
 
 ```sql
 -- Q1
 SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c
-WHERE (((c.status = 'ACTIVE')
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (c.pid = '1')
+WHERE c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND c.pid = '000000'
 
 UNION
 
 SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c, offers AS o
-WHERE (((((c.id = o.id)
-  AND (c.code = o.code))
-  AND (c.status = 'ACTIVE'))
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (o.token = '2');
+WHERE c.id = o.id
+  AND c.code = o.code
+  AND c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 
 -- Q2
 SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c, offers AS o
-WHERE (((((c.id = o.id)
-  AND (c.code = o.code))
-  AND (c.status = 'ACTIVE'))
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (o.token = '1');
+WHERE c.id = o.id
+  AND c.code = o.code
+  AND c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
 
 So Q2 is basically the second part of Q1, and it's a join query between the 2 tables. Q1 also has a `SELECT DISTINCT` part, too.
@@ -240,13 +290,14 @@ So Q2 is basically the second part of Q1, and it's a join query between the 2 ta
 Back to your host, get the full list of DB URLs. Save it for later.
 
 ```bash
-$ roachprod pgurl `whoami`-labs
+$ roachprod pgurl ${USER}-labs
 'postgres://root@10.150.0.108:26257?sslmode=disable' 'postgres://root@10.150.0.109:26257?sslmode=disable' 'postgres://root@10.150.0.107:26257?sslmode=disable' 'postgres://root@10.150.0.105:26257?sslmode=disable' 'postgres://root@10.150.0.106:26257?sslmode=disable' 'postgres://root@10.150.0.110:26257?sslmode=disable' 'postgres://root@10.138.0.23:26257?sslmode=disable' 'postgres://root@10.138.0.15:26257?sslmode=disable' 'postgres://root@10.138.0.24:26257?sslmode=disable' 'postgres://root@10.138.0.28:26257?sslmode=disable' 'postgres://root@10.138.0.27:26257?sslmode=disable' 'postgres://root@10.138.0.31:26257?sslmode=disable'
 ```
 
 In the Jumpbox Terminal, run the workload simulation passing all URLs. We are running this workload with 512 active connections, which is far more than the cluster is designed for, which is approximately 12 nodes \* 4 vCPUs \* 4 Active Connections per vCPU = 192 Active Connections. We do so to simulate the highest load.
 
 ```bash
+# upload, or recreate, file workload.sql first
 ./workload run querybench --query-file workload.sql --db=defaultdb --concurrency=512 'postgres://root@10.150.0.110:26257?sslmode=disable' 'postgres://root@10.150.0.95:26257?sslmode=disable' 'postgres://root@10.150.0.111:26257?sslmode=disable' 'postgres://root@10.150.0.109:26257?sslmode=disable' 'postgres://root@10.150.0.92:26257?sslmode=disable' 'postgres://root@10.150.0.93:26257?sslmode=disable' 'postgres://root@10.138.0.2:26257?sslmode=disable' 'postgres://root@10.138.0.8:26257?sslmode=disable' 'postgres://root@10.138.0.9:26257?sslmode=disable' 'postgres://root@10.138.0.18:26257?sslmode=disable' 'postgres://root@10.138.0.10:26257?sslmode=disable' 'postgres://root@10.138.0.39:26257?sslmode=disable'
 ```
 
@@ -254,26 +305,25 @@ You should see the output similar to below:
 
 ```text
 _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(ms)
-33.0s        0         1622.9         1562.2    176.2    285.2    318.8    369.1  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '1') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '2')
-33.0s        0         1559.9         1553.5    151.0    218.1    285.2    302.0  2: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '1')
-34.0s        0         1515.6         1560.8    167.8    335.5    469.8    520.1  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '1') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '2')
-34.0s        0         1630.7         1555.7    130.0    285.2    469.8    469.8  2: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '1')
-35.0s        0         1616.4  
+   21.0s        0         1965.5         1980.8    109.1    302.0    402.7    419.4  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE c.status = 'ACTIVE' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'ACTIVE' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+   21.0s        0         2011.5         1970.6     92.3    268.4    302.0    402.7  2: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'ACTIVE' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+   22.0s        0         2005.0         1981.9    104.9    302.0    385.9    436.2  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE c.status = 'ACTIVE' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'ACTIVE' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+   22.0s        0         2001.1         1972.0     92.3    251.7    352.3    385.9  2: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'ACTIVE' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
 
 While it runs, check the Metrics in the AdminUI. Open the **Hardware** dashboard to see if you can replicate the spike in high CPU usage.
 
 ![cpu](media/cpu.png)
 
-Notice how node 10 and 7 have very high CPU usage compared to all other nodes. Take notice in the **Summary** of the values for QPS and P99 latency, too.
+Notice how 2 nodes have very high CPU usage compared to all other nodes. Take notice in the **Summary** of the values for QPS - 4046 - and P99 latency - 402ms -, too.
 
 Check the latency for these 2 queries. Open the **Statements** page or review the scrolling stats in your terminal.
 
-![latency](media/latency.png)
+![stmt-latency](media/stmt-latency.png)
 
-Check also the **SQL** dashboard
+Check also **Service Latency** charts in the **SQL** dashboard for a better understanding.
 
-![latency2](media/latency2.png)
+![sql-p99](media/sql-p99.png)
 
 Stop the workload now. You can definitely replicate the customer scenario: high CPU spikes and high latency.
 
@@ -283,35 +333,38 @@ Switch to the SQL Terminal. We want to pull the query plan for each query
 
 ### Q1 Query Plan
 
-Let's start with Q1, and let's break it down into 2 parts, and let's pull the plan for the 1st part. Again, here the value `1` is a placeholder for a value passed by the application.
+Let's start with Q1, and let's break it down into 2 parts, and let's pull the plan for the 1st part. Again, here the value `000000` is a placeholder for a value passed by the application.
 
 ```sql
 EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c
-WHERE (((c.status = 'ACTIVE')
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (c.pid = '1');
+WHERE c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND c.pid = '000000';
 ```
 
 ```text
-          tree         |        field        |                                      description                                      |                        columns                         | ordering
------------------------+---------------------+---------------------------------------------------------------------------------------+--------------------------------------------------------+-----------
-                       | distribution        | local                                                                                 |                                                        |
-                       | vectorized          | false                                                                                 |                                                        |
-  project              |                     |                                                                                       | (id, code, channel, status, exp_date, start_date)      |
-   │                   | estimated row count | 0                                                                                     |                                                        |
-   └── filter          |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
-        │              | estimated row count | 0                                                                                     |                                                        |
-        │              | filter              | ((status = 'ACTIVE') AND (exp_date >= '2020-11-16')) AND (start_date <= '2020-11-16') |                                                        |
-        └── index join |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
-             │         | estimated row count | 0                                                                                     |                                                        |
-             │         | table               | coupons@primary                                                                       |                                                        |
-             │         | key columns         | id, code                                                                              |                                                        |
-             └── scan  |                     |                                                                                       | (id, code, pid)                                        |
-                       | estimated row count | 0                                                                                     |                                                        |
-                       | table               | coupons@coupons_pid_idx                                                               |                                                        |
-                       | spans               | /1-/2                                                                                 |                                                        |
+          tree         |        field        |                                   description                                    |                        columns                         | ordering
+-----------------------+---------------------+----------------------------------------------------------------------------------+--------------------------------------------------------+-----------
+                       | distribution        | local                                                                            |                                                        |
+                       | vectorized          | false                                                                            |                                                        |
+  project              |                     |                                                                                  | (id, code, channel, status, exp_date, start_date)      |
+   │                   | estimated row count | 0                                                                                |                                                        |
+   └── filter          |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+        │              | estimated row count | 0                                                                                |                                                        |
+        │              | filter              | ((status = 'A') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
+        └── index join |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+             │         | estimated row count | 0                                                                                |                                                        |
+             │         | table               | coupons@primary                                                                  |                                                        |
+             │         | key columns         | id, code                                                                         |                                                        |
+             └── scan  |                     |                                                                                  | (id, code, pid)                                        |
+                       | estimated row count | 0                                                                                |                                                        |
+                       | table               | coupons@coupons_pid_idx                                                          |                                                        |
+                       | spans               | /0-/1                                                                            |                                                        |
+(15 rows)
+
+Time: 77ms total (execution 77ms / network 0ms)
 ```
 
 So the optimizer is leveraging index `coupons@coupons_pid_idx` to filter rows that have that specific `pid`, but then it has to do a join with `primary` to fetch `status`, `exp_date` and `start_date` to finish the rest of the `WHERE`, and `SELECT`, clauses.
@@ -325,65 +378,65 @@ Let's now pull the plan for Q2.
 ```sql
 EXPLAIN (VERBOSE) SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c, offers AS o
-WHERE (((((c.id = o.id)
-  AND (c.code = o.code))
-  AND (c.status = 'ACTIVE'))
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (o.token = '1');
+WHERE c.id = o.id
+  AND c.code = o.code
+  AND c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
 
 ```text
-            tree           |         field         |                                      description                                      |                              columns                               | ordering
----------------------------+-----------------------+---------------------------------------------------------------------------------------+--------------------------------------------------------------------+-----------
-                           | distribution          | full                                                                                  |                                                                    |
-                           | vectorized            | false                                                                                 |                                                                    |
-  project                  |                       |                                                                                       | (id, code, channel, status, exp_date, start_date)                  |
-   │                       | estimated row count   | 0                                                                                     |                                                                    |
-   └── lookup join (inner) |                       |                                                                                       | (id, code, token, id, code, channel, exp_date, status, start_date) |
-        │                  | estimated row count   | 0                                                                                     |                                                                    |
-        │                  | table                 | coupons@coupons_code_id_idx                                                           |                                                                    |
-        │                  | equality              | (code, id) = (code,id)                                                                |                                                                    |
-        │                  | equality cols are key |                                                                                       |                                                                    |
-        │                  | pred                  | ((status = 'ACTIVE') AND (exp_date >= '2020-11-16')) AND (start_date <= '2020-11-16') |                                                                    |
-        └── scan           |                       |                                                                                       | (id, code, token)                                                  |
-                           | estimated row count   | 1                                                                                     |                                                                    |
-                           | table                 | offers@offers_token_idx                                                               |                                                                    |
-                           | spans                 | /"1"-/"1"/PrefixEnd                                                                   |                                                                    |
-
+            tree           |         field         |                                     description                                     |                              columns                               | ordering
+---------------------------+-----------------------+-------------------------------------------------------------------------------------+--------------------------------------------------------------------+-----------
+                           | distribution          | full                                                                                |                                                                    |
+                           | vectorized            | false                                                                               |                                                                    |
+  project                  |                       |                                                                                     | (id, code, channel, status, exp_date, start_date)                  |
+   │                       | estimated row count   | 0                                                                                   |                                                                    |
+   └── lookup join (inner) |                       |                                                                                     | (id, code, token, id, code, channel, exp_date, status, start_date) |
+        │                  | estimated row count   | 0                                                                                   |                                                                    |
+        │                  | table                 | coupons@coupons_code_id_idx                                                         |                                                                    |
+        │                  | equality              | (code, id) = (code,id)                                                              |                                                                    |
+        │                  | equality cols are key |                                                                                     |                                                                    |
+        │                  | pred                  | ((status = 'A') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20')    |                                                                    |
+        └── scan           |                       |                                                                                     | (id, code, token)                                                  |
+                           | estimated row count   | 1                                                                                   |                                                                    |
+                           | table                 | offers@offers_token_idx                                                             |                                                                    |
+                           | spans                 | /"\xc7D%\n\x13wLߡ\xf4[\x85\xa4Қ\xaa"-/"\xc7D%\n\x13wLߡ\xf4[\x85\xa4Қ\xaa"/PrefixEnd |                                                                    |
 ```
 
 Here we see that the optimizer is choosing an index to filter from the `offers` table and join with `coupons`, which is fine.
 
 ## Lab 5 - Addressing the Hotspot
 
-Let's tackle the high CPU usage issue first. Why is it so, why is node 10 using all the CPU?
-We can start by trying to isolate the issue by running only Q2 in our workload, and let's see if the problem persist.
+Let's tackle the high CPU usage issue first. Why is it so, why is a node, n3 in this case, using all the CPU?
 
-Update `workload.sql` by commenting Q1 out, then restart the workload. Give it a couple of minutes, and you should see that n10 is hot again, so we know that Q2 is the culprit.
+We can try to isolate the issue by running only Q2 in our workload, and let's see if the problem persist.
 
-![n10](media/n10.png)
+Switch to the Jumpbox Terminal and edit file `workload.sql` to comment Q1 out, then restart the workload. Give it a couple of minutes, and you should see that n3 is hot again, so we know that Q2 is the culprit.
+
+![hot-n3](media/hot-n3.png)
 
 Let's see if we have a hot range.
 
 Upload file `hot.py` to the jumpbox, or run it locally on a new terminal if you prefer
 
 ```bash
-$ python3 hot.py --numtop 10 --host `whoami`-labs-0001.roachprod.crdb.io --adminport 26258 --dbport 26257  
-rank    rangeId QPS     lh      nodes              DBname, TableName, IndexName
-  1:    36      1680    10      [4, 8, 10]         ['defaultdb', 'offers', 'offers_token_idx']
-  2:    6       49      5       [1, 6, 5, 12, 9]   ['defaultdb', 'coupons', 'coupons_pid_idx']
-  3:    26      16      6       [1, 6, 5, 7, 10]
-  4:    35      12      8       [5, 3, 8, 11, 7]
-  5:    4       8       5       [5, 12, 8]
-  6:    11      3       2       [2, 5, 11, 7, 10]
-  7:    2       2       11      [4, 2, 12, 9, 11]
-  8:    7       2       2       [2, 1, 6, 8, 11]
-  9:    3       1       12      [2, 1, 5, 12, 8]
- 10:    31      1       3       [4, 3, 12, 9, 7]
+$ python3 hot.py --numtop 10 --host ${USER}-labs-0001.roachprod.crdb.io --adminport 26258 --dbport 26257  
+rank  rangeId          QPS           Nodes       leaseHolder    DBname, TableName, IndexName
+  1:       37   2006.722472     [4, 3, 12]                 3    ['defaultdb', 'offers', '']
+  2:       39   857.900812       [5, 2, 8]                 5    ['defaultdb', 'coupons', 'coupons_pid_idx']
+  3:        6    48.688882      [1, 6, 3, 11, 9]                   9    ['', '', '']
+  4:       26    17.644921      [1, 4, 11, 12, 7]                  4    ['system', 'namespace2', '']
+  5:        4    15.409775      [1, 9, 12]                12    ['', '', '']
+  6:       35    12.764951      [4, 3, 9, 8, 10]                  10    ['system', 'sqlliveness', '']
+  7:       11     3.369730      [6, 2, 9, 12, 10]                  2    ['system', 'jobs', '']
+  8:        2     2.697347      [1, 5, 3, 12, 7]                  12    ['', '', '']
+  9:        3     1.976292      [6, 4, 3, 11, 7]                   6    ['', '', '']
+ 10:        7     1.373621      [1, 2, 4, 12, 7]                   4    ['system', 'lease', '']
 ```
 
-So it looks like rangeId 36 on node 10 is hot. What's in that range, why that range?
+So it looks like rangeId 37 on n3 is hot. What's in that range, why that range?
 
 Back to your SQL terminal, show the ranges for `offers@offers_token_idx`, since the query plan showed it's using this index
 
@@ -394,43 +447,60 @@ SHOW RANGES FROM INDEX offers@offers_token_idx;
 ```text
   start_key | end_key | range_id | range_size_mb | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
 ------------+---------+----------+---------------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
-  NULL      | NULL    |       36 |             0 |           10 | cloud=gce,region=us-west1,zone=us-west1-c | {4,8,10} | {"cloud=gce,region=us-east4,zone=us-east4-c","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
+  NULL      | NULL    |       37 |             0 |            3 | cloud=gce,region=us-east1,zone=us-east1-b | {3,4,12} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-c"}
+(1 row)
+
+Time: 2.517s total (execution 2.516s / network 0.000s)
 ```
 
-Bingo! We found rangeId 36.
-As `offers` is empty, so is index `offers@offers_token_idx`, there is just one range for that table and if you have a join operation going on, inevitably CockroachDB will always want to access that range to do the join, causing the hotspot.
+Bingo! We found rangeId 37.
+As `offers` is empty, so is index `offers@offers_token_idx`, and thus there is just one range for that table and if you have a join operation going on, inevitably CockroachDB will always want to access that range to do the join, causing the hotspot.
 
 We need to ask our customer:
 
 - why is a join operation sent against an empty table;
 - why is the table empty.
 
-If the table were full, you'd have multiple ranges spread across the cluster and the load would be balanced, removing the hotspot on node 10. Let's prove our theory.
+If the table were full, you'd have multiple ranges spread across the cluster and the load would be balanced, removing the hotspot on the node. Let's prove our theory.
 
-The customer provides you with some data, `offers.csv.gz`. Stop the workload, then upload the data to the cluster and import it into `offers`.
+The customer provides you with some sample data, below.
 
-On your Host Terminal
+```text
+16,fcbd04c3-4021-4ef7-8ca5-a5a19e4d6e3c,cd447e35-b8b6-48fe-842e-3d437204e52d,2021-08-28 16:28:06,2020-06-15 23:52:12
+13,b4862b21-fb97-4435-8856-1712e8e5216a,1a2b8f1f-f1fd-42a2-9755-d4c13a902931,2020-09-30 06:04:12,2020-06-17 04:51:46
+26,259f4329-e6f4-490b-9a16-4106cf6a659e,05b6e6e3-07d4-4edc-9143-1193e6c3f339,2021-09-16 21:42:15,2021-07-05 22:38:42
+```
+
+Stop the running workload, then, like for `coupons`, generate the dataset and import it into `offers`.
+On the host terminal, connect again to a cluster server
 
 ```bash
-roachprod put `whoami`-labs:1 offers.csv.gz
-roachprod run `whoami`-labs:1 "gunzip offers.csv.gz"
-roachprod run `whoami`-labs:1 "sudo mv offers.csv /mnt/data1/cockroach/extern/"
+roachprod ssh ${USER}-labs:1
+
+# once connected, create the dataset, 'offers'
+# note: we use a seed here so that we can reporduce the same UUIDs used later
+# by reusing the same seed, we ensure the field id and code match between the 2 tables
+carota -r 10000 -t "int::start=1,end=28,seed=0; uuid::seed=0; uuid::seed=1; date; date" -o o.csv
+# then we append some more random data
+carota -r 6000000 -t "int::start=0,end=100,seed=5; uuid::seed=5; uuid::seed=6; date; date" -o o.csv --append
+
+sudo mv o.csv /mnt/data1/cockroach/extern/
 ```
 
 In your SQL terminal
 
 ```sql
-IMPORT INTO offers (id, code, token, created, modified)
-    CSV DATA ('nodelocal://1/offers.csv');
+IMPORT INTO offers CSV DATA ('nodelocal://1/o.csv');
 ```
 
-You should now have about 2 million rows in `offers`.
-If you rerun the workload, however, you'd still see the spike because the `token` value to search is hardcoded to `1`, so you'd still hit the same range over and over.
+You should now have 2 million rows in `offers`.
+
+If you rerun the workload, however, you'd still see the spike because the `token` value to search is hardcoded to `c744250a-1377-4cdf-a1f4-5b85a4d29aaa`, so you'd still hit the same range over and over.
 
 Instead, let's pick `token` values that are located at specific intervals in the KV store of the index, so we know we will hit different ranges.
 
 ```sql
-SELECT token FROM offers@offers_token_idx LIMIT 1 OFFSET 1; -- then increment of ~250,000
+SELECT token FROM offers@offers_token_idx LIMIT 1 OFFSET 1; -- then increment of ~700,000
 ```
 
 We can use this data to create a new workload file, `q2.sql`. Scroll below text to the right to see the tokens.
@@ -438,15 +508,15 @@ Notice they are in lexicographical order.
 
 ```sql
 -- scroll to the right!
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '000016aa-57a4-18fd-9a60-e599462b43e0');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '3fe561ed-a778-891e-228c-21cd77254201');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '5fe1efc3-a038-2e27-816c-7f082b223af0');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '9ff60a37-6ab3-5e2e-67a2-4552a44b2231');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = 'c009288d-8e63-224e-4db6-9ec31441987a');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = 'e00d75b0-9bbf-6c69-6620-2d312813806e');
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = 'fffff710-1de1-64de-652e-3111c1fc71c7');
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '00000276-014e-4ecc-9c99-0b59d80f1973';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '77516bf5-af2c-4042-8917-4d5b408908ed';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3';
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc';
 ```
 
 Run workload `q2.sql` for a while, at least 5 minutes to give time to Cockroach to reassign leaseholders around the ranges of the cluster.
@@ -463,14 +533,13 @@ SELECT lease_holder, lease_holder_locality FROM [SHOW RANGES FROM INDEX offers@o
 ```text
   lease_holder |           lease_holder_locality
 ---------------+--------------------------------------------
-            10 | cloud=gce,region=us-west1,zone=us-west1-c
-            10 | cloud=gce,region=us-west1,zone=us-west1-c
-             1 | cloud=gce,region=us-east4,zone=us-east4-b
-             4 | cloud=gce,region=us-east4,zone=us-east4-c
-            11 | cloud=gce,region=us-west1,zone=us-west1-c
+             5 | cloud=gce,region=us-east1,zone=us-east1-c
+             4 | cloud=gce,region=us-east1,zone=us-east1-c
+             3 | cloud=gce,region=us-east1,zone=us-east1-b
+             2 | cloud=gce,region=us-east1,zone=us-east1-b
 ```
 
-Better! On average we can expect the load to be spread across 5 ranges in 4 nodes.
+Better! On average we can expect the load to be spread across 4 ranges in 4 different nodes.
 
 ## Lab 6 - Addressing the Latency
 
@@ -487,7 +556,7 @@ SHOW LOCALITY;
 ```text
                   locality
 ---------------------------------------------
-  cloud=gce,region=us-east4,zone=us-east4-b
+  cloud=gce,region=us-east1,zone=us-east1-b
 (1 row)
 
 Time: 2ms total (execution 1ms / network 0ms)
@@ -498,23 +567,22 @@ Ok, I'm in US East. Let's run the first part of Q1 using a randomly picked valid
 ```sql
 SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c
-WHERE (((c.status = 'ACTIVE')
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (c.pid = '3124791208')
-;
+WHERE c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND c.pid = '1109619';
 ```
 
 ```text
-    id   |     code     | channel | status |         exp_date          |        start_date
----------+--------------+---------+--------+---------------------------+----------------------------
-  400033 | 10ug031bch0f | ONLINE  | ACTIVE | 2020-11-20 00:00:00+00:00 | 2020-11-05 00:00:00+00:00
+  id |                 code                 | channel | status |         exp_date          |        start_date
+-----+--------------------------------------+---------+--------+---------------------------+----------------------------
+   9 | f99e6553-18fb-475b-910e-eae4287e7ffa | O       | A      | 2020-12-19 00:00:00+00:00 | 2020-05-04 00:00:00+00:00
 (1 row)
 
-Time: 68ms total (execution 67ms / network 0ms)
+Time: 67ms total (execution 67ms / network 0ms)
 ```
 
-Response Time is 68ms, a little too much. Why is it so? Let's check where the range that has this row is located.
+Response Time is 69ms, a little too much. Why is it so? Let's check where the range that has this row is located.
 
 From the query plan we pulled above, we see that it's using index `coupons_pid_idx`. Find the key of the index
 
@@ -544,41 +612,42 @@ Cool, for `coupons@coupons_pid_idx` the key is `pid id code`.
 Let's pull the correct range
 
 ```sql
-SHOW RANGE FROM INDEX coupons@coupons_pid_idx FOR ROW(3124791208, 400033, '10ug031bch0f');
+SELECT lease_holder_locality FROM [SHOW RANGE FROM INDEX coupons@coupons_pid_idx FOR ROW(1109619, 9, 'f99e6553-18fb-475b-910e-eae4287e7ffa')];
 ```
 
 ```text
-             start_key             |              end_key              | range_id | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
------------------------------------+-----------------------------------+----------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
-  /2945789655/385668/"us625n6ljf0" | /3405705299/400044/"11bh0t1jnl8t" |       67 |            3 | cloud=gce,region=us-east1,zone=us-east1-b | {3,7,10} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
+            lease_holder_locality
+---------------------------------------------
+  cloud=gce,region=us-east1,zone=us-east1-b
 ```
 
-Ok, the range is local, this should only take 1ms.. From the query plan we see that there is a join with `coupons@primary` to fetch the other columns.
+Ok, the range is local (us-east-1), this should only take 1ms.. From the query plan we see that there is a join with `coupons@primary` to fetch the other columns.
 Let's see how long that takes
 
 ```sql
-SELECT * FROM  coupons@primary WHERE id = 400033 AND code = '10ug031bch0f';
+SELECT * FROM  coupons@primary WHERE id = 1109619 AND code = 'f99e6553-18fb-475b-910e-eae4287e7ffa';
 ```
 
 ```text
-    id   |     code     | channel |    pid     |         exp_date          | status |             created              |           modified            |        start_date
----------+--------------+---------+------------+---------------------------+--------+----------------------------------+-------------------------------+----------------------------
-  400033 | 10ug031bch0f | ONLINE  | 3124791208 | 2020-11-20 00:00:00+00:00 | ACTIVE | 2020-09-18 22:37:55.976397+00:00 | 2020-09-18 22:37:55.972+00:00 | 2020-11-05 00:00:00+00:00
+  id |                 code                 | channel | pid |         exp_date          | status |        start_date
+-----+--------------------------------------+---------+-----+---------------------------+--------+----------------------------
+  19 | 468750f4-cb58-4707-9fd3-bd5f99111855 | O       |  12 | 2020-12-18 00:00:00+00:00 | A      | 2020-09-21 00:00:00+00:00
 (1 row)
 
-Time: 65ms total (execution 65ms / network 0ms)
+Time: 68ms total (execution 67ms / network 0ms)
 ```
 
-65ms! Let's do the same exercise as before and find out where this range is located.
+68ms! Let's do the same exercise as before and find out where this range is located.
 
 ```sql
-SHOW RANGE FROM TABLE coupons FOR ROW(400033, '10ug031bch0f');
+SHOW RANGE FROM TABLE coupons FOR ROW(19, '468750f4-cb58-4707-9fd3-bd5f99111855');
 ```
 
 ```text
-                   start_key                  |        end_key         | range_id | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
-----------------------------------------------+------------------------+----------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
-  /201/"0091f193-2e9b-4b1b-a860-a1b931c94a45" | /400033/"1148sx0rvfqw" |       71 |            7 | cloud=gce,region=us-west1,zone=us-west1-b | {4,7,12} | {"cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-b","cloud=gce,region=us-west1,zone=us-west1-c"}
+                          start_key                          | end_key | range_id | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
+-------------------------------------------------------------+---------+----------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
+  /15/"\x15\xc7\xd0\xd2\xcf4N\xaf\xa9=\xf6\x0e\xb5\x9c\xce0" | NULL    |       42 |           10 | cloud=gce,region=us-west1,zone=us-west1-c | {3,5,10} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-c"}
+
 ```
 
 A-ha! This table is in US West, so we're paying the latency price to go to the other region to fetch the data.
@@ -602,27 +671,26 @@ Pull the query plan to confirm no join is required
 ```sql
 EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c
-WHERE (((c.status = 'ACTIVE')
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (c.pid = '3124791208');
+WHERE c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND c.pid = '12';
 ```
 
 ```text
-       tree      |        field        |                                      description                                      |                        columns                         | ordering
------------------+---------------------+---------------------------------------------------------------------------------------+--------------------------------------------------------+-----------
-                 | distribution        | local                                                                                 |                                                        |
-                 | vectorized          | false                                                                                 |                                                        |
-  project        |                     |                                                                                       | (id, code, channel, status, exp_date, start_date)      |
-   │             | estimated row count | 1                                                                                     |                                                        |
-   └── filter    |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
-        │        | estimated row count | 1                                                                                     |                                                        |
-        │        | filter              | ((status = 'ACTIVE') AND (exp_date >= '2020-11-19')) AND (start_date <= '2020-11-19') |                                                        |
-        └── scan |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
-                 | estimated row count | 2                                                                                     |                                                        |
-                 | table               | coupons@coupons_pid_idx                                                               |                                                        |
-                 | spans               | /3124791208-/3124791209                                                               |                                                        |
-
+       tree      |        field        |                                   description                                    |                        columns                         | ordering
+-----------------+---------------------+----------------------------------------------------------------------------------+--------------------------------------------------------+-----------
+                 | distribution        | local                                                                            |                                                        |
+                 | vectorized          | false                                                                            |                                                        |
+  project        |                     |                                                                                  | (id, code, channel, status, exp_date, start_date)      |
+   │             | estimated row count | 0                                                                                |                                                        |
+   └── filter    |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+        │        | estimated row count | 0                                                                                |                                                        |
+        │        | filter              | ((status = 'A') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
+        └── scan |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+                 | estimated row count | 0                                                                                |                                                        |
+                 | table               | coupons@coupons_pid_idx                                                          |                                                        |
+                 | spans               | /12-/13                                                                          |                                                        |
 ```
 
 Good stuff, we eliminated a join operation!
@@ -632,13 +700,30 @@ As per Q2, we see that the optimizer is never using `offers@primary`. Let's alte
 ```sql
 DROP INDEX offers_token_idx;
 -- this will take some time as we're basically rewriting the entire table
-ALTER TABLE offers ALTER PRIMARY KEY USING COLUMNS (token, id, code);
-DROP INDEX offers_id_code_token_key CASCADE;
+BEGIN;
+ALTER TABLE offers DROP CONSTRAINT "primary";
+ALTER TABLE offers ADD CONSTRAINT "primary" PRIMARY KEY (token, id, code);
+COMMIT;
+```
 
---BEGIN;
---ALTER TABLE offers DROP CONSTRAINT "primary";
---ALTER TABLE offers ADD CONSTRAINT "primary" PRIMARY KEY (token, id, code);
---COMMIT;
+Review the schema after these changes.
+
+```sql
+SHOW CREATE TABLE offers;
+```
+
+```text
+  table_name |                          create_statement
+-------------+----------------------------------------------------------------------
+  offers     | CREATE TABLE public.offers (
+             |     id INT4 NOT NULL,
+             |     code UUID NOT NULL,
+             |     token UUID NOT NULL,
+             |     start_date DATE NULL,
+             |     end_date DATE NULL,
+             |     CONSTRAINT "primary" PRIMARY KEY (token ASC, id ASC, code ASC),
+             |     FAMILY "primary" (id, code, token, start_date, end_date)
+             | )
 ```
 
 ### Part 2 - Create duplicate indexes and pin to region
@@ -658,7 +743,7 @@ CREATE INDEX primary_copy ON coupons(id ASC, code ASC) STORING (channel, pid, ex
 CREATE INDEX coupons_pid_idx_copy on coupons(pid ASC) STORING (channel, exp_date, status, start_date);
 
 -- copy of offers@primary
-CREATE INDEX primary_copy ON offers(token ASC, id ASC, code ASC) STORING (created, modified);
+CREATE INDEX primary_copy ON offers(token ASC, id ASC, code ASC) STORING (start_date, end_date);
 ```
 
 Good stuff, we have now a copy of each index (`primary` included).
@@ -669,13 +754,13 @@ Next, pin a copy to East, and another to West.
 --   pin to East
 ALTER TABLE coupons CONFIGURE ZONE USING
   num_replicas = 3,
-  constraints = '{+region=us-east4: 1}',
-  lease_preferences = '[[+region=us-east4]]';
+  constraints = '{+region=us-east1: 1}',
+  lease_preferences = '[[+region=us-east1]]';
 
 ALTER INDEX coupons@coupons_pid_idx CONFIGURE ZONE USING
   num_replicas = 3,
-  constraints = '{+region=us-east4: 1}',
-  lease_preferences = '[[+region=us-east4]]';
+  constraints = '{+region=us-east1: 1}',
+  lease_preferences = '[[+region=us-east1]]';
 
 --   pin to West
 ALTER INDEX coupons@primary_copy CONFIGURE ZONE USING
@@ -692,8 +777,8 @@ ALTER INDEX coupons@coupons_pid_idx_copy CONFIGURE ZONE USING
 --    pin to East
 ALTER TABLE offers CONFIGURE ZONE USING
   num_replicas = 3,
-  constraints = '{+region=us-east4: 1}',
-  lease_preferences = '[[+region=us-east4]]';
+  constraints = '{+region=us-east1: 1}',
+  lease_preferences = '[[+region=us-east1]]';
 
 --    pin to West
 ALTER INDEX offers@primary_copy CONFIGURE ZONE USING
@@ -711,28 +796,28 @@ From node 1 (US East region):
 ```sql
 SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c
-WHERE (((c.status = 'ACTIVE')
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (c.pid = '3124791208');
+WHERE c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND c.pid = '12';
 ```
 
 ```text
-    id   |     code     | channel | status |         exp_date          |        start_date
----------+--------------+---------+--------+---------------------------+----------------------------
-  400033 | 10ug031bch0f | ONLINE  | ACTIVE | 2020-11-20 00:00:00+00:00 | 2020-11-05 00:00:00+00:00
+  id |                 code                 | channel | status |         exp_date          |        start_date
+-----+--------------------------------------+---------+--------+---------------------------+----------------------------
+  19 | 468750f4-cb58-4707-9fd3-bd5f99111855 | O       | A      | 2020-12-18 00:00:00+00:00 | 2020-09-21 00:00:00+00:00
 (1 row)
 
-Time: 3ms total (execution 3ms / network 0ms)
+Time: 1ms total (execution 1ms / network 0ms)
 ```
 
 ```sql
 EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
 FROM coupons AS c
-WHERE (((c.status = 'ACTIVE')
-  AND (c.exp_date >= current_date()))
-  AND (c.start_date <= current_date()))
-  AND (c.pid = '3124791208');
+WHERE c.status = 'A'
+  AND c.exp_date >= '2020-11-20'
+  AND c.start_date <= '2020-11-20'
+  AND c.pid = '12';
 ```
 
 ```text
@@ -741,25 +826,25 @@ WHERE (((c.status = 'ACTIVE')
                  | distribution        | local                                                                                 |                                                        |
                  | vectorized          | false                                                                                 |                                                        |
   project        |                     |                                                                                       | (id, code, channel, status, exp_date, start_date)      |
-   │             | estimated row count | 1                                                                                     |                                                        |
+   │             | estimated row count | 0                                                                                     |                                                        |
    └── filter    |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
-        │        | estimated row count | 1                                                                                     |                                                        |
-        │        | filter              | ((status = 'ACTIVE') AND (exp_date >= '2020-11-19')) AND (start_date <= '2020-11-19') |                                                        |
+        │        | estimated row count | 0                                                                                     |                                                        |
+        │        | filter              | ((status = 'ACTIVE') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
         └── scan |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
-                 | estimated row count | 2                                                                                     |                                                        |
+                 | estimated row count | 0                                                                                     |                                                        |
                  | table               | coupons@coupons_pid_idx                                                               |                                                        |
-                 | spans               | /3124791208-/3124791209                                                               |                                                        |
+                 | spans               | /3124791208-/3124791209                                                               |                                                        |                                                        |                                                        |
 ```
 
 Same queries above run on node 12 (US West region):
 
 ```text
-    id   |     code     | channel | status |         exp_date          |        start_date
----------+--------------+---------+--------+---------------------------+----------------------------
-  400033 | 10ug031bch0f | ONLINE  | ACTIVE | 2020-11-20 00:00:00+00:00 | 2020-11-05 00:00:00+00:00
+  id |                 code                 | channel | status |         exp_date          |        start_date
+-----+--------------------------------------+---------+--------+---------------------------+----------------------------
+  19 | 468750f4-cb58-4707-9fd3-bd5f99111855 | O       | A      | 2020-12-18 00:00:00+00:00 | 2020-09-21 00:00:00+00:00
 (1 row)
 
-Time: 2ms total (execution 2ms / network 0ms)
+Time: 2ms total (execution 1ms / network 0ms)
 ```
 
 ```text
@@ -780,21 +865,17 @@ Time: 2ms total (execution 2ms / network 0ms)
 
 Perfect, we've low latency from both regions! Now start the workload again and let's measure the overall latency.
 
-Mind, the workload still has the hardcoded values `1` and  `2`. Upload and inspect `final.sql` which should be closer to the real workflow.
+Mind, the workload still has the hardcoded values. Upload and inspect `final.sql` which should be closer to the real workflow.
 
 ```text
 _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(ms)
-  339.0s        0          361.8          365.4     88.1    151.0    167.8    192.9  9: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a')
-  339.0s        0          357.8          365.3     79.7    130.0    159.4    176.2 10: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a');
-  339.0s        0          349.8          365.2     83.9    134.2    167.8    192.9 11: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '3002738477') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '9ff60a37-6ab3-5e2e-67a2-4552a44b2231')
-  339.0s        0          355.8          365.1     79.7    134.2    151.0    167.8 12: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '5fe1efc3-a038-2e27-816c-7f082b223af0');
-  339.0s        0          380.8          365.1     92.3    151.0    167.8    184.5 13: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '2189670715') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = 'c009288d-8e63-224e-4db6-9ec31441987a')
-  339.0s        0          385.8          365.0     50.3    130.0    159.4    201.3 14: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '3fe561ed-a778-891e-228c-21cd77254201');
-  339.0s        0          394.8          365.0     88.1    134.2    159.4    176.2 15: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = 'e00d75b0-9bbf-6c69-6620-2d312813806e')
-  339.0s        0          406.8          364.9     48.2    130.0    184.5    192.9 16: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= current_date())) AND (c.start_date <= current_date())) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
+  339.0s        0          361.8          365.4     88.1    151.0    167.8    192.9  9: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a')
+      0          406.8          364.9     48.2    130.0    184.5    192.9 16: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
+
+
 ```
 
-Compare to the initial result: huge improvement in performance!
+Compare to the initial result: huge improvement in performance! We doubled the QPS and halved the Lantency!
 
 ![final](media/final.png)
 

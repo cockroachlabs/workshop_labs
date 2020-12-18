@@ -34,13 +34,13 @@ This repository contains instructions for the various labs that are part of  the
 
 - [Labs](/backup-restore/README.md)
 
+## Optimizing Serializable Transactions
+
+- [Labs](/optimizing-serializable-transactions/README.md)
+
 ## Query Optimization
 
 - [Labs](/query-optimization/README.md)
-
-## Serializable Transactions
-
-- [Labs](/serializable-transactions/README.md)
 
 ## Topology Patterns
 
