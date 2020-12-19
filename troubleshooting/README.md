@@ -16,14 +16,54 @@ You ask the DBA to provide you with the required information to replicate the is
 The customer informs you the UAT environment runs on 12 nodes across 4 datacenters in 2 regions, US East and US West.
 They are using CockroachDB v20.2.x on 4 vCPUs/16GB Mem instances with standard storage.
 
-The customer sent you a sample of the data, below, the schema `schema.sql` and the SQL queries run as part of the load test, `workload.sql`.
+The customer sent you :
 
-```text
-# table coupons ~7.5mio rows
-17,f5da34d7-6c8a-4c1c-af05-e09d41f9fca2,O,2223248,2020-12-10 02:05:14,A,2020-12-25 02:39:30
-21,496bffa4-57d9-4c00-a038-1677ab00384c,R,1966446,2020-12-22 00:22:05,A,2020-04-28 12:57:07
-19,d64858e1-f43e-4983-924d-68087e384995,R,180638,2020-12-20 16:58:00,A,2020-10-02 22:00:17
-```
+1. a sample of the data
+
+    ```text
+    # table coupons ~7.5mio rows
+    17,f5da34d7-6c8a-4c1c-af05-e09d41f9fca2,O,2223248,2020-12-10 02:05:14,A,2020-12-25 02:39:30
+    21,496bffa4-57d9-4c00-a038-1677ab00384c,R,1966446,2020-12-22 00:22:05,A,2020-04-28 12:57:07
+    19,d64858e1-f43e-4983-924d-68087e384995,R,180638,2020-12-20 16:58:00,A,2020-10-02 22:00:17
+    ```
+
+2. the schema:
+
+    ```sql
+    CREATE TABLE coupons (
+        id INT2 NOT NULL,
+        code UUID NOT NULL,
+        channel STRING(1) NOT NULL,
+        pid INT4 NOT NULL,
+        exp_date DATE NOT NULL,
+        status STRING(1) NOT NULL,
+        start_date DATE NOT NULL,
+        CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC),
+        INDEX coupons_pid_idx (pid ASC),
+        INDEX coupons_code_id_idx (code ASC, id ASC) STORING (channel, status, exp_date, start_date),
+        FAMILY "primary" (id, code, channel, pid, exp_date, status, start_date)
+    );
+
+    CREATE TABLE offers (
+        id INT4 NOT NULL,
+        code UUID NOT NULL,
+        token UUID NOT NULL,
+        start_date DATE,
+        end_date DATE,
+        CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC, token ASC),
+        INDEX offers_token_idx (token ASC),
+        FAMILY "primary" (id, code, token, start_date, end_date)
+    );
+    ```
+
+3. the SQL queries run as part of the load test
+
+    ```sql
+    -- Q1
+    SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+    -- Q2
+    SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+    ```
 
 ## Lab 1 - Recreate the customer environment
 
@@ -865,14 +905,48 @@ Time: 2ms total (execution 1ms / network 0ms)
 
 Perfect, we've low latency from both regions! Now start the workload again and let's measure the overall latency.
 
-Mind, the workload still has the hardcoded values. Upload and inspect `final.sql` which should be closer to the real workflow.
+Mind, the workload still has the hardcoded values. Review and create file `final.sql` which should be closer to the real workflow, with real `offers.token` and `coupons.id|code` values
+
+```sql
+-- final.sql
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3132039537') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd554a4cf-6c83-454e-83f4-38f019cf4734';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '1279') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '7ffb8711-669f-4ca2-bf22-af047bd188be';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2743109489') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3002738477') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2189670715') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '00000276-014e-4ecc-9c99-0b59d80f1973')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '77516bf5-af2c-4042-8917-4d5b408908ed';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '7ffb8711-669f-4ca2-bf22-af047bd188be')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2936320808') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '77516bf5-af2c-4042-8917-4d5b408908ed')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2579495379') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '00000276-014e-4ecc-9c99-0b59d80f1973';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'd554a4cf-6c83-454e-83f4-38f019cf4734')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe';
+
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2')
+SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3';
+```
 
 ```text
 _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(ms)
   339.0s        0          361.8          365.4     88.1    151.0    167.8    192.9  9: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'ACTIVE') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a')
       0          406.8          364.9     48.2    130.0    184.5    192.9 16: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'ACTIVE')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
-
-
 ```
 
 Compare to the initial result: huge improvement in performance! We doubled the QPS and halved the Lantency!
