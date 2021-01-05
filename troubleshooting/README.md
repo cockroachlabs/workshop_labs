@@ -690,14 +690,13 @@ Time: 66ms total (execution 66ms / network 0ms)
 66ms! Let's do the same exercise as before and find out where this range is located.
 
 ```sql
-SHOW RANGE FROM TABLE coupons FOR ROW(9, 'f99e6553-18fb-475b-910e-eae4287e7ffa');
+SELECT lease_holder_locality FROM [SHOW RANGE FROM TABLE coupons FOR ROW(9, 'f99e6553-18fb-475b-910e-eae4287e7ffa')];
 ```
 
 ```text
-                          start_key                          | end_key | range_id | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
--------------------------------------------------------------+---------+----------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
-  /9/"\x15\xc7\xd0\xd2\xcf4N\xaf\xa9=\xf6\x0e\xb5\x9c\xce0"  | NULL    |       42 |           10 | cloud=gce,region=us-west1,zone=us-west1-c | {3,5,10} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-c"}
-
+           lease_holder_locality           
+-------------------------------------------
+ cloud=gce,region=us-west1,zone=us-west1-c 
 ```
 
 A-ha! This table is in US West, so we're paying the latency price to go to the other region to fetch the data.
