@@ -675,7 +675,7 @@ Ok, the range is local (us-east-1), this should only take 1ms.. From the query p
 Let's see how long that takes
 
 ```sql
-SELECT * FROM  coupons@primary WHERE id = 1109619 AND code = 'f99e6553-18fb-475b-910e-eae4287e7ffa';
+SELECT * FROM  coupons@primary WHERE id = 9 AND code = 'f99e6553-18fb-475b-910e-eae4287e7ffa';
 ```
 
 ```text
