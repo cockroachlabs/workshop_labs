@@ -679,24 +679,24 @@ SELECT * FROM  coupons@primary WHERE id = 9 AND code = 'f99e6553-18fb-475b-910e-
 ```
 
 ```text
-  id |                 code                 | channel | pid |         exp_date          | status |        start_date
------+--------------------------------------+---------+-----+---------------------------+--------+----------------------------
-  19 | 468750f4-cb58-4707-9fd3-bd5f99111855 | O       |  12 | 2020-12-18 00:00:00+00:00 | A      | 2020-09-21 00:00:00+00:00
+  id |                 code                 | channel |   pid   |         exp_date          | status |        start_date
+-----+--------------------------------------+---------+---------+---------------------------+--------+----------------------------
+   9 | f99e6553-18fb-475b-910e-eae4287e7ffa | O       | 1109619 | 2020-12-19 00:00:00+00:00 | A      | 2020-05-04 00:00:00+00:00
 (1 row)
 
-Time: 68ms total (execution 67ms / network 0ms)
+Time: 66ms total (execution 66ms / network 0ms)
 ```
 
-68ms! Let's do the same exercise as before and find out where this range is located.
+66ms! Let's do the same exercise as before and find out where this range is located.
 
 ```sql
-SHOW RANGE FROM TABLE coupons FOR ROW(19, '468750f4-cb58-4707-9fd3-bd5f99111855');
+SHOW RANGE FROM TABLE coupons FOR ROW(9, 'f99e6553-18fb-475b-910e-eae4287e7ffa');
 ```
 
 ```text
                           start_key                          | end_key | range_id | lease_holder |           lease_holder_locality           | replicas |                                                          replica_localities
 -------------------------------------------------------------+---------+----------+--------------+-------------------------------------------+----------+----------------------------------------------------------------------------------------------------------------------------------------
-  /15/"\x15\xc7\xd0\xd2\xcf4N\xaf\xa9=\xf6\x0e\xb5\x9c\xce0" | NULL    |       42 |           10 | cloud=gce,region=us-west1,zone=us-west1-c | {3,5,10} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-c"}
+  /9/"\x15\xc7\xd0\xd2\xcf4N\xaf\xa9=\xf6\x0e\xb5\x9c\xce0"  | NULL    |       42 |           10 | cloud=gce,region=us-west1,zone=us-west1-c | {3,5,10} | {"cloud=gce,region=us-east1,zone=us-east1-b","cloud=gce,region=us-east1,zone=us-east1-c","cloud=gce,region=us-west1,zone=us-west1-c"}
 
 ```
 
