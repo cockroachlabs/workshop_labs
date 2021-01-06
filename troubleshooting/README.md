@@ -89,7 +89,7 @@ Check the latency: should be minimal within zones of the same region.
 
 ### Recreate the dataset
 
-We wil be using [carota](https://pypi.org/project/carota/) to generate the random datasets. SSH into one of the servers
+We use [carota](https://pypi.org/project/carota/) to generate the random datasets. SSH into one of the servers
 
 ```bash
 roachprod ssh ${USER}-labs:1
@@ -963,3 +963,7 @@ Compare to the initial result: huge improvement in performance! We doubled the Q
 ![final](media/final.png)
 
 Congratulations, you reached the end of the Troubleshooting workshop! We hope you have now a better understanding on the process of troubleshoot an underperforming cluster.
+
+## Extras
+
+Head over [here](exercise.md) for another example you can run from your desktop computer!
