@@ -21,7 +21,7 @@ The customer sent you :
 1. a sample of the data
 
     ```text
-    # table coupons ~7.5mio rows
+    # table credits ~7.5mio rows
     17,f5da34d7-6c8a-4c1c-af05-e09d41f9fca2,O,2223248,2020-12-10 02:05:14,A,2020-12-25 02:39:30
     21,496bffa4-57d9-4c00-a038-1677ab00384c,R,1966446,2020-12-22 00:22:05,A,2020-04-28 12:57:07
     19,d64858e1-f43e-4983-924d-68087e384995,R,180638,2020-12-20 16:58:00,A,2020-10-02 22:00:17
@@ -30,18 +30,18 @@ The customer sent you :
 2. the schema:
 
     ```sql
-    CREATE TABLE coupons (
+    CREATE TABLE credits (
         id INT2 NOT NULL,
         code UUID NOT NULL,
         channel STRING(1) NOT NULL,
         pid INT4 NOT NULL,
-        exp_date DATE NOT NULL,
+        end_date DATE NOT NULL,
         status STRING(1) NOT NULL,
         start_date DATE NOT NULL,
         CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC),
-        INDEX coupons_pid_idx (pid ASC),
-        INDEX coupons_code_id_idx (code ASC, id ASC) STORING (channel, status, exp_date, start_date),
-        FAMILY "primary" (id, code, channel, pid, exp_date, status, start_date)
+        INDEX credits_pid_idx (pid ASC),
+        INDEX credits_code_id_idx (code ASC, id ASC) STORING (channel, status, end_date, start_date),
+        FAMILY "primary" (id, code, channel, pid, end_date, status, start_date)
     );
 
     CREATE TABLE offers (
@@ -60,9 +60,9 @@ The customer sent you :
 
     ```sql
     -- Q1
-    SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+    SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
     -- Q2
-    SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+    SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
     ```
 
 ## Lab 1 - Recreate the customer environment
@@ -74,7 +74,7 @@ Create the CockroachDB cluster. You can use [roachprod](https://github.com/cockr
 ```bash
 # default machine type is n1-standard-4 (4 vCPUs / 16GB MEM)
 roachprod create ${USER}-labs -c gce -n 12 --gce-zones us-east1-b,us-east1-c,us-west1-b,us-west1-c --gce-image ubuntu-2004-focal-v20201211
-roachprod stage ${USER}-labs release v20.2.2
+roachprod stage ${USER}-labs release v20.2.3
 roachprod start ${USER}-labs
 roachprod adminurl ${USER}-labs
 ```
@@ -103,7 +103,7 @@ sudo apt-get update && sudo apt-get install python3-pip -y
 # install carota
 pip3 install --user --upgrade pip carota
 export PATH=/home/ubuntu/.local/bin:$PATH
-# create the dataset 'coupons' with 7,500,000 rows
+# create the dataset 'credits' with 7,500,000 rows
 carota -r 7500000 -t "int::start=1,end=28,seed=0; uuid::seed=0; choices::list=O R,weights=9 1,seed=0; int::start=1,end=3572420,seed=0; date::start=2020-12-15,delta=7,seed=0; choices::list=A R,weights=99 1,seed=0; date::start=2020-10-10,delta=180,seed=0" -o c.csv
 ```
 
@@ -128,18 +128,18 @@ SET CLUSTER SETTING cluster.organization = 'ABC Corp';
 SET CLUSTER SETTING enterprise.license = 'xxxx-yyyy-zzzz';
 
 -- create the schema
-CREATE TABLE coupons (
+CREATE TABLE credits (
     id INT2 NOT NULL,
     code UUID NOT NULL,
     channel STRING(1) NOT NULL,
     pid INT4 NOT NULL,
-    exp_date DATE NOT NULL,
+    end_date DATE NOT NULL,
     status STRING(1) NOT NULL,
     start_date DATE NOT NULL,
     CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC),
-    INDEX coupons_pid_idx (pid ASC),
-    INDEX coupons_code_id_idx (code ASC, id ASC) STORING (channel, status, exp_date, start_date),
-    FAMILY "primary" (id, code, channel, pid, exp_date, status, start_date)
+    INDEX credits_pid_idx (pid ASC),
+    INDEX credits_code_id_idx (code ASC, id ASC) STORING (channel, status, end_date, start_date),
+    FAMILY "primary" (id, code, channel, pid, end_date, status, start_date)
 );
 
 CREATE TABLE offers (
@@ -154,7 +154,7 @@ CREATE TABLE offers (
 );
 
 -- import the dataset
-IMPORT INTO coupons CSV DATA ('nodelocal://1/c.csv');
+IMPORT INTO credits CSV DATA ('nodelocal://1/c.csv');
 ```
 
 You can monitor the import in the DB Console in the **Jobs** page
@@ -172,7 +172,7 @@ Let's create a Jumpbox server from which to run the workload to simulate the App
 # simple ubuntu box on a starndard 4cpu/16 mem VM
 roachprod create ${USER}-jump -c gce -n 1
 # install cockroachdb just to have the sql client
-roachprod stage ${USER}-jump release v20.2.2
+roachprod stage ${USER}-jump release v20.2.3
 # get the internal IP of one of the cluster nodes
 roachprod ip ${USER}-labs:1
 # ssh into the jumpbox
@@ -196,7 +196,7 @@ You should see below output:
 ```text
   schema_name | table_name | type  | estimated_row_count
 --------------+------------+-------+----------------------
-  public      | coupons    | table |             7500000
+  public      | credits    | table |             7500000
   public      | offers     | table |                   0
 (2 rows)
 
@@ -220,27 +220,27 @@ We've imported 2 tables, let's see what they look like in terms of size, columns
 ![databases](media/databases.png)
 
 ```sql
-SHOW CREATE TABLE coupons;
-SHOW RANGES FROM TABLE coupons;
+SHOW CREATE TABLE credits;
+SHOW RANGES FROM TABLE credits;
 ```
 
-`coupons` has 2 secondary indexes. Notice how the leaseholder of the ranges are spread across both regions (check the `lease_holder_locality` column).
+`credits` has 2 secondary indexes. Notice how the leaseholder of the ranges are spread across both regions (check the `lease_holder_locality` column).
 
 ```text
   table_name |                                         create_statement
 -------------+----------------------------------------------------------------------------------------------------
-  coupons    | CREATE TABLE public.coupons (
+  credits    | CREATE TABLE public.credits (
              |     id INT2 NOT NULL,
              |     code UUID NOT NULL,
              |     channel STRING(1) NOT NULL,
              |     pid INT4 NOT NULL,
-             |     exp_date DATE NOT NULL,
+             |     end_date DATE NOT NULL,
              |     status STRING(1) NOT NULL,
              |     start_date DATE NOT NULL,
              |     CONSTRAINT "primary" PRIMARY KEY (id ASC, code ASC),
-             |     INDEX coupons_pid_idx (pid ASC),
-             |     INDEX coupons_code_id_idx (code ASC, id ASC) STORING (channel, status, exp_date, start_date),
-             |     FAMILY "primary" (id, code, channel, pid, exp_date, status, start_date)
+             |     INDEX credits_pid_idx (pid ASC),
+             |     INDEX credits_code_id_idx (code ASC, id ASC) STORING (channel, status, end_date, start_date),
+             |     FAMILY "primary" (id, code, channel, pid, end_date, status, start_date)
              | )
 (1 row)
 
@@ -294,31 +294,31 @@ Please note, `000000` and `c744250a-1377-4cdf-a1f4-5b85a4d29aaa` are just placeh
 
 ```sql
 -- Q1
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c
 WHERE c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND c.pid = '000000'
 
 UNION
 
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c, offers AS o
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c, offers AS o
 WHERE c.id = o.id
   AND c.code = o.code
   AND c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 
 -- Q2
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c, offers AS o
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c, offers AS o
 WHERE c.id = o.id
   AND c.code = o.code
   AND c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
@@ -340,9 +340,9 @@ Create file `workload.sql` with the queries given by the customer
 
 ```sql
 -- Q1
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 -- Q2
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
 
 Then run the workload passing the file `workload.sql`.
@@ -355,10 +355,10 @@ You should see the output similar to below:
 
 ```text
 _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(ms)
-   21.0s        0         1965.5         1980.8    109.1    302.0    402.7    419.4  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
-   21.0s        0         2011.5         1970.6     92.3    268.4    302.0    402.7  2: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
-   22.0s        0         2005.0         1981.9    104.9    302.0    385.9    436.2  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
-   22.0s        0         2001.1         1972.0     92.3    251.7    352.3    385.9  2: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+   21.0s        0         1965.5         1980.8    109.1    302.0    402.7    419.4  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+   21.0s        0         2011.5         1970.6     92.3    268.4    302.0    402.7  2: SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+   22.0s        0         2005.0         1981.9    104.9    302.0    385.9    436.2  1: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND c.pid = '000000' UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
+   22.0s        0         2001.1         1972.0     92.3    251.7    352.3    385.9  2: SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
 
 While it runs, check the Metrics in the AdminUI. Open the **Hardware** dashboard to see if you can replicate the spike in high CPU usage.
@@ -386,10 +386,10 @@ Switch to the SQL Terminal. We want to pull the query plan for each query
 Let's start with Q1, and let's break it down into 2 parts, and let's pull the plan for the 1st part. Again, here the value `000000` is a placeholder for a value passed by the application.
 
 ```sql
-EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c
+EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c
 WHERE c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND c.pid = '000000';
 ```
@@ -399,25 +399,25 @@ WHERE c.status = 'A'
 -----------------------+---------------------+----------------------------------------------------------------------------------+--------------------------------------------------------+-----------
                        | distribution        | local                                                                            |                                                        |
                        | vectorized          | false                                                                            |                                                        |
-  project              |                     |                                                                                  | (id, code, channel, status, exp_date, start_date)      |
+  project              |                     |                                                                                  | (id, code, channel, status, end_date, start_date)      |
    │                   | estimated row count | 0                                                                                |                                                        |
-   └── filter          |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+   └── filter          |                     |                                                                                  | (id, code, channel, pid, end_date, status, start_date) |
         │              | estimated row count | 0                                                                                |                                                        |
-        │              | filter              | ((status = 'A') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
-        └── index join |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+        │              | filter              | ((status = 'A') AND (end_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
+        └── index join |                     |                                                                                  | (id, code, channel, pid, end_date, status, start_date) |
              │         | estimated row count | 0                                                                                |                                                        |
-             │         | table               | coupons@primary                                                                  |                                                        |
+             │         | table               | credits@primary                                                                  |                                                        |
              │         | key columns         | id, code                                                                         |                                                        |
              └── scan  |                     |                                                                                  | (id, code, pid)                                        |
                        | estimated row count | 0                                                                                |                                                        |
-                       | table               | coupons@coupons_pid_idx                                                          |                                                        |
+                       | table               | credits@credits_pid_idx                                                          |                                                        |
                        | spans               | /0-/1                                                                            |                                                        |
 (15 rows)
 
 Time: 77ms total (execution 77ms / network 0ms)
 ```
 
-So the optimizer is leveraging index `coupons@coupons_pid_idx` to filter rows that have that specific `pid`, but then it has to do a join with `primary` to fetch `status`, `exp_date` and `start_date` to finish the rest of the `WHERE`, and `SELECT`, clauses.
+So the optimizer is leveraging index `credits@credits_pid_idx` to filter rows that have that specific `pid`, but then it has to do a join with `primary` to fetch `status`, `end_date` and `start_date` to finish the rest of the `WHERE`, and `SELECT`, clauses.
 
 Wouldn't it be better if it didn't have to do this join and instead accessing just 1 index?
 
@@ -426,12 +426,12 @@ Wouldn't it be better if it didn't have to do this join and instead accessing ju
 Let's now pull the plan for Q2.
 
 ```sql
-EXPLAIN (VERBOSE) SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c, offers AS o
+EXPLAIN (VERBOSE) SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c, offers AS o
 WHERE c.id = o.id
   AND c.code = o.code
   AND c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
@@ -441,21 +441,21 @@ WHERE c.id = o.id
 ---------------------------+-----------------------+-------------------------------------------------------------------------------------+--------------------------------------------------------------------+-----------
                            | distribution          | full                                                                                |                                                                    |
                            | vectorized            | false                                                                               |                                                                    |
-  project                  |                       |                                                                                     | (id, code, channel, status, exp_date, start_date)                  |
+  project                  |                       |                                                                                     | (id, code, channel, status, end_date, start_date)                  |
    │                       | estimated row count   | 0                                                                                   |                                                                    |
-   └── lookup join (inner) |                       |                                                                                     | (id, code, token, id, code, channel, exp_date, status, start_date) |
+   └── lookup join (inner) |                       |                                                                                     | (id, code, token, id, code, channel, end_date, status, start_date) |
         │                  | estimated row count   | 0                                                                                   |                                                                    |
-        │                  | table                 | coupons@coupons_code_id_idx                                                         |                                                                    |
+        │                  | table                 | credits@credits_code_id_idx                                                         |                                                                    |
         │                  | equality              | (code, id) = (code,id)                                                              |                                                                    |
         │                  | equality cols are key |                                                                                     |                                                                    |
-        │                  | pred                  | ((status = 'A') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20')    |                                                                    |
+        │                  | pred                  | ((status = 'A') AND (end_date >= '2020-11-20')) AND (start_date <= '2020-11-20')    |                                                                    |
         └── scan           |                       |                                                                                     | (id, code, token)                                                  |
                            | estimated row count   | 1                                                                                   |                                                                    |
                            | table                 | offers@offers_token_idx                                                             |                                                                    |
                            | spans                 | /"\xc7D%\n\x13wLߡ\xf4[\x85\xa4Қ\xaa"-/"\xc7D%\n\x13wLߡ\xf4[\x85\xa4Қ\xaa"/PrefixEnd |                                                                    |
 ```
 
-Here we see that the optimizer is choosing an index to filter from the `offers` table and join with `coupons`, which is fine.
+Here we see that the optimizer is choosing an index to filter from the `offers` table and join with `credits`, which is fine.
 
 ## Lab 5 - Addressing the Hotspot
 
@@ -475,7 +475,7 @@ Upload file `hot.py` to the jumpbox, or run it locally on a new terminal if you 
 $ python3 hot.py --numtop 10 --host ${USER}-labs-0001.roachprod.crdb.io --adminport 26258 --dbport 26257  
 rank  rangeId          QPS           Nodes       leaseHolder    DBname, TableName, IndexName
   1:       37   2006.722472     [4, 3, 12]                 3    ['defaultdb', 'offers', '']
-  2:       39   857.900812       [5, 2, 8]                 5    ['defaultdb', 'coupons', 'coupons_pid_idx']
+  2:       39   857.900812       [5, 2, 8]                 5    ['defaultdb', 'credits', 'credits_pid_idx']
   3:        6    48.688882      [1, 6, 3, 11, 9]                   9    ['', '', '']
   4:       26    17.644921      [1, 4, 11, 12, 7]                  4    ['system', 'namespace2', '']
   5:        4    15.409775      [1, 9, 12]                12    ['', '', '']
@@ -521,7 +521,7 @@ The customer provides you with some sample data, below.
 26,259f4329-e6f4-490b-9a16-4106cf6a659e,05b6e6e3-07d4-4edc-9143-1193e6c3f339,2021-09-16 21:42:15,2021-07-05 22:38:42
 ```
 
-Stop the running workload, then, like for `coupons`, generate the dataset and import it into `offers`.
+Stop the running workload, then, like for `credits`, generate the dataset and import it into `offers`.
 On the host terminal, connect again to a cluster server
 
 ```bash
@@ -558,15 +558,15 @@ Notice they are in lexicographical order.
 
 ```sql
 -- scroll to the right!
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '00000276-014e-4ecc-9c99-0b59d80f1973';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '77516bf5-af2c-4042-8917-4d5b408908ed';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3';
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '00000276-014e-4ecc-9c99-0b59d80f1973';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '77516bf5-af2c-4042-8917-4d5b408908ed';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3';
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc';
 ```
 
 Run workload `q2.sql` for a while, at least 5 minutes to give time to Cockroach to reassign leaseholders around the ranges of the cluster.
@@ -615,16 +615,16 @@ Time: 2ms total (execution 1ms / network 0ms)
 Ok, I'm in US East. Let's run the first part of Q1 using a randomly picked valid `c.pid`.
 
 ```sql
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c
 WHERE c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND c.pid = '1109619';
 ```
 
 ```text
-  id |                 code                 | channel | status |         exp_date          |        start_date
+  id |                 code                 | channel | status |         end_date          |        start_date
 -----+--------------------------------------+---------+--------+---------------------------+----------------------------
    9 | f99e6553-18fb-475b-910e-eae4287e7ffa | O       | A      | 2020-12-19 00:00:00+00:00 | 2020-05-04 00:00:00+00:00
 (1 row)
@@ -634,35 +634,35 @@ Time: 67ms total (execution 67ms / network 0ms)
 
 Response Time is 69ms, a little too much. Why is it so? Let's check where the range that has this row is located.
 
-From the query plan we pulled above, we see that it's using index `coupons_pid_idx`. Find the key of the index
+From the query plan we pulled above, we see that it's using index `credits_pid_idx`. Find the key of the index
 
 ```sql
-SHOW INDEX FROM coupons;
+SHOW INDEX FROM credits;
 ```
 
 ```text
   table_name |     index_name      | non_unique | seq_in_index | column_name | direction | storing | implicit
 -------------+---------------------+------------+--------------+-------------+-----------+---------+-----------
-  coupons    | primary             |   false    |            1 | id          | ASC       |  false  |  false
-  coupons    | primary             |   false    |            2 | code        | ASC       |  false  |  false
+  credits    | primary             |   false    |            1 | id          | ASC       |  false  |  false
+  credits    | primary             |   false    |            2 | code        | ASC       |  false  |  false
   
-  coupons    | coupons_pid_idx     |    true    |            1 | pid         | ASC       |  false  |  false
-  coupons    | coupons_pid_idx     |    true    |            2 | id          | ASC       |  false  |   true
-  coupons    | coupons_pid_idx     |    true    |            3 | code        | ASC       |  false  |   true
+  credits    | credits_pid_idx     |    true    |            1 | pid         | ASC       |  false  |  false
+  credits    | credits_pid_idx     |    true    |            2 | id          | ASC       |  false  |   true
+  credits    | credits_pid_idx     |    true    |            3 | code        | ASC       |  false  |   true
   
-  coupons    | coupons_code_id_idx |    true    |            1 | code        | ASC       |  false  |  false
-  coupons    | coupons_code_id_idx |    true    |            2 | id          | ASC       |  false  |  false
-  coupons    | coupons_code_id_idx |    true    |            3 | channel     | N/A       |  true   |  false
-  coupons    | coupons_code_id_idx |    true    |            4 | status      | N/A       |  true   |  false
-  coupons    | coupons_code_id_idx |    true    |            5 | exp_date    | N/A       |  true   |  false
-  coupons    | coupons_code_id_idx |    true    |            6 | start_date  | N/A       |  true   |  false
+  credits    | credits_code_id_idx |    true    |            1 | code        | ASC       |  false  |  false
+  credits    | credits_code_id_idx |    true    |            2 | id          | ASC       |  false  |  false
+  credits    | credits_code_id_idx |    true    |            3 | channel     | N/A       |  true   |  false
+  credits    | credits_code_id_idx |    true    |            4 | status      | N/A       |  true   |  false
+  credits    | credits_code_id_idx |    true    |            5 | end_date    | N/A       |  true   |  false
+  credits    | credits_code_id_idx |    true    |            6 | start_date  | N/A       |  true   |  false
 ```
 
-Cool, for `coupons@coupons_pid_idx` the key is `pid id code`.
+Cool, for `credits@credits_pid_idx` the key is `pid id code`.
 Let's pull the correct range
 
 ```sql
-SELECT lease_holder_locality FROM [SHOW RANGE FROM INDEX coupons@coupons_pid_idx FOR ROW(1109619, 9, 'f99e6553-18fb-475b-910e-eae4287e7ffa')];
+SELECT lease_holder_locality FROM [SHOW RANGE FROM INDEX credits@credits_pid_idx FOR ROW(1109619, 9, 'f99e6553-18fb-475b-910e-eae4287e7ffa')];
 ```
 
 ```text
@@ -671,15 +671,15 @@ SELECT lease_holder_locality FROM [SHOW RANGE FROM INDEX coupons@coupons_pid_idx
   cloud=gce,region=us-east1,zone=us-east1-b
 ```
 
-Ok, the range is local (us-east-1), this should only take 1ms.. From the query plan we see that there is a join with `coupons@primary` to fetch the other columns.
+Ok, the range is local (us-east-1), this should only take 1ms.. From the query plan we see that there is a join with `credits@primary` to fetch the other columns.
 Let's see how long that takes
 
 ```sql
-SELECT * FROM  coupons@primary WHERE id = 9 AND code = 'f99e6553-18fb-475b-910e-eae4287e7ffa';
+SELECT * FROM  credits@primary WHERE id = 9 AND code = 'f99e6553-18fb-475b-910e-eae4287e7ffa';
 ```
 
 ```text
-  id |                 code                 | channel |   pid   |         exp_date          | status |        start_date
+  id |                 code                 | channel |   pid   |         end_date          | status |        start_date
 -----+--------------------------------------+---------+---------+---------------------------+--------+----------------------------
    9 | f99e6553-18fb-475b-910e-eae4287e7ffa | O       | 1109619 | 2020-12-19 00:00:00+00:00 | A      | 2020-05-04 00:00:00+00:00
 (1 row)
@@ -690,7 +690,7 @@ Time: 66ms total (execution 66ms / network 0ms)
 66ms! Let's do the same exercise as before and find out where this range is located.
 
 ```sql
-SELECT lease_holder_locality FROM [SHOW RANGE FROM TABLE coupons FOR ROW(9, 'f99e6553-18fb-475b-910e-eae4287e7ffa')];
+SELECT lease_holder_locality FROM [SHOW RANGE FROM TABLE credits FOR ROW(9, 'f99e6553-18fb-475b-910e-eae4287e7ffa')];
 ```
 
 ```text
@@ -705,23 +705,23 @@ The problem is twofold: sub-optimal tables/indexes, cross-regional reads.
 
 ### Part 1 - Optimize the table primary and secondary indexes
 
-Let's optimize the first part of Q1 by removing the need to join with `coupons@primary`.
-We need to create an index similar to `coupons@coupons_pid_idx` that stores the fields required by the query.
-Also, index `coupons@coupons_code_id_idx` seems to be redundant, so we drop it.
+Let's optimize the first part of Q1 by removing the need to join with `credits@primary`.
+We need to create an index similar to `credits@credits_pid_idx` that stores the fields required by the query.
+Also, index `credits@credits_code_id_idx` seems to be redundant, so we drop it.
 
 ```sql
-DROP INDEX coupons@coupons_code_id_idx;
-DROP INDEX coupons@coupons_pid_idx;
-CREATE INDEX coupons_pid_idx ON coupons(pid ASC) STORING (channel, exp_date, status, start_date);
+DROP INDEX credits@credits_code_id_idx;
+DROP INDEX credits@credits_pid_idx;
+CREATE INDEX credits_pid_idx ON credits(pid ASC) STORING (channel, end_date, status, start_date);
 ```
 
 Pull the query plan to confirm no join is required
 
 ```sql
-EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c
+EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c
 WHERE c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND c.pid = '12';
 ```
@@ -731,14 +731,14 @@ WHERE c.status = 'A'
 -----------------+---------------------+----------------------------------------------------------------------------------+--------------------------------------------------------+-----------
                  | distribution        | local                                                                            |                                                        |
                  | vectorized          | false                                                                            |                                                        |
-  project        |                     |                                                                                  | (id, code, channel, status, exp_date, start_date)      |
+  project        |                     |                                                                                  | (id, code, channel, status, end_date, start_date)      |
    │             | estimated row count | 0                                                                                |                                                        |
-   └── filter    |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+   └── filter    |                     |                                                                                  | (id, code, channel, pid, end_date, status, start_date) |
         │        | estimated row count | 0                                                                                |                                                        |
-        │        | filter              | ((status = 'A') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
-        └── scan |                     |                                                                                  | (id, code, channel, pid, exp_date, status, start_date) |
+        │        | filter              | ((status = 'A') AND (end_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
+        └── scan |                     |                                                                                  | (id, code, channel, pid, end_date, status, start_date) |
                  | estimated row count | 0                                                                                |                                                        |
-                 | table               | coupons@coupons_pid_idx                                                          |                                                        |
+                 | table               | credits@credits_pid_idx                                                          |                                                        |
                  | spans               | /12-/13                                                                          |                                                        |
 ```
 
@@ -786,10 +786,10 @@ Then, we pin Tables to US West and Indexes to US East.
 Create indexes first
 
 ```sql
--- copy of coupons@primary
-CREATE INDEX primary_copy ON coupons(id ASC, code ASC) STORING (channel, pid, exp_date, status, start_date);
--- copy of coupons_pid_idx
-CREATE INDEX coupons_pid_idx_copy on coupons(pid ASC) STORING (channel, exp_date, status, start_date);
+-- copy of credits@primary
+CREATE INDEX primary_copy ON credits(id ASC, code ASC) STORING (channel, pid, end_date, status, start_date);
+-- copy of credits_pid_idx
+CREATE INDEX credits_pid_idx_copy on credits(pid ASC) STORING (channel, end_date, status, start_date);
 
 -- copy of offers@primary
 CREATE INDEX primary_copy ON offers(token ASC, id ASC, code ASC) STORING (start_date, end_date);
@@ -799,25 +799,25 @@ Good stuff, we have now a copy of each index (`primary` included).
 Next, pin a copy to East, and another to West.
 
 ```sql
--- coupons
+-- credits
 --   pin to East
-ALTER TABLE coupons CONFIGURE ZONE USING
+ALTER TABLE credits CONFIGURE ZONE USING
   num_replicas = 3,
   constraints = '{+region=us-east1: 1}',
   lease_preferences = '[[+region=us-east1]]';
 
-ALTER INDEX coupons@coupons_pid_idx CONFIGURE ZONE USING
+ALTER INDEX credits@credits_pid_idx CONFIGURE ZONE USING
   num_replicas = 3,
   constraints = '{+region=us-east1: 1}',
   lease_preferences = '[[+region=us-east1]]';
 
 --   pin to West
-ALTER INDEX coupons@primary_copy CONFIGURE ZONE USING
+ALTER INDEX credits@primary_copy CONFIGURE ZONE USING
   num_replicas = 3,
   constraints = '{+region=us-west1: 1}',
   lease_preferences = '[[+region=us-west1]]';
 
-ALTER INDEX coupons@coupons_pid_idx_copy CONFIGURE ZONE USING
+ALTER INDEX credits@credits_pid_idx_copy CONFIGURE ZONE USING
   num_replicas = 3,
   constraints = '{+region=us-west1: 1}',
   lease_preferences = '[[+region=us-west1]]';
@@ -843,16 +843,16 @@ Re run the first part of query Q1 from both regions. Check the query plan using 
 From node 1 (US East region):
 
 ```sql
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c
 WHERE c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND c.pid = '12';
 ```
 
 ```text
-  id |                 code                 | channel | status |         exp_date          |        start_date
+  id |                 code                 | channel | status |         end_date          |        start_date
 -----+--------------------------------------+---------+--------+---------------------------+----------------------------
   19 | 468750f4-cb58-4707-9fd3-bd5f99111855 | O       | A      | 2020-12-18 00:00:00+00:00 | 2020-09-21 00:00:00+00:00
 (1 row)
@@ -861,10 +861,10 @@ Time: 1ms total (execution 1ms / network 0ms)
 ```
 
 ```sql
-EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date
-FROM coupons AS c
+EXPLAIN (VERBOSE) SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date
+FROM credits AS c
 WHERE c.status = 'A'
-  AND c.exp_date >= '2020-11-20'
+  AND c.end_date >= '2020-11-20'
   AND c.start_date <= '2020-11-20'
   AND c.pid = '12';
 ```
@@ -874,21 +874,21 @@ WHERE c.status = 'A'
 -----------------+---------------------+---------------------------------------------------------------------------------------+--------------------------------------------------------+-----------
                  | distribution        | local                                                                                 |                                                        |
                  | vectorized          | false                                                                                 |                                                        |
-  project        |                     |                                                                                       | (id, code, channel, status, exp_date, start_date)      |
+  project        |                     |                                                                                       | (id, code, channel, status, end_date, start_date)      |
    │             | estimated row count | 0                                                                                     |                                                        |
-   └── filter    |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
+   └── filter    |                     |                                                                                       | (id, code, channel, pid, end_date, status, start_date) |
         │        | estimated row count | 0                                                                                     |                                                        |
-        │        | filter              | ((status = 'A') AND (exp_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
-        └── scan |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
+        │        | filter              | ((status = 'A') AND (end_date >= '2020-11-20')) AND (start_date <= '2020-11-20') |                                                        |
+        └── scan |                     |                                                                                       | (id, code, channel, pid, end_date, status, start_date) |
                  | estimated row count | 0                                                                                     |                                                        |
-                 | table               | coupons@coupons_pid_idx                                                               |                                                        |
+                 | table               | credits@credits_pid_idx                                                               |                                                        |
                  | spans               | /3124791208-/3124791209                                                               |                                                        |                                                        |                                                        |
 ```
 
 Same queries above run on node 12 (US West region):
 
 ```text
-  id |                 code                 | channel | status |         exp_date          |        start_date
+  id |                 code                 | channel | status |         end_date          |        start_date
 -----+--------------------------------------+---------+--------+---------------------------+----------------------------
   19 | 468750f4-cb58-4707-9fd3-bd5f99111855 | O       | A      | 2020-12-18 00:00:00+00:00 | 2020-09-21 00:00:00+00:00
 (1 row)
@@ -901,61 +901,61 @@ Time: 2ms total (execution 1ms / network 0ms)
 -----------------+---------------------+---------------------------------------------------------------------------------------+--------------------------------------------------------+-----------
                  | distribution        | local                                                                                 |                                                        |
                  | vectorized          | false                                                                                 |                                                        |
-  project        |                     |                                                                                       | (id, code, channel, status, exp_date, start_date)      |
+  project        |                     |                                                                                       | (id, code, channel, status, end_date, start_date)      |
    │             | estimated row count | 1                                                                                     |                                                        |
-   └── filter    |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
+   └── filter    |                     |                                                                                       | (id, code, channel, pid, end_date, status, start_date) |
         │        | estimated row count | 1                                                                                     |                                                        |
-        │        | filter              | ((status = 'A') AND (exp_date >= '2020-11-19')) AND (start_date <= '2020-11-19') |                                                        |
-        └── scan |                     |                                                                                       | (id, code, channel, pid, exp_date, status, start_date) |
+        │        | filter              | ((status = 'A') AND (end_date >= '2020-11-19')) AND (start_date <= '2020-11-19') |                                                        |
+        └── scan |                     |                                                                                       | (id, code, channel, pid, end_date, status, start_date) |
                  | estimated row count | 2                                                                                     |                                                        |
-                 | table               | coupons@coupons_pid_idx_copy                                                          |                                                        |
+                 | table               | credits@credits_pid_idx_copy                                                          |                                                        |
                  | spans               | /3124791208-/3124791209                                                               |                                                        |
 ```
 
 Perfect, we've low latency from both regions! Now start the workload again and let's measure the overall latency.
 
-Mind, the workload still has the hardcoded values. Review and create file `final.sql` which should be closer to the real workflow, with real `offers.token` and `coupons.id|code` values
+Mind, the workload still has the hardcoded values. Review and create file `final.sql` which should be closer to the real workflow, with real `offers.token` and `credits.id|code` values
 
 ```sql
 -- final.sql
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3132039537') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd554a4cf-6c83-454e-83f4-38f019cf4734';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3132039537') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd554a4cf-6c83-454e-83f4-38f019cf4734';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '1279') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '7ffb8711-669f-4ca2-bf22-af047bd188be';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '1279') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '7ffb8711-669f-4ca2-bf22-af047bd188be';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2743109489') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2743109489') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3002738477') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3002738477') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '59787eba-7709-4f0f-9fb3-7532180e5e38';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2189670715') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '00000276-014e-4ecc-9c99-0b59d80f1973')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '77516bf5-af2c-4042-8917-4d5b408908ed';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2189670715') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '00000276-014e-4ecc-9c99-0b59d80f1973')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '77516bf5-af2c-4042-8917-4d5b408908ed';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '7ffb8711-669f-4ca2-bf22-af047bd188be')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '7ffb8711-669f-4ca2-bf22-af047bd188be')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2936320808') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '77516bf5-af2c-4042-8917-4d5b408908ed')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2936320808') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '77516bf5-af2c-4042-8917-4d5b408908ed')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2579495379') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2579495379') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'ee8452d1-858e-4f27-b77a-f3c81d764b6a')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'b2f3e754-2b50-490d-944d-c41fb73c90c4';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '00000276-014e-4ecc-9c99-0b59d80f1973';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '1dd9dbb7-ac42-43d0-ab04-a37ddc7536cc')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '00000276-014e-4ecc-9c99-0b59d80f1973';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'd554a4cf-6c83-454e-83f4-38f019cf4734')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = 'd554a4cf-6c83-454e-83f4-38f019cf4734')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = '9530fef8-ced9-47a7-bed3-53bf1eb5e1fe';
 
-SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2')
-SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.exp_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3';
+SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '3050862498') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '3baa519e-c21d-47ae-99c3-a25c649ebaa2')
+SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'd0b3bbd2-e69c-4484-b4c3-50ce0d68a9e3';
 ```
 
 ```text
 _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(ms)
-  339.0s        0          361.8          365.4     88.1    151.0    167.8    192.9  9: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c WHERE (((c.status = 'A') AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a')
-      0          406.8          364.9     48.2    130.0    184.5    192.9 16: SELECT c.id, c.code, c.channel, c.status, c.exp_date, c.start_date FROM coupons AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.exp_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
+  339.0s        0          361.8          365.4     88.1    151.0    167.8    192.9  9: SELECT DISTINCT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c WHERE (((c.status = 'A') AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (c.pid = '2737195593') UNION SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '7fdcaac7-6f19-1599-a476-934cf7cd061a')
+      0          406.8          364.9     48.2    130.0    184.5    192.9 16: SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE (((((c.id = o.id) AND (c.code = o.code)) AND (c.status = 'A')) AND (c.end_date >= '2020-11-20')) AND (c.start_date <= '2020-11-20')) AND (o.token = '1fde0504-6a32-0578-75f0-7d25b87996b4');
 ```
 
 Compare to the initial result: huge improvement in performance! We doubled the QPS and halved the Lantency!
