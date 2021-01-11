@@ -14,7 +14,7 @@ For in-depth understanding, check also the [architecture pages for the transacti
 
 ## Labs Prerequisites
 
-1. Build the dev cluster following [these instructions](/infrastructure/single-region-local-docker-cluster.md).
+1. Build the single region dev cluster following [these instructions](/infrastructure/single-region-local-docker-cluster.md).
 
 2. You also need:
 
@@ -35,8 +35,6 @@ For in-depth understanding, check also the [architecture pages for the transacti
 
     - [Windows](https://medium.com/@taufiq_ibrahim/installing-apache-jmeter-on-windows-10-62b7f53841f)
     - [Linux](https://linuxhint.com/install_apache_jmeter_ubuntu/)
-
-## Labs 0 - Setup JMeter and database
 
 Once you have JMeter installed, you will need to:
 
@@ -96,13 +94,6 @@ CREATE TABLE alerts (
     INDEX alerts_i_idx_2 (customer_id ASC, id1 ASC, id1_desc ASC, id2 ASC),
     INDEX alerts_i_idx_3 (id2 ASC, id2_desc ASC, cstatus ASC)
 );
-
--- pin table to us-west2 region for quick r/w access
-ALTER TABLE alerts
-CONFIGURE ZONE USING
-  num_replicas = 3,
-  constraints = '{"+region=us-west2"}',
-  lease_preferences = '[[+region=us-west2]]';
 
 INSERT INTO alerts
     SELECT
