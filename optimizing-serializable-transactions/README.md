@@ -45,7 +45,7 @@ Once you have JMeter installed, you will need to:
 2. Download the [JMeter test configuration file](https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serializable-transactions/data/jmeter-crdb-serializable.jmx).
 
     ```bash
-    wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serializable-transactions/data/jmeter-crdb-serializable.jmx
+    wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/optimizing-serializable-transactions/data/jmeter-crdb-serializable.jmx
     ```
 
 3. Download the [Postgresql JDBC driver](https://jdbc.postgresql.org/) and place it in JMeter's `lib` directory, as documented [here](https://jmeter.apache.org/usermanual/get-started.html#classpath).
