@@ -42,7 +42,7 @@ Once you have JMeter installed, you will need to:
 
     ![plug-ins](media/jmeter-plugins.png)
 
-2. Download the [JMeter test configuration file](https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/serializable-transactions/data/jmeter-crdb-serializable.jmx).
+2. Download the [JMeter test configuration file](https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/optimizing-serializable-transactions/data/jmeter-crdb-serializable.jmx).
 
     ```bash
     wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/optimizing-serializable-transactions/data/jmeter-crdb-serializable.jmx
