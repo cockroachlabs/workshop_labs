@@ -34,6 +34,10 @@ This repository contains instructions for the various labs that are part of  the
 
 - [Labs](/backup-restore/README.md)
 
+## JSON Optimization
+
+- [Labs](/JSON-optimization/README.md)
+
 ## Optimizing Serializable Transactions
 
 - [Labs](/optimizing-serializable-transactions/README.md)
