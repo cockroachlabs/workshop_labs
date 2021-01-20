@@ -228,7 +228,20 @@ DROP TABLE IF EXISTS jblob CASCADE;
 ## Lab 3 - Import Table with Flattened JSON objects
 
 Create a table with FLATTENED JSONB objects by importing a CSV file from a cloud storage bucket.
-This CSV file was pre-processed to read the JSON file and extract all values into rows.
+This CSV file was pre-processed to read the JSON file and extract all values into rows, below the code for reference
+
+```python
+import json
+
+# will work only if you have enough Memory to read the entire file
+with open('file.json') as f:
+    data = json.load(f)
+
+with open('file.tsv', 'w') as f:
+    [f.write('{}\t{}\n'.format(i, json.dumps(data[i], separators=(',', ':')))) for i in range(len(data))]
+```
+
+At the SQL prompt, import the data
 
 ```sql
 IMPORT TABLE jflat (
@@ -250,6 +263,8 @@ The flat file has a total of 110 rows.
 ## Lab 4 - Practice with the operators
 
 Let's create a query that counts the number with the same `c_base_ap_id`.
+
+Use the operator `->>` to access a JSONB field and returning a string.
 
 ```sql
 SELECT myflat ->> 'c_base_ap_id' AS c_base_ap_id, count(*) 
@@ -322,7 +337,8 @@ SELECT COUNT(*) FROM jflat;
 
 Very good, we've a lot more data to work with!
 
-Run the following query:
+Run the following query.
+The operator `@>` tests whether the left JSONB field contains the right JSONB field.
 
 ```sql
 SELECT id
@@ -472,9 +488,9 @@ Let's create a copy of the table with computed columns, insert the data, then cr
 CREATE TABLE jflat_new (
     id INT PRIMARY KEY,
     myflat JSONB,
-    r_seat STRING AS (myflat::JSONB->>'r_seat') STORED,
-    attr19 STRING AS (myflat::JSONB->>'c_sattr19') STORED,
-    r_price INT AS (CAST(myflat::JSONB->>'r_price' AS INT)) STORED,
+    r_seat STRING AS (myflat::JSONB ->> 'r_seat') STORED,
+    attr19 STRING AS (myflat::JSONB ->> 'c_sattr19') STORED,
+    r_price INT AS (CAST(myflat::JSONB ->> 'r_price' AS INT)) STORED,
     FAMILY "primary" (id, r_seat, attr19, r_price),
     FAMILY "blob" (myflat)
 );
