@@ -10,7 +10,7 @@ You can read this excellent [blog post](https://www.cockroachlabs.com/blog/distr
 
 ## Labs Prerequisites
 
-1. Build the 3 nodes local dev cluster following [these instructions](/infrastructure/single-region-local-docker-cluster.md).
+1. Build the 3 regions dev cluster following [these instructions](https://dev.to/cockroachlabs/simulating-a-multi-region-cockroachdb-cluster-on-localhost-with-docker-59f6).
 
 2. You also need:
 
@@ -37,6 +37,8 @@ docker run --name minio --rm -d \
 
 # attach networks
 docker network connect us-east4-net minio
+docker network connect us-west2-net minio
+docker network connect eu-west2-net minio
 ```
 
 Now that the infrastructure is in place, let's create a database and load some data. Connect to cluster node `roach-newyork-1`
