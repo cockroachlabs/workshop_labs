@@ -18,6 +18,19 @@ CockroachDB supports operation on JSON objects. In these labs, we will get famil
 
 ## Lab 1 - Import TABLE with big JSON object
 
+Connect to the database to confirm it loaded successfully
+
+```bash
+# use cockroach sql, defaults to localhost:26257
+cockroach sql --insecure
+
+# or use the --url param for any another host:
+cockroach sql --url "postgresql://localhost:26257/defaultdb?sslmode=disable"
+
+# or use psql
+psql -h localhost -p 26257 -U root defaultdb
+```
+
 Create a table by importing a CSV file from a cloud storage bucket.
 
 ```sql
