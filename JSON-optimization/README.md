@@ -373,7 +373,11 @@ WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
 Time: 557ms total (execution 554ms / network 2ms)
 ```
 
-557ms, a bit too slow. Check the query plan by prefixing the query with `EXPLAIN (VERBOSE)`
+557ms, a bit too slow. Check the query plan
+
+```sql
+EXPLAIN (VERBOSE) SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
+```
 
 ```text
        tree      |        field        |              description              |   columns    | ordering
@@ -434,10 +438,10 @@ SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
   16501
 (6 rows)
 
-Time: 15ms total (execution 13ms / network 1ms)
+Time: 1ms total (execution 13ms / network 1ms)
 ```
 
-15ms! Great improvement!
+1ms! Great improvement!
 
 ## Lab 6 - Optimize Aggregrate Performance with Computed Columns
 
@@ -465,6 +469,17 @@ Time: 76ms total (execution 74ms / network 1ms)
 ```
 
 Let's pull the query plan
+
+```sql
+EXPLAIN (VERBOSE)
+SELECT myflat ->> 'c_sattr19' AS attr19, 
+       myflat ->> 'r_seat' AS seat, 
+       count(*), 
+       sum(CAST(myflat ->> 'r_price' AS INT)) 
+FROM jflat 
+WHERE myflat ->> 'c_sattr19' LIKE '%mom%'
+GROUP BY 1,2;
+```
 
 ```text
          tree         |        field        |             description             |          columns           | ordering
@@ -570,6 +585,16 @@ GROUP BY 1,2;
 ```
 
 Very good, the query plan is using the index. Let's run to see if the RT improved
+
+```sql
+SELECT attr19,
+       r_seat,
+       count(*),
+       sum(r_price)
+FROM jflat_new
+WHERE attr19 LIKE '%mom%'
+GROUP BY 1,2;
+```
 
 ```text
    attr19  | r_seat | count | sum
