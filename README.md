@@ -46,6 +46,10 @@ This repository contains instructions for the various labs that are part of  the
 
 - [Labs](/query-optimization/README.md)
 
+## Spatial Data
+
+- [Labs](/spatial-data/README.md)
+
 ## Topology Patterns
 
 - [Labs](/topology-patterns/README.md)
