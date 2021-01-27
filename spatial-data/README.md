@@ -130,6 +130,8 @@ IMPORT TABLE roads (
 ) CSV DATA (
     'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/roads.csv.gz'
 ) WITH skip = '1';
+
+SHOW TABLES;
 ```
 
 ```text
