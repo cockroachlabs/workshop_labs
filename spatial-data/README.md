@@ -150,7 +150,7 @@ SHOW TABLES;
 
 ### 1. Where has the Common Loon been sighted by the NABBS in the years 2000-2019 in NY state?
 
-We create a geometry from all of the sightings of the Common Loon.  Then we print it as GeoJSON and paste the result into <geojson.io> to see what it looks like.
+We create a geometry from all of the sightings of the Common Loon.  Then we print it as GeoJSON and paste the result into <http://geojson.io> to see what it looks like.
 
 ```sql
 WITH loon_sightings AS (
