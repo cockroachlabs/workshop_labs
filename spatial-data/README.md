@@ -16,19 +16,7 @@
 
 ## Lab 0 - Create database and load data
 
-Connect to any node and run the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html). Please note that loading the data can take up to 5 minutes.
-
-```bash
-# download data files
-wget https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/datasets.zip
-unzip datasets.zip
-
-# dump files into database - takes few minutes
-cockroach sql --insecure < birds-20210114.sql 
-cockroach sql --insecure < bookstores-and-roads-20210114.sql
-```
-
-Connect to the database to confirm it loaded successfully
+Connect to the database
 
 ```bash
 # use cockroach sql, defaults to localhost:26257
@@ -42,7 +30,106 @@ psql -h localhost -p 26257 -U root defaultdb
 ```
 
 ```sql
-SHOW TABLES;
+IMPORT TABLE birds (
+    id INT8 NOT NULL,
+    name VARCHAR NOT NULL,
+    "family" VARCHAR NOT NULL,
+    genus VARCHAR NOT NULL,
+    species VARCHAR NOT NULL,
+    "order" VARCHAR NOT NULL,
+    CONSTRAINT "primary" PRIMARY KEY (id ASC),
+    INDEX birds_name_idx (name ASC),
+    FAMILY "primary" (id, name, "family", genus, species, "order")
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/birds.csv.gz'
+) WITH skip = '1';
+
+IMPORT TABLE routes (
+    id INT8 NOT NULL,
+    name VARCHAR NOT NULL,
+    country VARCHAR NOT NULL,
+    state VARCHAR NOT NULL,
+    geom GEOMETRY NOT NULL,
+    CONSTRAINT "primary" PRIMARY KEY (id ASC),
+    INVERTED INDEX geom_idx_1 (geom),
+    FAMILY "primary" (id, name, country, state, geom)
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/routes.csv.gz'
+) WITH skip = '1';
+
+IMPORT TABLE observations (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    country VARCHAR NOT NULL,
+    state VARCHAR NOT NULL,
+    route_id INT8 NULL,
+    year INT8 NOT NULL,
+    bird_id INT8 NULL,
+    count INT8 NOT NULL,
+    CONSTRAINT "primary" PRIMARY KEY (id ASC),
+    INDEX observations_bird_id_idx (bird_id ASC),
+    FAMILY "primary" (id, country, state, route_id, year, bird_id, count)
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/observations.csv.gz'
+) WITH skip = '1';
+
+IMPORT TABLE bookstores (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    name STRING NOT NULL,
+    url STRING NULL,
+    phone STRING NULL,
+    address STRING NOT NULL,
+    street STRING NOT NULL,
+    city STRING NOT NULL,
+    state STRING NOT NULL,
+    zip STRING NOT NULL,
+    description STRING NULL,
+    geom GEOMETRY NULL,
+    CONSTRAINT "primary" PRIMARY KEY (id ASC),
+    INVERTED INDEX geom_idx_1 (geom),
+    FAMILY "primary" (id, name, url, phone, address, street, city, state, zip, description, geom)
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/bookstores.csv.gz'
+) WITH skip = '1', nullif = 'NULL';
+
+IMPORT TABLE bookstore_routes (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    name VARCHAR NULL,
+    start_store_id UUID NULL,
+    end_store_id UUID NULL,
+    geom GEOMETRY NOT NULL,
+    CONSTRAINT "primary" PRIMARY KEY (id ASC),
+    FAMILY "primary" (id, name, start_store_id, end_store_id, geom)
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/bookstore_routes.csv.gz'
+) WITH skip = '1';
+
+IMPORT TABLE roads (
+    gid INT8 NOT NULL DEFAULT unique_rowid(),
+    prime_name VARCHAR(50) NULL,
+    secondary VARCHAR(30) NULL,
+    prefix_dir VARCHAR(10) NULL,
+    pre_type VARCHAR(30) NULL,
+    name VARCHAR(30) NULL,
+    street_typ VARCHAR(10) NULL,
+    suffix_dir VARCHAR(10) NULL,
+    interstate VARCHAR(20) NULL,
+    us_route VARCHAR(20) NULL,
+    st_route VARCHAR(20) NULL,
+    qualifier VARCHAR(5) NULL,
+    trans_type VARCHAR(5) NULL,
+    fcode VARCHAR(2) NULL,
+    state_fips VARCHAR(2) NULL,
+    state VARCHAR(2) NULL,
+    miles DECIMAL NULL,
+    kilometers DECIMAL NULL,
+    geom GEOMETRY(MULTILINESTRING) NULL,
+    CONSTRAINT "primary" PRIMARY KEY (gid ASC),
+    INVERTED INDEX geom_idx_1 (geom),
+    INDEX roads_state_idx (state ASC),
+    FAMILY "primary" (gid, prime_name, secondary, prefix_dir, pre_type, name, street_typ, suffix_dir, interstate, us_route, st_route, qualifier, trans_type, fcode, state_fips, state, miles, kilometers, geom )
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/roads.csv.gz'
+) WITH skip = '1';
 ```
 
 ```text
@@ -434,7 +521,29 @@ TODO: what is the unit of this measurement?
 Paste GeoJSON output into <geojson.io>
 
 ```sql
--- TODO: whats the sql
+SELECT
+    ST_AsGeoJSON(geom)
+FROM
+    bookstore_routes
+WHERE
+    end_store_id = (
+        SELECT
+            ID
+        FROM
+            bookstores
+        WHERE
+            city = 'Johnstown'
+            AND STATE = 'NY'
+    )
+    AND start_store_id = (
+        SELECT
+            ID
+        FROM
+            bookstores
+        WHERE
+            city = 'Saranac Lake'
+            AND STATE = 'NY'
+    );
 ```
 
 ```text
