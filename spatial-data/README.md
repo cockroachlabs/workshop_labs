@@ -61,7 +61,7 @@ SHOW TABLES;
 
 ### 1. Where has the Common Loon been sighted by the NABBS in the years 2000-2019 in NY state?
 
-Explanation: we create a geometry from all of the sightings of the Common Loon.  Then we print it as GeoJSON and paste the result into geojson.io to see what it looks like.
+We create a geometry from all of the sightings of the Common Loon.  Then we print it as GeoJSON and paste the result into <geojson.io> to see what it looks like.
 
 ```sql
 WITH loon_sightings AS (
@@ -92,21 +92,19 @@ Explanation: Once again we create a geometry from all of the sightings of the Co
 
 ```sql
 WITH loon_sightings AS (
-  SELECT
-    (st_collect(routes.geom)) AS the_geom
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        (st_collect(routes.geom)) AS the_geom
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  ST_Area(ST_ConvexHull(the_geom))
+    ST_Area(ST_ConvexHull(the_geom))
 FROM
-  loon_sightings;
+    loon_sightings;
 ```
 
 ```text
@@ -119,18 +117,15 @@ FROM
 
 ```sql
 SELECT
-  birds.name,
-  SUM(observations.COUNT) AS sightings
+    birds.name,
+    SUM(observations.COUNT) AS sightings
 FROM
-  birds,
-  observations,
-  routes
+    birds
+    JOIN observations ON birds.id = observations.bird_id
 WHERE
-  birds.name = 'Common Loon'
-  AND birds.id = observations.bird_id
-  AND observations.route_id = routes.id
+    birds.name = 'Common Loon'
 GROUP BY
-  birds.name;
+    birds.name;
 ```
 
 ```text
@@ -143,19 +138,16 @@ GROUP BY
 
 ```sql
 SELECT
-  birds.name,
-  SUM(observations.COUNT) AS sightings
+    birds.name,
+    SUM(observations.COUNT) AS sightings
 FROM
-  birds,
-  observations,
-  routes
+    birds
+    JOIN observations ON birds.id = observations.bird_id
 WHERE
-  birds.name = 'Common Loon'
-  AND birds.id = observations.bird_id
-  AND observations.route_id = routes.id
-  AND observations.YEAR = 2019
+    birds.name = 'Common Loon'
+    AND observations.YEAR = 2019
 GROUP BY
-  birds.name;
+    birds.name;
 ```
 
 ```text
@@ -168,26 +160,24 @@ GROUP BY
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    SUM(observations.COUNT) AS sightings,
-    st_convexhull(st_collect(routes.geom)) AS the_hull
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
-    AND observations.YEAR = 2019
+    SELECT
+        SUM(observations.COUNT) AS sightings,
+        st_convexhull(st_collect(routes.geom)) AS the_hull
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
+        AND observations.YEAR = 2019
 )
 SELECT
-  loon_habitat.sightings :: FLOAT /(
-    SELECT
-      ST_Area(loon_habitat.the_hull)
-  ) AS density
+    loon_habitat.sightings :: FLOAT /(
+        SELECT
+            ST_Area(loon_habitat.the_hull)
+    ) AS density
 FROM
-  loon_habitat;
+    loon_habitat;
 ```
 
 Explanation: we count the total number of Loon sightings in 2019; we also get the convex hull of all Loon sighting locations in 2019; then, we divide the number of sightings by the area of the convex hull of the sightings' locations.
@@ -239,39 +229,36 @@ ORDER BY
 
 ```sql
 WITH the_book_nook AS (
-  SELECT
-    bookstores.name,
-    street,
-    city,
-    "state",
-    geom
-  FROM
-    bookstores
-  WHERE
-    "state" = 'NY'
-    AND city = 'Saranac Lake'
+    SELECT
+        bookstores.name,
+        street,
+        city,
+        "state",
+        geom
+    FROM
+        bookstores
+    WHERE
+        "state" = 'NY'
+        AND city = 'Saranac Lake'
 ),
 local_birds AS (
-  SELECT
-    birds.name,
-    st_convexhull(st_collect(routes.geom)) AS the_hull
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.id = observations.bird_id
-    AND observations.route_id = routes.id
-  GROUP BY
-    birds.name
+    SELECT
+        birds.name,
+        st_convexhull(st_collect(routes.geom)) AS the_hull
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    GROUP BY
+        birds.name
 )
 SELECT
-  count(local_birds.name)
+    count(local_birds.name)
 FROM
-  local_birds,
-  the_book_nook
+    local_birds,
+    the_book_nook
 WHERE
-  ST_Contains(local_birds.the_hull, the_book_nook.geom);
+    ST_Contains(local_birds.the_hull, the_book_nook.geom);
 ```
 
 ```text
@@ -284,39 +271,37 @@ WHERE
 
 ```sql
 WITH the_book_nook AS (
-  SELECT
-    bookstores.name,
-    street,
-    city,
-    "state",
-    geom
-  FROM
-    bookstores
-  WHERE
-    "state" = 'NY'
-    AND city = 'Saranac Lake'
+    SELECT
+        bookstores.name,
+        street,
+        city,
+        "state",
+        geom
+    FROM
+        bookstores
+    WHERE
+        "state" = 'NY'
+        AND city = 'Saranac Lake'
 )
 SELECT
-  birds.name,
-  SUM(observations.COUNT) AS sightings
+    birds.name,
+    SUM(observations.COUNT) AS sightings
 FROM
-  birds,
-  observations,
-  routes,
-  the_book_nook
+    birds
+    JOIN observations ON birds.id = observations.bird_id
+    JOIN routes ON observations.route_id = routes.id,
+    the_book_nook
 WHERE
-  birds.id = observations.bird_id
-  AND observations.route_id = routes.id
-  AND ST_Distance(
-    the_book_nook.geom :: GEOGRAPHY,
-    routes.geom :: GEOGRAPHY
-  ) < (1609 * 10)
+    ST_Distance(
+        the_book_nook.geom :: GEOGRAPHY,
+        routes.geom :: GEOGRAPHY
+    ) < (1609 * 10)
 GROUP BY
-  birds.name
+    birds.name
 ORDER BY
-  sightings DESC
+    sightings DESC
 LIMIT
-  25;
+    25;
 ```
 
 ```text
@@ -354,24 +339,22 @@ LIMIT
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    st_convexhull(st_collect(routes.geom)) AS the_hull
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        st_convexhull(st_collect(routes.geom)) AS the_hull
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  ST_AsGeoJSON(ST_ConvexHull(ST_Collect(geom)))
+    ST_AsGeoJSON(ST_ConvexHull(ST_Collect(geom)))
 FROM
-  bookstores,
-  loon_habitat
+    bookstores,
+    loon_habitat
 WHERE
-  ST_Contains(the_hull, geom);
+    ST_Contains(the_hull, geom);
 ```
 
 ```text
@@ -384,24 +367,22 @@ WHERE
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    st_convexhull(st_collect(routes.geom)) AS the_hull
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        st_convexhull(st_collect(routes.geom)) AS the_hull
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  ST_Area(ST_ConvexHull(ST_Collect(geom)))
+    ST_Area(ST_ConvexHull(ST_Collect(geom)))
 FROM
-  bookstores,
-  loon_habitat
+    bookstores,
+    loon_habitat
 WHERE
-  ST_Contains(the_hull, geom);
+    ST_Contains(the_hull, geom);
 ```
 
 TODO: what is the unit of this measurement?
@@ -416,30 +397,28 @@ TODO: what is the unit of this measurement?
 
 ```sql
 SELECT
-  ST_Length(geom)
+    ST_Length(geom)
 FROM
-  bookstore_routes
+    bookstore_routes
 WHERE
-  end_store_id = (
-    SELECT
-      id
-    FROM
-      bookstores
-    WHERE
-      city = 'Johnstown'
-    AND
-      state = 'NY'
-  )
-  AND start_store_id = (
-    SELECT
-      id
-    FROM
-      bookstores
-    WHERE
-      city = 'Saranac Lake'
-    AND
-      state = 'NY'
-  );
+    end_store_id = (
+        SELECT
+            id
+        FROM
+            bookstores
+        WHERE
+            city = 'Johnstown'
+            AND state = 'NY'
+    )
+    AND start_store_id = (
+        SELECT
+            id
+        FROM
+            bookstores
+        WHERE
+            city = 'Saranac Lake'
+            AND state = 'NY'
+    );
 ```
 
 TODO: what is the unit of this measurement?
@@ -450,7 +429,9 @@ TODO: what is the unit of this measurement?
   2.258232921172884
 ```
 
-### 12. What does the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY look like? (hint: paste GeoJSON output into geojson.io)
+### 12. What does the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY look like?
+
+Paste GeoJSON output into <geojson.io>
 
 ```sql
 -- TODO: whats the sql
@@ -464,52 +445,50 @@ TODO: what is the unit of this measurement?
 
 ```sql
 WITH bookstore_trip AS (
-  SELECT
-    geom
-  FROM
-    bookstore_routes
-  WHERE
-    start_store_id = (
-      SELECT
-        id
-      FROM
-        bookstores
-      WHERE
-        city = 'Johnstown'
-        AND state = 'NY'
-    )
-    AND end_store_id = (
-      SELECT
-        id
-      FROM
-        bookstores
-      WHERE
-        city = 'Lake Placid'
-        AND state = 'NY'
-    )
+    SELECT
+        geom
+    FROM
+        bookstore_routes
+    WHERE
+        start_store_id = (
+            SELECT
+                id
+            FROM
+                bookstores
+            WHERE
+                city = 'Johnstown'
+                AND state = 'NY'
+        )
+        AND end_store_id = (
+            SELECT
+                id
+            FROM
+                bookstores
+            WHERE
+                city = 'Lake Placid'
+                AND state = 'NY'
+        )
 )
 SELECT
-  birds.name,
-  SUM(observations.COUNT) AS sightings
+    birds.name,
+    SUM(observations.COUNT) AS sightings
 FROM
-  birds,
-  observations,
-  routes,
-  bookstore_trip
+    birds
+    JOIN observations ON birds.id = observations.bird_id
+    JOIN routes ON observations.route_id = routes.id,
+    bookstore_trip
 WHERE
-  birds.id = observations.bird_id
-  AND observations.route_id = routes.id
-  AND observations.YEAR = 2019
-  AND ST_Distance(
-    bookstore_trip.geom :: GEOGRAPHY,
-    routes.geom :: GEOGRAPHY
-  ) < (1609 * 10)
+    observations.YEAR = 2019
+    AND ST_Distance(
+        bookstore_trip.geom :: GEOGRAPHY,
+        routes.geom :: GEOGRAPHY
+    ) < (1609 * 10)
 GROUP BY
-  birds.name
+    birds.name
 ORDER BY
-  sightings DESC
+    sightings DESC
 LIMIT
-  25;
+    25;
 ```
 
 ```text
@@ -547,35 +526,31 @@ LIMIT
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    st_convexhull(st_collect(routes.geom)) AS loon_hull
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        st_convexhull(st_collect(routes.geom)) AS loon_hull
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  birds.name,
-  SUM(observations.COUNT) AS sightings
+    birds.name,
+    SUM(observations.COUNT) AS sightings
 FROM
-  birds,
-  observations,
-  routes,
-  loon_habitat
+    birds
+    JOIN observations ON birds.id = observations.bird_id
+    JOIN routes ON observations.route_id = routes.id,
+    loon_habitat
 WHERE
-  birds.id = observations.bird_id
-  AND observations.route_id = routes.id
-  AND ST_Contains(loon_hull, routes.geom)
+    ST_Contains(loon_hull, routes.geom)
 GROUP BY
-  birds.name
+    birds.name
 ORDER BY
-  sightings ASC
+    sightings ASC
 LIMIT
-  25;
+    25;
 ```
 
 ```text
@@ -613,29 +588,27 @@ LIMIT
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    st_collect(routes.geom) AS geom
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        st_collect(routes.geom) AS geom
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  ST_AsGeoJSON(roads.geom)
+    ST_AsGeoJSON(roads.geom)
 FROM
-  roads,
-  loon_habitat
+    roads,
+    loon_habitat
 WHERE
-  roads.state = 'NY'
-  AND ST_Distance(loon_habitat.geom, st_setsrid(roads.geom, 4326)) < 1
+    roads.state = 'NY'
+    AND ST_Distance(loon_habitat.geom, st_setsrid(roads.geom, 4326)) < 1
 ORDER BY
-  ST_Distance(loon_habitat.geom, st_setsrid(roads.geom, 4326)) ASC
+    ST_Distance(loon_habitat.geom, st_setsrid(roads.geom, 4326)) ASC
 LIMIT
-  10;
+    10;
 ```
 
 ```text
@@ -670,25 +643,23 @@ CREATE INDEX geom_idx_1 ON routes USING GIST(geom);
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    ST_ConvexHull(st_collect(routes.geom)) AS hull
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        ST_ConvexHull(st_collect(routes.geom)) AS hull
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  sum(roads.miles)
+    sum(roads.miles)
 FROM
-  roads,
-  loon_habitat
+    roads,
+    loon_habitat
 WHERE
-  roads.state = 'NY'
-  AND ST_Contains(loon_habitat.hull, st_setsrid(roads.geom, 4326));
+    roads.state = 'NY'
+    AND ST_Contains(loon_habitat.hull, st_setsrid(roads.geom, 4326));
 ```
 
 ```text
@@ -701,47 +672,45 @@ WHERE
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    st_convexhull(st_collect(routes.geom)) AS geom
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        st_convexhull(st_collect(routes.geom)) AS geom
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 ),
 loon_bookstores AS (
-  SELECT
-    bookstores.name,
-    address,
-    bookstores.geom AS geom
-  FROM
-    bookstores,
-    loon_habitat
-  WHERE
-    ST_Contains(loon_habitat.geom, bookstores.geom)
+    SELECT
+        bookstores.name,
+        address,
+        bookstores.geom AS geom
+    FROM
+        bookstores,
+        loon_habitat
+    WHERE
+        ST_Contains(loon_habitat.geom, bookstores.geom)
 )
 SELECT
-  loon_bookstores.name,
-  address,
-  SUM(roads.miles) :: INT AS nearby_road_miles
+    loon_bookstores.name,
+    address,
+    SUM(roads.miles) :: INT AS nearby_road_miles
 FROM
-  roads,
-  loon_bookstores
+    roads,
+    loon_bookstores
 WHERE
-  (
-    ST_Distance(
-      loon_bookstores.geom,
-      st_setsrid(roads.geom, 4326)
-    ) < (10 / 69)
-  )
+    (
+        ST_Distance(
+            loon_bookstores.geom,
+            st_setsrid(roads.geom, 4326)
+        ) < (10 / 69)
+    )
 GROUP BY
-  loon_bookstores.name,
-  address
+    loon_bookstores.name,
+    address
 ORDER BY
-  nearby_road_miles ASC;
+    nearby_road_miles ASC;
 ```
 
 ```text
@@ -762,31 +731,27 @@ ORDER BY
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    st_collect(routes.geom) AS geom
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        st_collect(routes.geom) AS geom
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  birds.name
+    birds.name
 FROM
-  birds,
-  observations,
-  routes,
-  loon_habitat
+    birds
+    JOIN observations ON birds.id = observations.bird_id
+    JOIN routes ON observations.route_id = routes.id,
+    loon_habitat
 WHERE
-  birds.family = 'Accipitridae'
-  AND birds.id = observations.bird_id
-  AND observations.route_id = routes.id
-  AND ST_Contains(loon_habitat.geom, routes.geom)
+    birds.family = 'Accipitridae'
+    AND ST_Contains(loon_habitat.geom, routes.geom)
 GROUP BY
-  birds.name;
+    birds.name;
 ```
 
 ```text
@@ -808,35 +773,31 @@ GROUP BY
 
 ```sql
 WITH loon_habitat AS (
-  SELECT
-    st_collect(routes.geom) AS geom
-  FROM
-    birds,
-    observations,
-    routes
-  WHERE
-    birds.name = 'Common Loon'
-    AND birds.id = observations.bird_id
-    AND observations.route_id = routes.id
+    SELECT
+        st_collect(routes.geom) AS geom
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
 )
 SELECT
-  birds.name
+    birds.name
 FROM
-  birds,
-  observations,
-  routes,
-  loon_habitat
+    birds
+    JOIN observations ON birds.id = observations.bird_id
+    JOIN routes ON observations.route_id = routes.id,
+    loon_habitat
 WHERE
-  (
-    birds.family = 'Accipitridae'
-    OR birds.family = 'Strigidae'
-  )
-  AND birds.id = observations.bird_id
-  AND observations.route_id = routes.id
-  AND ST_Contains(loon_habitat.geom, routes.geom)
+    (
+        birds.family = 'Accipitridae'
+        OR birds.family = 'Strigidae'
+    )
+    AND ST_Contains(loon_habitat.geom, routes.geom)
 GROUP BY
-  birds.name,
-  birds.family;
+    birds.name,
+    birds.family;
 ```
 
 ```text
