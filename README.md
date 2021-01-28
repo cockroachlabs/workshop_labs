@@ -32,7 +32,7 @@ This repository contains instructions for the various labs that are part of  the
 
 ## Backup and Restore
 
-- [Labs](/backup-restore/README.md)
+- [Labs](/backup-restore/)
 
 ## CDC - Changefeed
 
@@ -40,24 +40,24 @@ This repository contains instructions for the various labs that are part of  the
 
 ## JSON Optimization
 
-- [Labs](/JSON-optimization/README.md)
+- [Labs](/JSON-optimization/)
 
 ## Optimizing Serializable Transactions
 
-- [Labs](/optimizing-serializable-transactions/README.md)
+- [Labs](/optimizing-serializable-transactions/)
 
 ## Query Optimization
 
-- [Labs](/query-optimization/README.md)
+- [Labs](/query-optimization/)
 
 ## Spatial Data
 
-- [Labs](/spatial-data/README.md)
+- [Labs](/spatial-data/)
 
 ## Topology Patterns
 
-- [Labs](/topology-patterns/README.md)
+- [Labs](/topology-patterns/)
 
 ## Troubleshooting
 
-- [Labs](/troubleshooting/README.md)
+- [Labs](/troubleshooting/)
