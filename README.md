@@ -18,6 +18,8 @@ This repository contains instructions for the various labs that are part of  the
 - [Kafka Demo Lab #1](lab1_student_instructions_kafka.md)
 - [Migrate Postgres Lab #1](lab1_student_migration_postgres.md)
 
+## Training Sessions
+
 - [Backup and Restore](/backup-restore/)
 - [CDC - Changefeed](/CDC-changefeed/)
 - [JSON Optimization](/JSON-optimization/)
