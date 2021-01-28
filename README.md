@@ -34,6 +34,10 @@ This repository contains instructions for the various labs that are part of  the
 
 - [Labs](/backup-restore/README.md)
 
+## CDC - Changefeed
+
+- [Labs](/CDC-changefeed/)
+
 ## JSON Optimization
 
 - [Labs](/JSON-optimization/README.md)
