@@ -9,7 +9,7 @@
 
     ```bash
     wget -qO- https://binaries.cockroachdb.com/cockroach-latest.linux-amd64.tgz | tar xvz
-    cp -i cockroach-*.linux-amd64/cockroach /usr/local/bin/
+    sudo cp -i cockroach-*.linux-amd64/cockroach /usr/local/bin/
     ```
 
     Then start a single node cluster
@@ -34,6 +34,11 @@
 
     tar xvf kafka_2.13-2.7.0.tgz
     cd kafka_2.13-2.7.0
+
+    # install Java
+    # below on Ubuntu 20.04
+    sudo apt update
+    sudo apt install -y default-jre
     ```
 
 ## Lab 0 - Start Apache Kafka
@@ -179,7 +184,7 @@ You can confirm the same from the **DB Console** Jobs page
 
 ![jobs](media/jobs.png)
 
-## Lab 3 - Insert data and check incoming kafka records
+## Lab 2 - Insert data and check incoming kafka records
 
 In the Consumer terminal, stop the current process and start the consumer again listening to topic `pets`, the name of the table.
 
@@ -263,6 +268,53 @@ As expected, `before` is empty as these are **new** rows.
 Every 20s, we will receive a `resolved` record which we can use to provide strong ordering and global consistency guarantees by buffering records in between timestamp closures.
 In other words, `resolved` is a **checkpoint**.
 
+## Lab 3 - Update rows
+
+Now we try to update a row
+
+```sql
+UPDATE pets SET email = 'w.disney@disney.com' WHERE person_name = 'Walt';
+```
+
+```json
+{
+    "after": {
+        "email": "w.disney@disney.com",
+        "id": "bd8c6d81-e0eb-4540-95d3-b48d00a9961f",
+        "person_name": "Walt",
+        "pet_name": "Mickey",
+        "rowid": 628729172185841665
+    },
+    "before": {
+        "email": "walt@disney.com",
+        "id": "bd8c6d81-e0eb-4540-95d3-b48d00a9961f",
+        "person_name": "Walt",
+        "pet_name": "Mickey",
+        "rowid": 628729172185841665
+    },
+    "updated": "1611943365911060185.0000000000"
+}
+{
+    "after": {
+        "email": "w.disney@disney.com",
+        "id": "e9a08e6e-8a71-4b92-ab37-a1f1a0c51109",
+        "person_name": "Walt",
+        "pet_name": "Minnie",
+        "rowid": 628729172196392961
+    },
+    "before": {
+        "email": "walt@disney.com",
+        "id": "e9a08e6e-8a71-4b92-ab37-a1f1a0c51109",
+        "person_name": "Walt",
+        "pet_name": "Minnie",
+        "rowid": 628729172196392961
+    },
+    "updated": "1611943365911060185.0000000000"
+}
+```
+
+As expected, the `before` dictionary is populated with the previous values.
+
 ## Lab 4 - Add Column for City
 
 Let's add a column. Note that we don't specify a DEFAULT value, so no new data has been added yet, thus no data is sent to the changefeed.
@@ -339,7 +391,7 @@ UPDATE pets SET city='Anaheim' WHERE person_name = 'Walt';
 {
     "after": {
         "city": "Anaheim",
-        "email": "walt@disney.com",
+        "email": "w.disney@disney.com",
         "id": "cd767fd4-fd70-47de-b67b-e84036d7efef",
         "person_name": "Walt",
         "pet_name": "Mickey",
@@ -347,7 +399,7 @@ UPDATE pets SET city='Anaheim' WHERE person_name = 'Walt';
     },
     "before": {
         "city": null,
-        "email": "walt@disney.com",
+        "email": "w.disney@disney.com",
         "id": "cd767fd4-fd70-47de-b67b-e84036d7efef",
         "person_name": "Walt",
         "pet_name": "Mickey",
@@ -358,7 +410,7 @@ UPDATE pets SET city='Anaheim' WHERE person_name = 'Walt';
 {
     "after": {
         "city": "Anaheim",
-        "email": "walt@disney.com",
+        "email": "w.disney@disney.com",
         "id": "821cf90d-9fd6-4a43-9899-f8ea1090b796",
         "person_name": "Walt",
         "pet_name": "Minnie",
@@ -366,7 +418,7 @@ UPDATE pets SET city='Anaheim' WHERE person_name = 'Walt';
     },
     "before": {
         "city": null,
-        "email": "walt@disney.com",
+        "email": "w.disney@disney.com",
         "id": "821cf90d-9fd6-4a43-9899-f8ea1090b796",
         "person_name": "Walt",
         "pet_name": "Minnie",
@@ -377,6 +429,97 @@ UPDATE pets SET city='Anaheim' WHERE person_name = 'Walt';
 ```
 
 Now we can see `before` populated. Again, the changefeed emits every column.
+
+Let's create a new column with a DEFAULT value
+
+```sql
+ ALTER TABLE pets ADD COLUMN state STRING DEFAULT 'CA'; 
+```
+
+```json
+{
+    "after": {
+        "city": "Hundred Acre Woods",
+        "email": "crobin@100acrewoods.com",
+        "id": "2df03e2a-59d0-4569-b12e-0a4343d82a13",
+        "person_name": "Christopher",
+        "pet_name": "Tigger",
+        "rowid": 628729172161527809,
+        "state": "CA"
+    },
+    "before": {
+        "city": "Hundred Acre Woods",
+        "email": "crobin@100acrewoods.com",
+        "id": "2df03e2a-59d0-4569-b12e-0a4343d82a13",
+        "person_name": "Christopher",
+        "pet_name": "Tigger",
+        "rowid": 628729172161527809
+    },
+    "updated": "1611943679503780624.0000000000"
+}
+{
+    "after": {
+        "city": "Hundred Acre Woods",
+        "email": "crobin@100acrewoods.com",
+        "id": "e0308555-503c-4fd8-aea5-56ba5deb6db9",
+        "person_name": "Christopher",
+        "pet_name": "Piglet",
+        "rowid": 628729172173160449,
+        "state": "CA"
+    },
+    "before": {
+        "city": "Hundred Acre Woods",
+        "email": "crobin@100acrewoods.com",
+        "id": "e0308555-503c-4fd8-aea5-56ba5deb6db9",
+        "person_name": "Christopher",
+        "pet_name": "Piglet",
+        "rowid": 628729172173160449
+    },
+    "updated": "1611943679503780624.0000000000"
+}
+{
+    "after": {
+        "city": "Anaheim",
+        "email": "w.disney@disney.com",
+        "id": "bd8c6d81-e0eb-4540-95d3-b48d00a9961f",
+        "person_name": "Walt",
+        "pet_name": "Mickey",
+        "rowid": 628729172185841665,
+        "state": "CA"
+    },
+    "before": {
+        "city": "Anaheim",
+        "email": "w.disney@disney.com",
+        "id": "bd8c6d81-e0eb-4540-95d3-b48d00a9961f",
+        "person_name": "Walt",
+        "pet_name": "Mickey",
+        "rowid": 628729172185841665
+    },
+    "updated": "1611943679503780624.0000000000"
+}
+{
+    "after": {
+        "city": "Anaheim",
+        "email": "w.disney@disney.com",
+        "id": "e9a08e6e-8a71-4b92-ab37-a1f1a0c51109",
+        "person_name": "Walt",
+        "pet_name": "Minnie",
+        "rowid": 628729172196392961,
+        "state": "CA"
+    },
+    "before": {
+        "city": "Anaheim",
+        "email": "w.disney@disney.com",
+        "id": "e9a08e6e-8a71-4b92-ab37-a1f1a0c51109",
+        "person_name": "Walt",
+        "pet_name": "Minnie",
+        "rowid": 628729172196392961
+    },
+    "updated": "1611943679503780624.0000000000"
+}
+```
+
+As the new column does add data to the table, a new record is emitted for every row.
 
 ## Lab 5 - Cancel and Restart Changefeed
 

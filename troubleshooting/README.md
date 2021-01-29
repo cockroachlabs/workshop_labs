@@ -159,7 +159,7 @@ IMPORT INTO credits CSV DATA ('nodelocal://1/c.csv');
 
 You can monitor the import in the DB Console in the **Jobs** page
 
-![import-jop](media/import-job.png)
+![import-job](media/import-job.png)
 
 Cool, you've successfully created the cluster as per customer specifications, recreated the database schema and imported the dataset of dummy data into the database!
 
