@@ -121,9 +121,8 @@ Enable `rangefeed` on cluster, then create a simple table
 SET CLUSTER SETTING cluster.organization = "companyname";
 SET CLUSTER SETTING enterprise.license = "xxxyyyzzz";
 
-
-SHOW cluster setting kv.rangefeed.enabled;
-SET CLUSTER SETTING kv.rangefeed.enabled='true';
+-- enable rangefeed
+SET CLUSTER SETTING kv.rangefeed.enabled = 'true';
 
 CREATE TABLE pets (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -275,8 +274,8 @@ ALTER TABLE pets ADD COLUMN city STRING;
 Let's update the city column with some values
 
 ```sql
-UPDATE pets SET city='Hundred Acre Woods' where person_name='Christopher';
-UPDATE pets SET city='Anaheim' where person_name='Walt';
+UPDATE pets SET city='Hundred Acre Woods' WHERE person_name = 'Christopher';
+UPDATE pets SET city='Anaheim' WHERE person_name = 'Walt';
 ```
 
 ```json
@@ -383,7 +382,7 @@ Now we can see `before` populated. Again, the changefeed emits every column.
 
 Changefeeds can not be altered, and cannot be backed up. To alter a changefeed, you have to cancel the Job and restart it.
 
-We will modify the changefeed by removing the `before` dictiionary.
+We will modify the changefeed by removing the `before` dictionary.
 Also, we want to start emitting CDC from a known timestamp, so we don't receive duplicate data.
 
 Find the Job ID for the Changefeed.
