@@ -94,7 +94,7 @@ bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic topic-nam
 
 ## Lab 1 - Connect to database and create data
 
-Open a new Terminal and connect to the database
+Open the SQL Terminal and connect to the database
 
 ```bash
 # use cockroach sql, defaults to localhost:26257
@@ -174,7 +174,7 @@ You can confirm the same from the **DB Console** Jobs page
 
 ## Lab 2 - Insert data and check incoming kafka records
 
-In the Consumer terminal, stop the current process and start the consumer again listening to topic `pets`, the name of the table.
+In the Kafka terminal, stop the current process and start the consumer again this time listening to topic `pets`, the name of the table.
 
 ```bash
 bin/kafka-console-consumer.sh --topic pets --from-beginning --bootstrap-server localhost:9092
