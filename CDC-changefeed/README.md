@@ -43,21 +43,18 @@
 
 ## Lab 0 - Start Apache Kafka
 
-Open 4 new terminals and `cd` into the `kafka` directory.
+Open one more terminal, the Kafka Terminal, and `cd` into the `kafka` directory.
 
-In the first terminal, start `zookeper`:
-
-```bash
-bin/zookeeper-server-start.sh config/zookeeper.properties
-```
-
-In the second terminal, start the kafka broker
+In the Kafka Terminal, start `zookeper` and the Kafka server in the background:
 
 ```bash
-bin/kafka-server-start.sh config/server.properties
+# zookeeper
+bin/zookeeper-server-start.sh config/zookeeper.properties & > /dev/null 2>&1
+# kafka server
+bin/kafka-server-start.sh config/server.properties & > /dev/null 2>&1
 ```
 
-In the third terminal, create a topic, then start the producer
+Then, create a topic and start the producer
 
 ```bash
 # create topic 'cockroach'
@@ -67,34 +64,25 @@ bin/kafka-topics.sh --create --topic cockroach --bootstrap-server localhost:9092
 bin/kafka-console-producer.sh --topic cockroach --bootstrap-server localhost:9092  
 ```
 
-In the fourth terminal, start the consumer, from where you will read the incoming records
+At the prompt, send any string to the Kafka brokers
 
 ```bash
-bin/kafka-console-consumer.sh --topic cockroach --from-beginning --bootstrap-server localhost:9092
-```
-
-Make sure everything works: on the Producer Terminal, enter some text and hit Enter.
-The value should appear in the Consumer Terminal.
-
-### Producer
-
-```bash
-$ bin/kafka-console-producer.sh --topic cockroach --bootstrap-server localhost:9092                
-
 >Hello!
 >
 ```
 
-### Consumer
+Ctrl+C to exit the Producer, then start the Consumer, from where you will read the incoming records
 
 ```bash
-$ bin/kafka-console-consumer.sh --topic cockroach --from-beginning --bootstrap-server localhost:9092
+# start consumer
+bin/kafka-console-consumer.sh --topic cockroach --from-beginning --bootstrap-server localhost:9092
+[...]
 Hello!
 ```
 
-Good, Kafka is ready! You can minimize all but the **Consumer** terminal, which you will need in the next labs.
+Good, if the Consumer received the string you sent, Kafka is ready!
 
-### Kafka Quick Commands
+### Kafka Reference Commands
 
 ```bash
 # List Topics
