@@ -2,7 +2,7 @@
 
 ## Overview
 
-This page contains a tutorial for working with spatial data using CockroachDB. In these labs, we will explore the following [spatial features](https://www.cockroachlabs.com/docs/stable/spatial-features.html) supported by CockroachDB:
+In these labs, we will explore the following [spatial features](https://www.cockroachlabs.com/docs/stable/spatial-features.html) supported by CockroachDB:
 
 - How to put together separate spatial data sets to ask and answer potentially interesting questions.
 - How to use various built-in functions for operating on spatial data.
@@ -10,7 +10,7 @@ This page contains a tutorial for working with spatial data using CockroachDB. I
 - Performing joins on spatial data, and how to use EXPLAIN to make sure we are using indexes effectively.
 - How to quickly visualize the output of our queries using free tools like <https://geojson.io>
 
-In the following labs, we will use the following datasets:
+We use the following datasets:
 
 - NY State bird sighting data from the years 2000-2019, taken from the North American Breeding Bird Survey (NABBS), see [here](https://www.sciencebase.gov/catalog/item/52b1dfa8e4b0d9b325230cd9).
 
@@ -166,9 +166,7 @@ SHOW TABLES;
 (6 rows)
 ```
 
-## Lab 1
-
-### Where has the Common Loon been sighted by the NABBS in the years 2000-2019 in NY state?
+## Lab 1 - Finding the Common Loon sightings by the NABBS in the years 2000-2019 in NY state
 
 First, we create a list of all of the sightings of the Common Loon.
 Then, we use the `ST_Collect()` function, which collects geometries into a `GeometryCollection`.
@@ -201,7 +199,7 @@ FROM
 
 ![loon-sightings](media/loon-sightings.png)
 
-### 2. What is the area of the Loon's sightings range? (SRID: 4326)
+## Lab 2 - Finding the area of the Loon's sightings range
 
 As before, we create a list of all of the sightings of the Common Loon into a `GeometryCollection` object.
 Then, we calculate the convex hull of object: because the `routes` data uses [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html), the resulting area is measured in degrees and we need to cast it into a `GEOGRAPHY` object before using `ST_Area` to calculate the area, which we convert to square km.
@@ -232,7 +230,7 @@ FROM
 (1 row)
 ```
 
-### 3. What are the bookstores that lie within the Loon's habitat range in NY state?
+## lab 3 - Finding bookstores that lie within the Loon's habitat range
 
 Similar to the previous labs, let's build a CTE that returns the convex hull of Common Loon habitat.
 We then join the result with the `bookstores` table to check whether a bookstore's location is contained by the loon habitat by making use of the [`ST_Contains()` function](https://www.cockroachlabs.com/docs/stable/st_contains.html).
@@ -336,7 +334,7 @@ FROM
 
 ![bookstore-loc](media/bookstore-loc.png)
 
-### 4. Which birds were most often sighted within 10 miles of The Book Nook in Saranac Lake, NY during the 2000-2019 observation period?  (Limit to top 25)
+## Lab 4 - Most often sighted birds within 10 miles of The Book Nook in Saranac Lake, NY
 
 Build a CTE that returns the `geom` of the bookstore we want to visit, The Book Nook.
 Use `ST_Distance()`, which returns the distance in meters between geography_a and geography_b, to list the names and observation totals (sums) of birds whose habitats are within 10 miles of the location of the bookstore.
@@ -455,7 +453,7 @@ Note how, if you pull the query plan using `EXPLAIN (VERBOSE)`, the optimizer us
 (45 rows)
 ```
 
-### 11. How long is the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY?
+## Lab 5 - Finding distance of the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY
 
 ```sql
 SELECT
@@ -478,7 +476,7 @@ WHERE
 (1 row)
 ```
 
-### 12. What does the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY look like?
+## Lab 6 - Finding route information from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY
 
 Paste GeoJSON output into <geojson.io>
 
