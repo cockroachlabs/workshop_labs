@@ -166,13 +166,15 @@ SHOW TABLES;
 (6 rows)
 ```
 
-## Lab 1 - Finding the Common Loon sightings by the NABBS in the years 2000-2019 in NY state
+## Lab 1 - ST_Collect() and ST_AsGeoJSON()
+
+In this lab the goal is to find the Common Loon sightings by the NABBS in the years 2000-2019 in NY state.
 
 First, we create a list of all of the sightings of the Common Loon.
-Then, we use the `ST_Collect()` function, which collects geometries into a `GeometryCollection`.
-Finally, we take the `GeometryCollection` object and use the `ST_AsGeoJSON()` function to convert it to the [GeoJSON](https://www.cockroachlabs.com/docs/stable/geojson.html) format, which is much more extensible and user friendly, too.
 
-Copy the output of the query and paste it into <http://geojson.io> to see what it looks like.
+Then, we use the `ST_Collect()` function, which collects geometries into a `GeometryCollection`.
+
+Finally, we take the `GeometryCollection` object and use the `ST_AsGeoJSON()` function to convert it to the [GeoJSON](https://www.cockroachlabs.com/docs/stable/geojson.html) format, which is much more extensible and user friendly, too.
 
 ```sql
 WITH loon_sightings AS (
@@ -197,12 +199,19 @@ FROM
   {"type":"MultiPoint","coordinates":[[-75.078218,43.662991],[-75.078218,43.662991],[-75.078218,43.662991],[-75.078218,43.662991],[-75.078218,43.662991],[-75.078218,43.662991],[-75.078218,43.662991],[-74.389678,43.652701],[-74.389678,43.652701],[-74.389678,43.652701],[-74.389678,43.652701],[-74.389678,43.652701],[-74.389678,43.652701],[-74.389678,43.652701],[-74.389678,43.652701],[-74.389678,43.652701],[-74.9492509,43.6625207],[-74.473788,43.726581],[-74.473788,43.726581],[-74.473788,43.726581],[-74.234828,43.971271],[-74.234828,43.971271],[-74.234828,43.971271],[-74.234828,43.971271],[-74.234828,43.971271],[-74.234828,43.971271],[-74.3975289,43.5654587],[-74.3975289,43.5654587],[-74.7918689,43.7217467],[-74.7918689,43.7217467],[-74.7918689,43.7217467],[-74.7918689,43.7217467],[-74.7918689,43.7217467],[-74.7918689,43.7217467],[-74.7918689,43.7217467],[-74.7918689,43.7217467],[-74.0622389,43.6884937],[-74.0622389,43.6884937],[-73.7371009,43.6098217],[-75.0557089,44.4354227],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.9230359,44.1319167],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.1807169,44.4319917],[-74.7210849,44.5376687],[-74.7210849,44.5376687],[-74.7210849,44.5376687],[-73.4887779,44.4433387],[-73.4887779,44.4433387],[-75.7014799,44.1487467],[-75.7014799,44.1487467],[-75.7014799,44.1487467],[-75.7014799,44.1487467],[-75.7014799,44.1487467],[-74.9852279,42.0781957],[-74.9852279,42.0781957],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.966888,43.679941],[-74.492148,44.522881],[-74.492148,44.522881],[-74.492148,44.522881],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587],[-74.6305979,44.1294587]]}
 ```
 
+Copy the output of the query and paste it into <http://geojson.io> to see what it looks like.
+
 ![loon-sightings](media/loon-sightings.png)
 
-## Lab 2 - Finding the area of the Loon's sightings range
+## Lab 2 - ST_Area(), ST_ConvexHull() and ST_Transform()
+
+In this lab, the goal is to find the area of the Loon's sightings range.
 
 As before, we create a list of all of the sightings of the Common Loon into a `GeometryCollection` object.
-Then, we calculate the convex hull of object: because the `routes` data uses [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html), the resulting area is measured in degrees and we need to cast it into a `GEOGRAPHY` object before using `ST_Area` to calculate the area, which we convert to square km.
+
+Then, we calculate the convex hull of object using `ST_ConvexHull()`.
+
+We need to note that because the `routes` data uses [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html), the resulting area is measured in degrees and we need to cast it into a `GEOGRAPHY` object before using `ST_Area()` to calculate the area, which we convert to square km.
 
 ```sql
 WITH loon_sightings AS (
@@ -230,7 +239,9 @@ FROM
 (1 row)
 ```
 
-## lab 3 - Finding bookstores that lie within the Loon's habitat range
+## lab 3 - ST_Contain()
+
+In this lab, the goal is to find bookstores that lie within the Loon's habitat range.
 
 Similar to the previous labs, let's build a CTE that returns the convex hull of Common Loon habitat.
 We then join the result with the `bookstores` table to check whether a bookstore's location is contained by the loon habitat by making use of the [`ST_Contains()` function](https://www.cockroachlabs.com/docs/stable/st_contains.html).
@@ -334,19 +345,17 @@ FROM
 
 ![bookstore-loc](media/bookstore-loc.png)
 
-## Lab 4 - Most often sighted birds within 10 miles of The Book Nook in Saranac Lake, NY
+## Lab 4 - ST_Distance()
+
+THe goal is to get a list of the most often sighted birds within 10 miles of The Book Nook in Saranac Lake, NY.
 
 Build a CTE that returns the `geom` of the bookstore we want to visit, The Book Nook.
+
 Use `ST_Distance()`, which returns the distance in meters between geography_a and geography_b, to list the names and observation totals (sums) of birds whose habitats are within 10 miles of the location of the bookstore.
 
 ```sql
 WITH the_book_nook AS (
-    SELECT
-        geom
-    FROM
-        bookstores
-    WHERE
-        name = 'The Book Nook (Saranac Lake, NY)'
+    SELECT geom FROM bookstores WHERE name = 'The Book Nook (Saranac Lake, NY)'
 )
 SELECT
     birds.name,
@@ -453,7 +462,9 @@ Note how, if you pull the query plan using `EXPLAIN (VERBOSE)`, the optimizer us
 (45 rows)
 ```
 
-## Lab 5 - Finding distance of the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY
+## Lab 5 - ST_Length()
+
+In this final lab, we want to find the distance of the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY
 
 ```sql
 SELECT
@@ -476,9 +487,7 @@ WHERE
 (1 row)
 ```
 
-## Lab 6 - Finding route information from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY
-
-Paste GeoJSON output into <geojson.io>
+We can pull the route too. Paste the GeoJSON output into <geojson.io> to view the route on the map.
 
 ```sql
 SELECT
@@ -499,6 +508,8 @@ WHERE
 ```
 
 ![route](media/route.png)
+
+Congratulations, you reach the end of the labs! This workshop just scratches the surface of the many capabilities and possibilities offered by the PostGIS library.
 
 ## Reference
 
