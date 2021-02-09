@@ -443,7 +443,68 @@ Time: 1ms total (execution 13ms / network 1ms)
 
 1ms! Great improvement!
 
-## Lab 6 - Optimize Aggregrate Performance with Computed Columns
+## Lab 6 - Joins on JSONB objects
+
+Create a simple table out of `jflat`.
+
+```sql
+CREATE TABLE jflat3 AS SELECT * FROM jflat LIMIT 5;
+```
+
+Check the `c_base_ap_id` of the inserted rows
+
+```sql
+SELECT myflat ->> 'c_base_ap_id' AS c_base_ap_id FROM jflat3;
+```
+
+```text
+  c_base_ap_id
+----------------
+  192
+  77
+  168
+  148
+  269
+(5 rows)
+```
+
+Run below query, to confirm you can do joins on JSONB objects.
+
+```sql
+SELECT jflat.myflat ->> 'c_base_ap_id' AS c_base_ap_id 
+FROM jflat JOIN jflat3 
+  ON jflat.myflat ->> 'c_base_ap_id' = jflat3.myflat ->> 'c_base_ap_id';
+```
+
+```text
+  c_base_ap_id
+----------------
+  192
+  77
+  168
+  148
+  269
+  168
+  148
+  192
+  148
+  77
+  168
+  77
+  269
+  77
+  77
+  148
+  148
+  148
+(18 rows)
+```
+
+While joins are possible on JSONB object, it is recommanded to extract the join field into a **computed column** for efficiency.
+
+We discuss computed columns next.
+
+## Lab 7 - Optimize Aggregrate Performance with Computed Columns
 
 Run the following query:
 
