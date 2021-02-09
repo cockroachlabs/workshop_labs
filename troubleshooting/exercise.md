@@ -8,23 +8,22 @@ Create a [3 node cluster](/infrastructure/single-region-local-docker-cluster.md)
 We use [carota](https://pypi.org/project/carota/) to generate the random datasets.
 
 ```bash
-# install pip3
-sudo apt-get update && sudo apt-get install python3-pip -y
-# install carota
-pip3 install --user --upgrade pip carota
-export PATH=/home/ubuntu/.local/bin:$PATH
-
 # create the dummy data
 carota -r 5000 -t "uuid; string::size=15; choices::list=true false; string::size=15; choices::list=true false; uuid; string::size=15" -o a.csv
 carota -r 1000000 -t "uuid; uuid" -o m.csv
 carota -r 300000 -t "uuid; string::size=7" -o u.csv
 
-# load it into the docker cluster
-docker exec roach-newyork-1 bash -c "mkdir /cockroach/cockroach-data/extern/"
 
-docker cp a.csv roach-newyork-1:/cockroach/cockroach-data/extern/a.csv
-docker cp m.csv roach-newyork-1:/cockroach/cockroach-data/extern/m.csv
-docker cp u.csv roach-newyork-1:/cockroach/cockroach-data/extern/u.csv
+sudo mkdir node1/extern
+sudo mv *.csv node1/extern
+
+
+# load it into the docker cluster
+#docker exec roach-newyork-1 bash -c "mkdir /cockroach/cockroach-data/extern/"
+
+#docker cp a.csv roach-newyork-1:/cockroach/cockroach-data/extern/a.csv
+#docker cp m.csv roach-newyork-1:/cockroach/cockroach-data/extern/m.csv
+#docker cp u.csv roach-newyork-1:/cockroach/cockroach-data/extern/u.csv
 ```
 
 Connect to the database, then create the schema, import the data and load stats
