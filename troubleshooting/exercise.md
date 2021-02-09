@@ -8,6 +8,12 @@ Create a [3 node cluster](/infrastructure/single-region-local-docker-cluster.md)
 We use [carota](https://pypi.org/project/carota/) to generate the random datasets.
 
 ```bash
+# install pip3
+sudo apt-get update && sudo apt-get install python3-pip -y
+# install carota
+pip3 install --user --upgrade pip carota
+export PATH=/home/ubuntu/.local/bin:$PATH
+
 # create the dummy data
 carota -r 5000 -t "uuid; string::size=15; choices::list=true false; string::size=15; choices::list=true false; uuid; string::size=15" -o a.csv
 carota -r 1000000 -t "uuid; uuid" -o m.csv
