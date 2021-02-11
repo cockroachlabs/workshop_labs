@@ -537,10 +537,8 @@ SELECT
     address,
     SUM(roads.miles) :: INT AS nearby_road_miles
 FROM
-    roads,
-    loon_bookstores
-WHERE
-    (
+    roads
+    JOIN loon_bookstores ON (
         ST_Distance(
             loon_bookstores.geom,
             st_setsrid(roads.geom, 4326)
