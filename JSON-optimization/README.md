@@ -670,7 +670,7 @@ Time: 10ms total (execution 9ms / network 1ms)
 
 Very good, from 76ms down to 10ms, good job!
 
-## Lab 7 - Compare RT
+## Lab 8 - Compare RT
 
 Consider the following queries, which yield the same result
 
