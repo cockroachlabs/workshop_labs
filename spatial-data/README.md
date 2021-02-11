@@ -529,10 +529,8 @@ loon_bookstores AS (
         address,
         bookstores.geom AS geom
     FROM
-        bookstores,
-        loon_habitat
-    WHERE
-        ST_Contains(loon_habitat.geom, bookstores.geom)
+        bookstores
+        JOIN loon_habitat ON ST_Contains(loon_habitat.geom, bookstores.geom)
 )
 SELECT
     loon_bookstores.name,

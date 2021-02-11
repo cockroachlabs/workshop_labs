@@ -74,7 +74,7 @@ Create the CockroachDB cluster. You can use [roachprod](https://github.com/cockr
 ```bash
 # default machine type is n1-standard-4 (4 vCPUs / 16GB MEM)
 roachprod create ${USER}-labs -c gce -n 12 --gce-zones us-east1-b,us-east1-c,us-west1-b,us-west1-c --gce-image ubuntu-2004-focal-v20201211
-roachprod stage ${USER}-labs release v20.2.3
+roachprod stage ${USER}-labs release v20.2.4
 roachprod start ${USER}-labs
 roachprod adminurl ${USER}-labs
 ```
@@ -170,9 +170,9 @@ Let's create a Jumpbox server from which to run the workload to simulate the App
 
 ```bash
 # simple ubuntu box on a starndard 4cpu/16 mem VM
-roachprod create ${USER}-jump -c gce -n 1
+roachprod create ${USER}-jump -c gce -n 1 --gce-image ubuntu-2004-focal-v20201211
 # install cockroachdb just to have the sql client
-roachprod stage ${USER}-jump release v20.2.3
+roachprod stage ${USER}-jump release latest
 # get the internal IP of one of the cluster nodes
 roachprod ip ${USER}-labs:1
 # ssh into the jumpbox
