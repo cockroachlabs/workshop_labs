@@ -372,7 +372,7 @@ GROUP BY
 ORDER BY
     sightings DESC
 LIMIT
-    25;
+    10;
 ```
 
 ```text
@@ -388,22 +388,7 @@ LIMIT
   Chipping Sparrow                       |       465
   Black-capped Chickadee                 |       390
   Yellow-bellied Sapsucker               |       359
-  Blue-headed Vireo                      |       357
-  Blue Jay                               |       345
-  Winter Wren                            |       344
-  Cedar Waxwing                          |       272
-  Blackburnian Warbler                   |       248
-  Magnolia Warbler                       |       236
-  Black-throated Green Warbler           |       226
-  Common Grackle                         |       218
-  Red-breasted Nuthatch                  |       209
-  Common Yellowthroat                    |       184
-  Northern Parula                        |       175
-  Nashville Warbler                      |       164
-  Red-winged Blackbird                   |       152
-  Least Flycatcher                       |       128
-  American Redstart                      |       123
-(25 rows)
+(10 rows)
 ```
 
 Note how, if you pull the query plan using `EXPLAIN (VERBOSE)`, the optimizer uses the `ST_DWithinexclusive` [accelarated function](https://www.cockroachlabs.com/docs/v20.2/spatial-data.html#performance) instead of `ST_Distance()`.
@@ -414,8 +399,8 @@ Note how, if you pull the query plan using `EXPLAIN (VERBOSE)`, the optimizer us
                                                     | distribution        | full                                                           |                                                      |
                                                     | vectorized          | true                                                           |                                                      |
   limit                                             |                     |                                                                | (name, sightings)                                    |
-   │                                                | estimated row count | 25                                                             |                                                      |
-   │                                                | count               | 25                                                             |                                                      |
+   │                                                | estimated row count | 10                                                             |                                                      |
+   │                                                | count               | 10                                                             |                                                      |
    └── sort                                         |                     |                                                                | (name, sum)                                          | -sum
         │                                           | estimated row count | 756                                                            |                                                      |
         │                                           | order               | -sum                                                           |                                                      |
@@ -508,14 +493,20 @@ WHERE
 
 ## Lab 6 - Use Spatial Joins
 
-In this lab, we want to find which bookstore in the Loon's region in NY has the fewest miles of roads within a 10 mile radius of the store.
+What are the top 10 roads nearest to a Loon sighting location in NY? A Spatial Join can help us answer this question.
 
-In other words, which store is the most remotely located?
+1. Build a CTE called `loon_habitat` that collects all of the Common Loon sightings into a single geometry.
+
+2. Build a CTE called `nearby_roads` that joins the results of `loon_habitat` with the roads table and pulls out the roads in NY state that are within a degree (about 60 nautical miles), then order the roads returned by their distance from a loon sighting. Because the data in the roads table has an SRID of 0, we need to use `ST_SetSRID` to set its SRID to 4326. This step is necessary because `ST_Distance` cannot operate on geometries with differing SRIDs.
+
+3. Finally, query the results of the `nearby_roads` subquery to get a list of 10 distinct road names.
+
+The query below can also be written using an explicit `ST_DWithin`, which is an [index-accelerated function](https://www.cockroachlabs.com/docs/stable/spatial-data.html#performance). CockroachDB optimizes `ST_Distance()` to use `ST_DWithin`, see the Query Plan for details.
 
 ```sql
 WITH loon_habitat AS (
     SELECT
-        st_convexhull(st_collect(routes.geom)) AS geom
+        ST_Collect(routes.geom) AS geom
     FROM
         birds
         JOIN observations ON birds.id = observations.bird_id
@@ -523,122 +514,195 @@ WITH loon_habitat AS (
     WHERE
         birds.name = 'Common Loon'
 ),
-loon_bookstores AS (
+nearby_roads AS (
     SELECT
-        bookstores.name,
-        address,
-        bookstores.geom AS geom
+        roads.prime_name AS road_name
     FROM
-        bookstores
-        JOIN loon_habitat ON ST_Contains(loon_habitat.geom, bookstores.geom)
+        roads
+        JOIN loon_habitat ON st_distance(
+            loon_habitat.geom,
+            ST_SetSRID(roads.geom, 4326)
+        ) < 1
+    ORDER BY
+        ST_Distance(
+            loon_habitat.geom,
+            ST_SetSRID(roads.geom, 4326)
+        ) ASC
+    LIMIT
+        20
 )
 SELECT
-    loon_bookstores.name,
-    address,
-    SUM(roads.miles) :: INT AS nearby_road_miles
+    DISTINCT road_name
 FROM
-    roads
-    JOIN loon_bookstores ON ST_Distance(
-        loon_bookstores.geom,
-        st_setsrid(roads.geom, 4326)
-    ) < (10 / 69)
-GROUP BY
-    loon_bookstores.name,
-    address
-ORDER BY
-    nearby_road_miles ASC;
+    nearby_roads
+LIMIT
+    10;
 ```
 
 ```text
-                        name                       |                    address                     | nearby_road_miles
----------------------------------------------------+------------------------------------------------+--------------------
-  The Bookstore Plus Music &amp; Art               | 2491 Main St, Lake Placid, NY, 12946           |                40
-  The Book Nook (Saranac Lake, NY)                 | 7 Broadway, Saranac Lake, NY, 12983            |                81
-  Blacktree Books                                  | 5006 State Highway 23, Oneonta, NY, 13820      |               106
-  The Green Toad Bookstore                         | 198 Main St, Oneonta, NY, 13820                |               107
-  Gansevoort House Books at Gems Along the Mohawk  | 800 Mohawk St, Herkimer, NY, 13350             |               136
-  Gansevoort House Books at The Shoppes at 25 West | 25 W Mill Street, Little Falls, NY, 13365      |               155
-  The Treehouse Reading and Arts Center            | 587 Main St Ste 304, New York Mills, NY, 13417 |               156
-  Mysteries On Main Street                         | 144 W Main St, Johnstown, NY, 12095            |               172
-(8 rows)
+       road_name
+-----------------------
+  US Route 9
+  State Route 30
+  State Route 22 Spur
+  State Route 22
+  State Route 28
+  State Route 86
+  State Route 28N
+  Interstate 87
+  US Route 11
+  State Route 421
+(10 rows)
 
-Time: 5.745s total (execution 5.750s / network 5.745s)
+Time: 2.142s total (execution 2.143s / network 2.142s)
 ```
 
-Very good, it looks like 'The Bookstore Plus Music & Art' is the most remote bookstore. The query however took alomost 6 seconds to complete.
-
-Let's pull the query plan using `EXPLAIN (VERBOSE)`
-
-```text
-                                          tree                                         |         field         |                              description                               |                 columns                 |      ordering
----------------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------------------+-----------------------------------------+---------------------
-                                                                                       | distribution          | full                                                                   |                                         |
-                                                                                       | vectorized            | true                                                                   |                                         |
-  sort                                                                                 |                       |                                                                        | (name, address, nearby_road_miles)      | +nearby_road_miles
-   │                                                                                   | estimated row count   | 29                                                                     |                                         |
-   │                                                                                   | order                 | +nearby_road_miles                                                     |                                         |
-   └── render                                                                          |                       |                                                                        | (nearby_road_miles, name, address)      |
-        │                                                                              | estimated row count   | 29                                                                     |                                         |
-        │                                                                              | render 0              | sum::INT8                                                              |                                         |
-        │                                                                              | render 1              | name                                                                   |                                         |
-        │                                                                              | render 2              | address                                                                |                                         |
-        └── group                                                                      |                       |                                                                        | (name, address, sum)                    |
-             │                                                                         | estimated row count   | 29                                                                     |                                         |
-             │                                                                         | aggregate 0           | sum(miles)                                                             |                                         |
-             │                                                                         | group by              | name, address                                                          |                                         |
-             └── project                                                               |                       |                                                                        | (miles, name, address)                  |
-                  └── cross join (inner)                                               |                       |                                                                        | (miles, geom, name, address, geom)      |
-                       │                                                               | estimated row count   | 2192887                                                                |                                         |
-                       │                                                               | pred                  | st_dwithinexclusive(geom, st_setsrid(geom, 4326), 0.14492753623188406) |                                         |
-                       ├── scan                                                        |                       |                                                                        | (miles, geom)                           |
-                       │                                                               | estimated row count   | 225838                                                                 |                                         |
-                       │                                                               | table                 | roads@primary                                                          |                                         |
-                       │                                                               | spans                 | FULL SCAN                                                              |                                         |
-                       └── render                                                      |                       |                                                                        | (name, address, geom)                   |
-                            │                                                          | estimated row count   | 29                                                                     |                                         |
-                            │                                                          | render 0              | name                                                                   |                                         |
-                            │                                                          | render 1              | address                                                                |                                         |
-                            │                                                          | render 2              | geom                                                                   |                                         |
-                            └── cross join (inner)                                     |                       |                                                                        | (name, address, geom, geom)             |
-                                 │                                                     | estimated row count   | 29                                                                     |                                         |
-                                 │                                                     | pred                  | st_contains(geom, geom)                                                |                                         |
-                                 ├── scan                                              |                       |                                                                        | (name, address, geom)                   |
-                                 │                                                     | estimated row count   | 2913                                                                   |                                         |
-                                 │                                                     | table                 | bookstores@primary                                                     |                                         |
-                                 │                                                     | spans                 | FULL SCAN                                                              |                                         |
-                                 └── render                                            |                       |                                                                        | (geom)                                  |
-                                      │                                                | estimated row count   | 1                                                                      |                                         |
-                                      │                                                | render 0              | st_convexhull(st_collect)                                              |                                         |
-                                      └── group (scalar)                               |                       |                                                                        | (st_collect)                            |
-                                           │                                           | estimated row count   | 1                                                                      |                                         |
-                                           │                                           | aggregate 0           | st_collect(geom)                                                       |                                         |
-                                           └── project                                 |                       |                                                                        | (geom)                                  |
-                                                └── hash join (inner)                  |                       |                                                                        | (id, name, route_id, bird_id, id, geom) |
-                                                     │                                 | estimated row count   | 406                                                                    |                                         |
-                                                     │                                 | equality              | (route_id) = (id)                                                      |                                         |
-                                                     │                                 | right cols are key    |                                                                        |                                         |
-                                                     ├── project                       |                       |                                                                        | (id, name, route_id, bird_id)           |
-                                                     │    │                            | estimated row count   | 406                                                                    |                                         |
-                                                     │    └── lookup join (inner)      |                       |                                                                        | (id, name, id, bird_id, route_id)       |
-                                                     │         │                       | table                 | observations@primary                                                   |                                         |
-                                                     │         │                       | equality              | (id) = (id)                                                            |                                         |
-                                                     │         │                       | equality cols are key |                                                                        |                                         |
-                                                     │         └── lookup join (inner) |                       |                                                                        | (id, name, id, bird_id)                 |
-                                                     │              │                  | estimated row count   | 406                                                                    |                                         |
-                                                     │              │                  | table                 | observations@observations_bird_id_idx                                  |                                         |
-                                                     │              │                  | equality              | (id) = (bird_id)                                                       |                                         |
-                                                     │              └── scan           |                       |                                                                        | (id, name)                              |
-                                                     │                                 | estimated row count   | 1                                                                      |                                         |
-                                                     │                                 | table                 | birds@birds_name_idx                                                   |                                         |
-                                                     │                                 | spans                 | /"Common Loon"-/"Common Loon"/PrefixEnd                                |                                         |
-                                                     └── scan                          |                       |                                                                        | (id, geom)                              |
-                                                                                       | estimated row count   | 129                                                                    |                                         |
-                                                                                       | table                 | routes@primary                                                         |                                         |
-                                                                                       | spans                 | FULL SCAN                                                              |                                         |
-(63 rows)
-```
+Great, we have our list of roads!
 
 ## Lab 7  - Using Spatial Indexes
+
+The previous query can be enhanced by use of Spatial Indexes. Let's create a spatial index on the `road.geom` column.
+
+First, let's update the SRID of the `roads.geom` column to use SRID 4326.
+
+```sql
+UPDATE
+    roads
+SET
+    geom = ST_Transform(ST_SetSRID(geom, 4326), 4326)
+WHERE
+    gid IS NOT NULL RETURNING NOTHING;
+```
+
+Then, create the index
+
+```sql
+CREATE INDEX ON roads USING GIST(geom);
+```
+
+Update and run the SQL query
+
+```sql
+WITH loon_habitat AS (
+    SELECT
+        ST_Collect(routes.geom) AS geom
+    FROM
+        birds
+        JOIN observations ON birds.id = observations.bird_id
+        JOIN routes ON observations.route_id = routes.id
+    WHERE
+        birds.name = 'Common Loon'
+),
+nearby_roads AS (
+    SELECT
+        roads.prime_name AS road_name
+    FROM
+        roads
+        JOIN loon_habitat ON st_distance(
+            loon_habitat.geom,roads.geom
+        ) < 1
+    ORDER BY
+        ST_Distance(
+            loon_habitat.geom,roads.geom
+        ) ASC
+    LIMIT
+        20
+)
+SELECT
+    DISTINCT road_name
+FROM
+    nearby_roads
+LIMIT
+    10;
+```
+
+```text
+       road_name
+-----------------------
+  US Route 9
+  State Route 30
+  State Route 22 Spur
+  State Route 22
+  State Route 28
+  State Route 86
+  State Route 28N
+  Interstate 87
+  US Route 11
+  State Route 421
+(10 rows)
+
+Time: 1.517s total (execution 1.482s / network 0.035s)
+```
+
+Great improvement! Check the query plan to configm the optimizer is using the spatial index `roads_geom_idx`.
+
+```text
+                                                 tree                                                 |         field         |                    description                    |                 columns                 | ordering
+------------------------------------------------------------------------------------------------------+-----------------------+---------------------------------------------------+-----------------------------------------+------------
+                                                                                                      | distribution          | full                                              |                                         |
+                                                                                                      | vectorized            | false                                             |                                         |
+  limit                                                                                               |                       |                                                   | (road_name)                             |
+   │                                                                                                  | estimated row count   | 10                                                |                                         |
+   │                                                                                                  | count                 | 10                                                |                                         |
+   └── distinct                                                                                       |                       |                                                   | (road_name)                             |
+        │                                                                                             | estimated row count   | 20                                                |                                         |
+        │                                                                                             | distinct on           | road_name                                         |                                         |
+        └── render                                                                                    |                       |                                                   | (road_name)                             |
+             │                                                                                        | estimated row count   | 20                                                |                                         |
+             │                                                                                        | render 0              | prime_name                                        |                                         |
+             └── limit                                                                                |                       |                                                   | (column49, prime_name)                  |
+                  │                                                                                   | estimated row count   | 20                                                |                                         |
+                  │                                                                                   | count                 | 20                                                |                                         |
+                  └── sort                                                                            |                       |                                                   | (column49, prime_name)                  | +column49
+                       │                                                                              | estimated row count   | 2258                                              |                                         |
+                       │                                                                              | order                 | +column49                                         |                                         |
+                       └── render                                                                     |                       |                                                   | (column49, prime_name)                  |
+                            │                                                                         | estimated row count   | 2258                                              |                                         |
+                            │                                                                         | render 0              | st_distance(geom, geom)                           |                                         |
+                            │                                                                         | render 1              | prime_name                                        |                                         |
+                            └── project                                                               |                       |                                                   | (prime_name, geom, geom)                |
+                                 │                                                                    | estimated row count   | 2258                                              |                                         |
+                                 └── lookup join (inner)                                              |                       |                                                   | (gid, geom, prime_name, geom)           |
+                                      │                                                               | table                 | roads@primary                                     |                                         |
+                                      │                                                               | equality              | (gid) = (gid)                                     |                                         |
+                                      │                                                               | equality cols are key |                                                   |                                         |
+                                      │                                                               | pred                  | st_dwithinexclusive(geom, geom, 1.0)              |                                         |
+                                      └── project                                                     |                       |                                                   | (gid, geom)                             |
+                                           │                                                          | estimated row count   | 2258                                              |                                         |
+                                           └── inverted join                                          |                       |                                                   | (geom, gid, geom_inverted_key)          |
+                                                │                                                     | table                 | roads@roads_geom_idx                              |                                         |
+                                                │                                                     | inverted expr         | st_dwithinexclusive(geom, geom_inverted_key, 1.0) |                                         |
+                                                └── render                                            |                       |                                                   | (geom)                                  |
+                                                     │                                                | estimated row count   | 1                                                 |                                         |
+                                                     │                                                | render 0              | st_collect                                        |                                         |
+                                                     └── group (scalar)                               |                       |                                                   | (st_collect)                            |
+                                                          │                                           | estimated row count   | 1                                                 |                                         |
+                                                          │                                           | aggregate 0           | st_collect(geom)                                  |                                         |
+                                                          └── project                                 |                       |                                                   | (geom)                                  |
+                                                               └── hash join (inner)                  |                       |                                                   | (id, name, route_id, bird_id, id, geom) |
+                                                                    │                                 | estimated row count   | 406                                               |                                         |
+                                                                    │                                 | equality              | (route_id) = (id)                                 |                                         |
+                                                                    │                                 | right cols are key    |                                                   |                                         |
+                                                                    ├── project                       |                       |                                                   | (id, name, route_id, bird_id)           |
+                                                                    │    │                            | estimated row count   | 406                                               |                                         |
+                                                                    │    └── lookup join (inner)      |                       |                                                   | (id, name, id, bird_id, route_id)       |
+                                                                    │         │                       | table                 | observations@primary                              |                                         |
+                                                                    │         │                       | equality              | (id) = (id)                                       |                                         |
+                                                                    │         │                       | equality cols are key |                                                   |                                         |
+                                                                    │         └── lookup join (inner) |                       |                                                   | (id, name, id, bird_id)                 |
+                                                                    │              │                  | estimated row count   | 406                                               |                                         |
+                                                                    │              │                  | table                 | observations@observations_bird_id_idx             |                                         |
+                                                                    │              │                  | equality              | (id) = (bird_id)                                  |                                         |
+                                                                    │              └── scan           |                       |                                                   | (id, name)                              |
+                                                                    │                                 | estimated row count   | 1                                                 |                                         |
+                                                                    │                                 | table                 | birds@birds_name_idx                              |                                         |
+                                                                    │                                 | spans                 | /"Common Loon"-/"Common Loon"/PrefixEnd           |                                         |
+                                                                    └── scan                          |                       |                                                   | (id, geom)                              |
+                                                                                                      | estimated row count   | 129                                               |                                         |
+                                                                                                      | table                 | routes@primary                                    |                                         |
+                                                                                                      | spans                 | FULL SCAN                                         |                                         |
+(62 rows)
+```
 
 ## Final thoughts
 
