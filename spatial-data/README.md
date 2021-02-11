@@ -538,12 +538,10 @@ SELECT
     SUM(roads.miles) :: INT AS nearby_road_miles
 FROM
     roads
-    JOIN loon_bookstores ON (
-        ST_Distance(
-            loon_bookstores.geom,
-            st_setsrid(roads.geom, 4326)
-        ) < (10 / 69)
-    )
+    JOIN loon_bookstores ON ST_Distance(
+        loon_bookstores.geom,
+        st_setsrid(roads.geom, 4326)
+    ) < (10 / 69)
 GROUP BY
     loon_bookstores.name,
     address
