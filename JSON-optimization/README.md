@@ -37,7 +37,7 @@ Create a table by importing a CSV file from a cloud storage bucket.
 IMPORT TABLE jblob (
     id INT PRIMARY KEY,
     myblob JSONB
-) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/data/raw_test_blob.tsv')
+) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/JSON-optimization/data/raw_test_blob.tsv')
 WITH
     delimiter = e'\t';
 ```
@@ -260,7 +260,7 @@ At the SQL prompt, import the data
 IMPORT TABLE jflat (
     id INT PRIMARY KEY,
     myflat JSONB
-) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/data/raw_test_flat.tsv')
+) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/JSON-optimization/data/raw_test_flat.tsv')
 WITH
     delimiter = e'\t';
 ```
@@ -330,7 +330,7 @@ Import more data into the `jflat` table:
 ```sql
 IMPORT INTO jflat (id, myflat)
 CSV DATA (
-    'https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/data/raw_test_flat2.tsv'
+    'https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/JSON-optimization/data/raw_test_flat2.tsv'
 )
 WITH
     delimiter = e'\t';
