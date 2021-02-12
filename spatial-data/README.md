@@ -472,7 +472,7 @@ WHERE
 (1 row)
 ```
 
-We can pull the route too. Paste the GeoJSON output into <geojson.io> to view the route on the map.
+We can pull the route too. Paste the GeoJSON output into <http://geojson.io> to view the route on the map.
 
 ```sql
 SELECT
