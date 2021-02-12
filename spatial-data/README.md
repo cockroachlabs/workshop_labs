@@ -506,9 +506,9 @@ What are the top 10 roads nearest to a Loon sighting location in NY? A Spatial J
 
 The query below can also be written using an explicit `ST_DWithin()` [function](https://www.cockroachlabs.com/docs/stable/st_within.html), which is an [index-accelerated function](https://www.cockroachlabs.com/docs/stable/spatial-data.html#performance). CockroachDB optimizes `ST_Distance()` to use `ST_DWithin()`, see the Query Plan for details.
 
-As the data in the `roads` table has an SRID of 0, we need to use `ST_SetSRID` to cast it to [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html). This step is necessary because `ST_Distance` cannot operate on geometries with differing SRIDs.
+As the data in the `roads` table has an SRID of 0, we need to use `ST_SetSRID()` to cast it to [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html). This step is necessary because `ST_Distance` cannot operate on geometries with differing SRIDs.
 
-Let's update the SRID of the `roads.geom` column to use [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html).
+Let's update the SRID of the `roads.geom` column to SRID 4326.
 
 ```sql
 UPDATE
@@ -570,7 +570,7 @@ LIMIT
   State Route 421
 (10 rows)
 
-Time: 2.142s total (execution 2.143s / network 2.142s)
+Time: 1.930s total (execution 1.930s / network 0.000s)
 ```
 
 Great, we have our list of roads!
@@ -585,7 +585,7 @@ Create the index
 CREATE INDEX ON roads USING GIST(geom);
 ```
 
-Run the SQL query
+Run the SQL query again, let's see how it performs
 
 ```sql
 WITH loon_habitat AS (
@@ -636,10 +636,10 @@ LIMIT
   State Route 421
 (10 rows)
 
-Time: 1.517s total (execution 1.482s / network 0.035s)
+Time: 1.492s total (execution 1.492s / network 0.001s)
 ```
 
-Great improvement! Check the query plan using `EXPLAIN (VERBOSE)` to configm the optimizer is using the spatial index `roads_geom_idx`.
+Great improvement! Check the query plan using `EXPLAIN (VERBOSE)` to confirm the optimizer is using the spatial index `roads_geom_idx`.
 
 ```text
                                                  tree                                                 |         field         |                    description                    |                 columns                 | ordering
@@ -711,7 +711,7 @@ Great improvement! Check the query plan using `EXPLAIN (VERBOSE)` to configm the
 
 ## Final thoughts
 
-Congratulations, you reach the end of the labs! This workshop just scratches the surface of the many capabilities and possibilities offered by the PostGIS library.
+Congratulations, you reach the end of the labs! This workshop just scratches the surface of the many capabilities and possibilities offered by the PostGIS library. Check below links for more information, and subscribe to the CockroachDB [newsletter](https://www.cockroachlabs.com/blog) to stay up-to-date with the latest development.
 
 ## Reference
 
