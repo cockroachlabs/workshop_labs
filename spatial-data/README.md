@@ -166,9 +166,11 @@ SHOW TABLES;
 
 In this lab the goal is to find the Common Loon sightings by the NABBS in the years 2000-2019 in NY state.
 
+We will be using a few [built-in spatial functions](https://www.cockroachlabs.com/docs/stable/functions-and-operators.html#spatial-functions) for this and the next lab.
+
 First, we create a list of all of the sightings of the Common Loon.
 
-Then, we use the `ST_Collect()` function, which collects geometries into a `GeometryCollection`.
+Then, we use the `ST_Collect()` function, which collects geometries into a `GeometryCollection` [object](https://www.cockroachlabs.com/docs/stable/geometrycollection.html).
 
 Finally, we take the `GeometryCollection` object and use the `ST_AsGeoJSON()` function to convert it to the [GeoJSON](https://www.cockroachlabs.com/docs/stable/geojson.html) format, which is much more extensible and user friendly, too.
 
@@ -205,7 +207,7 @@ In this lab, the goal is to find the area of the Loon's sightings range.
 
 As before, we create a list of all of the sightings of the Common Loon into a `GeometryCollection` object.
 
-Then, we calculate the convex hull of object using `ST_ConvexHull()`.
+Then, we calculate the convex hull of object using `ST_ConvexHull()`, read more about it [in the docs](https://www.cockroachlabs.com/docs/stable/st_convexhull.html).
 
 We need to note that because the `routes` data uses [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html), the resulting area is measured in degrees and we need to cast it into a `GEOGRAPHY` object before using `ST_Area()` to calculate the area, which we convert to square km.
 
@@ -245,7 +247,7 @@ We then join the result with the `bookstores` table to check whether a bookstore
 ```sql
 WITH loon_sightings AS (
     SELECT
-        st_convexhull(st_collect(routes.geom)) AS loon_hull
+        ST_ConvexHull(ST_Collect(routes.geom)) AS loon_hull
     FROM
         birds
         JOIN observations ON birds.id = observations.bird_id
@@ -281,7 +283,7 @@ Let's put the locations on a map using `ST_AsGeoJSON()`.
 ```sql
 WITH loon_sightings AS (
     SELECT
-        st_convexhull(st_collect(routes.geom)) AS loon_hull
+        ST_ConvexHull(ST_Collect(routes.geom)) AS loon_hull
     FROM
         birds
         JOIN observations ON birds.id = observations.bird_id
@@ -445,7 +447,9 @@ Note how, if you pull the query plan using `EXPLAIN (VERBOSE)`, the optimizer us
 
 ## Lab 5 - ST_Length()
 
-In this lab, we want to find the distance of the route from Mysteries on Main Street in Johnstown, NY to The Book Nook in Saranac Lake, NY
+In this lab, we want to find the length of the route from Mysteries on Main Street in Johnstown, NY, to The Book Nook in Saranac Lake, NY.
+
+Function `STLength()` takes a `geography` object and returns the length of the given geography in meters.
 
 ```sql
 SELECT
@@ -490,17 +494,32 @@ WHERE
 
 ![route](media/route.png)
 
-## Lab 6 - Use Spatial Joins
+## Lab 6 - Spatial Performance Tuning
 
 What are the top 10 roads nearest to a Loon sighting location in NY? A Spatial Join can help us answer this question.
 
 1. Build a CTE called `loon_habitat` that collects all of the Common Loon sightings into a single geometry.
 
-2. Build a CTE called `nearby_roads` that joins the results of `loon_habitat` with the roads table and pulls out the roads in NY state that are within a degree (about 60 nautical miles), then order the roads returned by their distance from a loon sighting. Because the data in the roads table has an SRID of 0, we need to use `ST_SetSRID` to set its SRID to 4326. This step is necessary because `ST_Distance` cannot operate on geometries with differing SRIDs.
+2. Build a CTE called `nearby_roads` that joins the results of `loon_habitat` with the roads table and pulls out the roads in NY state that are within a degree (about 60 nautical miles), then order the roads returned by their distance from a loon sighting.
 
 3. Finally, query the results of the `nearby_roads` subquery to get a list of 10 distinct road names.
 
-The query below can also be written using an explicit `ST_DWithin`, which is an [index-accelerated function](https://www.cockroachlabs.com/docs/stable/spatial-data.html#performance). CockroachDB optimizes `ST_Distance()` to use `ST_DWithin`, see the Query Plan for details.
+The query below can also be written using an explicit `ST_DWithin()` [function](https://www.cockroachlabs.com/docs/stable/st_within.html), which is an [index-accelerated function](https://www.cockroachlabs.com/docs/stable/spatial-data.html#performance). CockroachDB optimizes `ST_Distance()` to use `ST_DWithin()`, see the Query Plan for details.
+
+As the data in the `roads` table has an SRID of 0, we need to use `ST_SetSRID` to cast it to [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html). This step is necessary because `ST_Distance` cannot operate on geometries with differing SRIDs.
+
+Let's update the SRID of the `roads.geom` column to use [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html).
+
+```sql
+UPDATE
+    roads
+SET
+    geom = ST_Transform(ST_SetSRID(geom, 4326), 4326)
+WHERE
+    gid IS NOT NULL RETURNING NOTHING;
+```
+
+Now run the query
 
 ```sql
 WITH loon_habitat AS (
@@ -518,14 +537,12 @@ nearby_roads AS (
         roads.prime_name AS road_name
     FROM
         roads
-        JOIN loon_habitat ON st_distance(
-            loon_habitat.geom,
-            ST_SetSRID(roads.geom, 4326)
+        JOIN loon_habitat ON ST_Distance(
+            loon_habitat.geom,roads.geom
         ) < 1
     ORDER BY
         ST_Distance(
-            loon_habitat.geom,
-            ST_SetSRID(roads.geom, 4326)
+            loon_habitat.geom,roads.geom
         ) ASC
     LIMIT
         20
@@ -562,24 +579,13 @@ Great, we have our list of roads!
 
 The previous query can be enhanced by use of [Spatial Indexes](https://www.cockroachlabs.com/docs/stable/spatial-indexes.html). Let's create a spatial index on the `road.geom` column.
 
-First, let's update the SRID of the `roads.geom` column to use [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html).
-
-```sql
-UPDATE
-    roads
-SET
-    geom = ST_Transform(ST_SetSRID(geom, 4326), 4326)
-WHERE
-    gid IS NOT NULL RETURNING NOTHING;
-```
-
-Then, create the index
+Create the index
 
 ```sql
 CREATE INDEX ON roads USING GIST(geom);
 ```
 
-Update and run the SQL query
+Run the SQL query
 
 ```sql
 WITH loon_habitat AS (
@@ -633,7 +639,7 @@ LIMIT
 Time: 1.517s total (execution 1.482s / network 0.035s)
 ```
 
-Great improvement! Check the query plan to configm the optimizer is using the spatial index `roads_geom_idx`.
+Great improvement! Check the query plan using `EXPLAIN (VERBOSE)` to configm the optimizer is using the spatial index `roads_geom_idx`.
 
 ```text
                                                  tree                                                 |         field         |                    description                    |                 columns                 | ordering
@@ -709,18 +715,22 @@ Congratulations, you reach the end of the labs! This workshop just scratches the
 
 ## Reference
 
-- [Spatial Features](https://www.cockroachlabs.com/docs/stable/spatial-features.html) (Official Docs)
+### Official Docs
+
+- [Spatial Features](https://www.cockroachlabs.com/docs/stable/spatial-features.html)
 
 - [Spatial Functions](https://www.cockroachlabs.com/docs/v20.2/functions-and-operators.html#spatial-functions)
 
 - [GeoJSON](https://www.cockroachlabs.com/docs/stable/geojson.html)
 
-- [Introducing Distributed Spatial Data in Free, Open Source CockroachDB](https://www.cockroachlabs.com/blog/spatial-data/) (blog post)
+- [PostGIS project home](https://postgis.net)
 
-- [What’s So Special About Spatial Data?](https://www.cockroachlabs.com/blog/spatial-data-types/) (blog post)
+### Blogs and Videos
+
+- [Introducing Distributed Spatial Data in Free, Open Source CockroachDB](https://www.cockroachlabs.com/blog/spatial-data/)
+
+- [What’s So Special About Spatial Data?](https://www.cockroachlabs.com/blog/spatial-data-types/)
 
 - [YouTube: CockroachDB - Spatial Data Types | Spatial Data Use Cases | Spatial Databases](https://www.youtube.com/watch?v=Jhr-whgj65c)
-
-- [PostGIS project home](https://postgis.net)
 
 - [What is the purpose of PostGIS on PostgreSQL?](https://gis.stackexchange.com/questions/223487/what-is-the-purpose-of-postgis-on-postgresql)
