@@ -8,7 +8,6 @@ In these labs, we will explore the following [spatial features](https://www.cock
 - How to use various built-in functions for operating on spatial data.
 - How to create indexes on spatial data.
 - Performing joins on spatial data, and how to use EXPLAIN to make sure we are using indexes effectively.
-- How to quickly visualize the output of our queries using free tools like <https://geojson.io>
 
 We use the following datasets:
 
@@ -22,7 +21,7 @@ We use the following datasets:
 
 1. Build the single region dev cluster:
 
-    - [Local](https://www.cockroachlabs.com/docs/v20.2/start-a-local-cluster)
+    - [Local](https://www.cockroachlabs.com/docs/stable/start-a-local-cluster)
     - [Docker](/infrastructure/single-region-local-docker-cluster.md)
 
 2. You also need:
@@ -52,13 +51,13 @@ psql -h localhost -p 26257 -U root defaultdb
 IMPORT TABLE birds (
     id INT8 NOT NULL,
     name VARCHAR NOT NULL,
-    "family" VARCHAR NOT NULL,
+    bird_family VARCHAR NOT NULL,
     genus VARCHAR NOT NULL,
     species VARCHAR NOT NULL,
-    "order" VARCHAR NOT NULL,
+    bird_order VARCHAR NOT NULL,
     CONSTRAINT "primary" PRIMARY KEY (id ASC),
     INDEX birds_name_idx (name ASC),
-    FAMILY "primary" (id, name, "family", genus, species, "order")
+    FAMILY "primary" (id, name, bird_family, genus, species, bird_order)
 ) CSV DATA (
     'https://github.com/cockroachlabs/workshop_labs/raw/master/spatial-data/data/birds.csv.gz'
 ) WITH skip = '1';
@@ -561,9 +560,9 @@ Great, we have our list of roads!
 
 ## Lab 7  - Using Spatial Indexes
 
-The previous query can be enhanced by use of Spatial Indexes. Let's create a spatial index on the `road.geom` column.
+The previous query can be enhanced by use of [Spatial Indexes](https://www.cockroachlabs.com/docs/stable/spatial-indexes.html). Let's create a spatial index on the `road.geom` column.
 
-First, let's update the SRID of the `roads.geom` column to use SRID 4326.
+First, let's update the SRID of the `roads.geom` column to use [SRID 4326](https://www.cockroachlabs.com/docs/stable/srid-4326.html).
 
 ```sql
 UPDATE
