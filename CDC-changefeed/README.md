@@ -111,8 +111,8 @@ Enable `rangefeed` on cluster, then create a simple table
 
 ```sql
 -- set the enterprise license
-SET CLUSTER SETTING cluster.organization = "companyname";
-SET CLUSTER SETTING enterprise.license = "xxxyyyzzz";
+SET CLUSTER SETTING cluster.organization = "<enter company name>";
+SET CLUSTER SETTING enterprise.license = "<enter enterprise license>";
 
 -- enable rangefeed
 SET CLUSTER SETTING kv.rangefeed.enabled = 'true';
