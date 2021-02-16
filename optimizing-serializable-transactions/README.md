@@ -6,11 +6,11 @@ In this lab we will explore how to best use Serializable transactions with Cockr
 
 CockroachDB only uses the `SERIALIZABLE` isolation level, the highest logical isolation level, required to guarantee ACID transactions.
 
-For a light overview and understanding of isolation levels, here's a short and useful [tutorial](https://www.cockroachlabs.com/docs/v20.1/demo-serializable.html).
+For a light overview and understanding of isolation levels, here's a short and useful [tutorial](https://www.cockroachlabs.com/docs/stable/demo-serializable.html).
 
-However, the most comprehensive information on Transaction in CockroachDB is [the Transactions doc](https://www.cockroachlabs.com/docs/v20.1/transactions.html).
+However, the most comprehensive information on Transaction in CockroachDB is [the Transactions doc](https://www.cockroachlabs.com/docs/stable/transactions.html).
 
-For in-depth understanding, check also the [architecture pages for the transaction layer](https://www.cockroachlabs.com/docs/v20.1/architecture/transaction-layer.html).
+For in-depth understanding, check also the [architecture pages for the transaction layer](https://www.cockroachlabs.com/docs/stable/architecture/transaction-layer.html).
 
 ## Labs Prerequisites
 
@@ -198,7 +198,7 @@ SELECT * FROM alerts WHERE customer_id=9800;
 
 -- update_low
 BEGIN;
-SET TRANSACTION PRIORITY LOW;
+  SET TRANSACTION PRIORITY LOW;
   UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
   WHERE customer_id=9743;
 COMMIT;
@@ -241,37 +241,37 @@ SELECT * FROM alerts WHERE customer_id=9743;
 
 -- Bulk updates 100 rows
 BEGIN;
-SET TRANSACTION PRIORITY HIGH;
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE severity=${__Random(0,10)} LIMIT 100;
+  SET TRANSACTION PRIORITY HIGH;
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+  WHERE severity=${__Random(0,10)} LIMIT 100;
 COMMIT;
 
 -- 1000 rows
 BEGIN;
-SET TRANSACTION PRIORITY HIGH;
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE severity=${__Random(0,10)} LIMIT 1000;
+  SET TRANSACTION PRIORITY HIGH;
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+  WHERE severity=${__Random(0,10)} LIMIT 1000;
 COMMIT;
 
 -- 5000 rows
 BEGIN;
-SET TRANSACTION PRIORITY HIGH;
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE severity=${__Random(0,10)} LIMIT 5000;
+  SET TRANSACTION PRIORITY HIGH;
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+  WHERE severity=${__Random(0,10)} LIMIT 5000;
 COMMIT;
 
 -- 10000 rows
 BEGIN;
-SET TRANSACTION PRIORITY HIGH;
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE severity=${__Random(0,10)} LIMIT 10000;
+  SET TRANSACTION PRIORITY HIGH;
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+  WHERE severity=${__Random(0,10)} LIMIT 10000;
 COMMIT;
 
 -- 50000 rows
 BEGIN;
-SET TRANSACTION PRIORITY HIGH;
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE severity=${__Random(0,10)} LIMIT 50000;
+  SET TRANSACTION PRIORITY HIGH;
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+  WHERE severity=${__Random(0,10)} LIMIT 50000;
 COMMIT;
 ```
 
@@ -288,6 +288,8 @@ and below in the Admin UI
 It should be clear by the result of the test that we get better latency and performance by limitimg the size of the batch update.
 
 ## Lab 3 - Retries with UPDATEs
+
+In this lab we learn about [Transaction Retry Errors](https://www.cockroachlabs.com/docs/stable/transaction-retry-error-reference).
 
 In this scenario we do two runs and observes the retry errors while updating the **same** rows throught a CLI client.
 
@@ -343,16 +345,16 @@ root@:26257/serial>
 
 ```
 
-We got an [ABORT_REASON_CLIENT_REJECT](https://www.cockroachlabs.com/docs/v20.1/transaction-retry-error-reference.html#abort_reason_client_reject) due to a Write/Write conflict with a higher priority transaction.
+We got an [ABORT_REASON_CLIENT_REJECT](https://www.cockroachlabs.com/docs/stable/transaction-retry-error-reference.html#abort_reason_client_reject) due to a Write/Write conflict with a higher priority transaction.
 
 Let's try with low priority transactions running. Run JMeter with the `update_low` query.
 
 ```sql
 -- update_low
 BEGIN;
-SET TRANSACTION PRIORITY LOW;
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE customer_id=9743;
+  SET TRANSACTION PRIORITY LOW;
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+  WHERE customer_id=9743;
 COMMIT;
 ```
 
@@ -384,7 +386,7 @@ Time: 2.133ms
 
 ```
 
-In this case we got a [RETRY_WRITE_TOO_OLD](https://www.cockroachlabs.com/docs/v20.1/transaction-retry-error-reference.html#retry_write_too_old) as another transaction has already committed and thus our write is too old and need to restart.
+In this case we got a [RETRY_WRITE_TOO_OLD](https://www.cockroachlabs.com/docs/stable/transaction-retry-error-reference.html#retry_write_too_old) as another transaction has already committed and thus our write is too old and need to restart.
 
 ## Lab 4 - Implicit Transactions with SELECT FOR UPDATE
 
@@ -417,7 +419,7 @@ WHERE customer_id=9743;
 Let's try the same test with the SELECT FOR UPDATE setting disabled:
 
 ```sql
-SET cluster setting sql.defaults.implicit_select_for_update.enabled=false;
+SET cluster setting sql.defaults.implicit_select_for_update.enabled = false;
 ```
 
 Re-run the JMeter test, below the results.
@@ -425,3 +427,10 @@ Re-run the JMeter test, below the results.
 ![demo4-jmeter-results-sfu-disabled](media/demo4-jmeter-results-sfu-disabled.png)
 
 We can see that with SFU disable, we have much higher latency.
+
+## Reference
+
+Docs:
+
+- [Transactions](https://www.cockroachlabs.com/docs/stable/transactions.html)
+- [Transaction Retry](https://www.cockroachlabs.com/docs/stable/transaction-retry-error-reference)
