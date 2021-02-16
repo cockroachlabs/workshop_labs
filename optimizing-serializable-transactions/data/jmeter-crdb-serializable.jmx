@@ -16,11 +16,11 @@
         <stringProp name="checkQuery">Select 1</stringProp>
         <stringProp name="connectionAge">5000</stringProp>
         <stringProp name="dataSource">central</stringProp>
-        <stringProp name="dbUrl">jdbc:postgresql://127.0.0.1:26257/serial?autoReconnect=true&amp;sslmode=disable&amp;ssl=false&amp;ApplicationName=Demo1</stringProp>
+        <stringProp name="dbUrl">jdbc:postgresql://127.0.0.1:26257/serial?autoReconnect=true&amp;sslmode=disable&amp;ssl=false&amp;ApplicationName=Demo4</stringProp>
         <stringProp name="driver">org.postgresql.Driver</stringProp>
         <boolProp name="keepAlive">true</boolProp>
         <stringProp name="password"></stringProp>
-        <stringProp name="poolMax">6</stringProp>
+        <stringProp name="poolMax">3</stringProp>
         <stringProp name="timeout">10000</stringProp>
         <stringProp name="transactionIsolation">TRANSACTION_SERIALIZABLE</stringProp>
         <stringProp name="trimInterval">60000</stringProp>
@@ -315,7 +315,7 @@
         <boolProp name="exclude_checkbox_state">false</boolProp>
       </kg.apc.jmeter.vizualizers.CorrectedResultCollector>
       <hashTree/>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Demo #1 :: Contention Selects and Updates" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Demo #1 :: Contention Selects and Updates" enabled="false">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
@@ -936,7 +936,7 @@ COMMIT;</stringProp>
           <hashTree/>
         </hashTree>
       </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Demo #4 :: Implicit Transactions with SFU" enabled="false">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Demo #4 :: Implicit Transactions with SFU" enabled="true">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
@@ -951,7 +951,7 @@ COMMIT;</stringProp>
         <stringProp name="TestPlan.comments">set cluster setting sql.defaults.implicit_select_for_update.enabled=true/false and run with the two differnt updates</stringProp>
       </ThreadGroup>
       <hashTree>
-        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_sfu" enabled="false">
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="update_sfu" enabled="true">
           <stringProp name="dataSource">central</stringProp>
           <stringProp name="queryType">Callable Statement</stringProp>
           <stringProp name="query">-- update_sfu
