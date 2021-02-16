@@ -436,3 +436,7 @@ Docs:
 - [Transaction Retry](https://www.cockroachlabs.com/docs/stable/transaction-retry-error-reference)
 - [Advanced Client-side Transaction Retries](https://www.cockroachlabs.com/docs/stable/advanced-client-side-transaction-retries.html)
 - [BEGIN](https://www.cockroachlabs.com/docs/stable/begin-transaction)
+
+Blogs:
+
+- [Serializable, Lockless, Distributed: Isolation in CockroachDB](https://www.cockroachlabs.com/blog/serializable-lockless-distributed-isolation-cockroachdb/)
