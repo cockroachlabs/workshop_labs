@@ -308,9 +308,9 @@ First, run the `update_high` query with 3 threads, below for reference.
 ```sql
 -- update_high
 BEGIN;
-SET TRANSACTION PRIORITY HIGH;
-UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
-WHERE customer_id=9743;
+  SET TRANSACTION PRIORITY HIGH;
+  UPDATE alerts SET cstatus=cstatus, updated_at=NOW()
+  WHERE customer_id=9743;
 COMMIT;
 ```
 
