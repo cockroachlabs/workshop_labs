@@ -434,3 +434,5 @@ Docs:
 
 - [Transactions](https://www.cockroachlabs.com/docs/stable/transactions.html)
 - [Transaction Retry](https://www.cockroachlabs.com/docs/stable/transaction-retry-error-reference)
+- [Advanced Client-side Transaction Retries](https://www.cockroachlabs.com/docs/stable/advanced-client-side-transaction-retries.html)
+- [BEGIN](https://www.cockroachlabs.com/docs/stable/begin-transaction)
