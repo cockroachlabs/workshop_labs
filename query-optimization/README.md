@@ -4,6 +4,8 @@ The following labs will take you through various query tuning scenarios and allo
 
 ## Labs Prerequisites
 
+### Local Deployment
+
 1. Build the dev cluster following [these instructions](/infrastructure/single-region-local-docker-cluster.md).
 
 2. You also need:
@@ -14,7 +16,13 @@ The following labs will take you through various query tuning scenarios and allo
       - `psql`
       - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
 
+### Shared Cluster Deployment
+
+SSH into the Jumpbox using the IP address provided by the Instructor.
+
 ## Lab 0 - Create database and load data
+
+### Local Deployment
 
 Connect to any node and use the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html) to load the TPC-C data with 50 warehouses - it will take about 25 minutes
 
@@ -33,6 +41,41 @@ cockroach sql --url "postgresql://localhost:26258/tpcc?sslmode=disable"
 
 # or use psql
 psql -h localhost -p 26257 -U root tpcc
+```
+
+### Shared Cluster Deployment
+
+Connect to the database
+
+```bash
+cockroach sql --insecure
+```
+
+At the SQL prompt, create your database by restoring a backup copy
+
+```sql
+CREATE DATABASE <your-name>;
+USE <your-name>;
+RESTORE tpcc.* FROM 's3://fabiog1901qq?AUTH=implicit' WITH into_db = '<your-name>';
+
+SHOW TABLES;
+```
+
+```text
+  schema_name | table_name | type  | owner | estimated_row_count
+--------------+------------+-------+-------+----------------------
+  public      | customer   | table | root  |             1500000
+  public      | district   | table | root  |                 500
+  public      | history    | table | root  |             1500000
+  public      | item       | table | root  |              100000
+  public      | new_order  | table | root  |              450000
+  public      | order      | table | root  |             1500000
+  public      | order_line | table | root  |            15004305
+  public      | stock      | table | root  |             5000000
+  public      | warehouse  | table | root  |                  50
+(9 rows)
+
+Time: 38ms total (execution 37ms / network 1ms)
 ```
 
 ## Lab 1 - Optimization
