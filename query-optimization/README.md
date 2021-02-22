@@ -57,7 +57,18 @@ At the SQL prompt, create your database by restoring a backup copy
 CREATE DATABASE <your-name>;
 USE <your-name>;
 RESTORE tpcc.* FROM 's3://fabiog1901qq?AUTH=implicit' WITH into_db = '<your-name>';
+```
 
+```text
+        job_id       |  status   | fraction_completed |   rows   | index_entries |   bytes
+---------------------+-----------+--------------------+----------+---------------+-------------
+  635563845224169475 | succeeded |                  1 | 25054855 |       3000000 | 3594277955
+(1 row)
+
+Time: 59.368s total (execution 59.367s / network 0.001s)
+```
+
+```sql
 SHOW TABLES;
 ```
 
