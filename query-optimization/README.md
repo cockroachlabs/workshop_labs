@@ -56,7 +56,7 @@ At the SQL prompt, create your database by restoring a backup copy
 ```sql
 CREATE DATABASE <your-name>;
 USE <your-name>;
-RESTORE tpcc.* FROM 's3://fabiog1901qq?AUTH=implicit' WITH into_db = '<your-name>';
+RESTORE tpcc.* FROM 's3://fabiog1901qq/tpcc?AUTH=implicit' WITH into_db = '<your-name>';
 ```
 
 ```text
