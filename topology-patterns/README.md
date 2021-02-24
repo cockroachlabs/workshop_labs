@@ -17,6 +17,8 @@ There are 6 recommended topology patterns:
 
 ## Labs Prerequisites
 
+### Local Deployment
+
 1. Build the dev cluster following [these instructions](https://dev.to/cockroachlabs/simulating-a-multi-region-cockroachdb-cluster-on-localhost-with-docker-59f6).
 
 2. You also need:
@@ -27,7 +29,13 @@ There are 6 recommended topology patterns:
       - `psql`
       - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
 
+### Shared Cluster Deployment
+
+SSH into the Jumpbox using the IP address provided by the Instructor.
+
 ## Lab 0 - Create database and load data
+
+### Local Deployment
 
 Connect to any node and run the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html). Please note that loading the data can take up to 5 minutes.
 
@@ -51,6 +59,35 @@ cockroach sql --url "postgresql://localhost:26258/movr?sslmode=disable"
 # or use psql
 psql -h localhost -p 26257 -U root movr
 ```
+
+### Shared Cluster Deployment
+
+Connect to the database
+
+```bash
+cockroach sql --insecure
+```
+
+At the SQL prompt, create your database by restoring a backup copy
+
+```sql
+CREATE DATABASE <your-name>;
+USE <your-name>;
+RESTORE movr.* FROM 's3://fabiog1901qq/movr?AUTH=implicit' WITH into_db = '<your-name>';
+```
+
+```text
+        job_id       |  status   | fraction_completed |  rows  | index_entries |  bytes
+---------------------+-----------+--------------------+--------+---------------+-----------
+  636129471147835397 | succeeded |                  1 | 102100 |        100100 | 19724117
+(1 row)
+
+Time: 2.938s total (execution 2.938s / network 0.001s)
+```
+
+## Lab 1 - Explore Range distribution
+
+Confirm data loaded successfully
 
 ```sql
 SHOW TABLES;
@@ -77,8 +114,6 @@ Open the DB Console at <http://localhost:8080>. Check the **Advanced Debug > Loc
 Also, you can see the distribution of your node using the **Map View**.
 
 ![map](media/map.png)
-
-## Lab 1 - Explore Range distribution
 
 Now that you have imported the data, review how the ranges are distributed in the `rides` table. We create our own view to only project columns of interest. Feel free to modify as you see fit.
 
