@@ -966,4 +966,4 @@ Congratulations, you reached the end of the Troubleshooting workshop! We hope yo
 
 ## Extras
 
-Head over [here](exercise.md) for another example you can run from your desktop computer!
+Head over [here](labs.md) for another example you can run from your desktop computer!
