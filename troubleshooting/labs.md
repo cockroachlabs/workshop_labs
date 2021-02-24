@@ -1,41 +1,49 @@
-# Extra exercise
+# Extra labs
 
-Here's another troubleshooting exercise, you can run it locally on your desktop.
+Here's another troubleshooting exercise.
 
-## Setup
+## Labs Prerequisites
 
-Create a [3 node cluster](/infrastructure/single-region-local-docker-cluster.md) and load dummy data.
-We use [carota](https://pypi.org/project/carota/) to generate the random datasets.
+### Local Deployment
+
+Create a [3 node cluster](/infrastructure/single-region-local-docker-cluster.md).
+
+Connect to the database
 
 ```bash
-# install pip3
-sudo apt-get update && sudo apt-get install python3-pip -y
-# install carota
-pip3 install --user --upgrade pip carota
-export PATH=/home/ubuntu/.local/bin:$PATH
+# use cockroach sql, defaults to localhost:26257
+cockroach sql --insecure
 
-# create the dummy data
-carota -r 5000 -t "uuid; string::size=15; choices::list=true false; string::size=15; choices::list=true false; uuid; string::size=15" -o a.csv
-carota -r 1000000 -t "uuid; uuid" -o m.csv
-carota -r 300000 -t "uuid; string::size=7" -o u.csv
+# or use the --url param for any another host:
+cockroach sql --url "postgresql://localhost:26257/defaultdb?sslmode=disable"
 
-
-sudo mkdir node1/extern
-sudo mv *.csv node1/extern
-
-
-# load it into the docker cluster
-#docker exec roach-newyork-1 bash -c "mkdir /cockroach/cockroach-data/extern/"
-
-#docker cp a.csv roach-newyork-1:/cockroach/cockroach-data/extern/a.csv
-#docker cp m.csv roach-newyork-1:/cockroach/cockroach-data/extern/m.csv
-#docker cp u.csv roach-newyork-1:/cockroach/cockroach-data/extern/u.csv
+# or use psql
+psql -h localhost -p 26257 -U root defaultdb
 ```
 
-Connect to the database, then create the schema, import the data and load stats
+### Shared Cluster Deployment
+
+SSH into the Jumpbox using the IP address provided by the Instructor.
+
+Connect to the database
+
+```bash
+cockroach sql --insecure
+```
+
+At the SQL prompt, create and use your database
 
 ```sql
-CREATE TABLE a (
+CREATE DATABASE <your-name>;
+USE <your-name>;
+```
+
+## Lab 0
+
+Import the data and load stats
+
+```sql
+IMPORT TABLE a (
     id UUID NOT NULL,
     alpha STRING NOT NULL,
     bravo BOOL NOT NULL,
@@ -47,28 +55,29 @@ CREATE TABLE a (
     INDEX a_foxtrot_delta_bravo_idx (foxtrot ASC, delta ASC, bravo ASC),
     INDEX a_echo_idx (echo ASC),
     FAMILY "primary" (id, alpha, bravo, charlie, delta, echo, foxtrot)
-);
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/troubleshooting/data/a.csv.gz'
+) WITH skip = '1';
 
-CREATE TABLE m (
+IMPORT TABLE m (
     echo UUID NOT NULL,
     id UUID NOT NULL,
     CONSTRAINT "primary" PRIMARY KEY (echo ASC, id ASC),
     INDEX m_id_echo_idx (id ASC, echo ASC),
     FAMILY "primary" (echo, id)
-);
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/troubleshooting/data/m.csv.gz'
+) WITH skip = '1';
 
-CREATE TABLE u (
+IMPORT TABLE u (
     id UUID NOT NULL,
     golf STRING NOT NULL,
     CONSTRAINT "primary" PRIMARY KEY (id ASC),
     INDEX u_golf_idx (golf ASC, id ASC),
     FAMILY "primary" (id, golf)
-);
-
-
-IMPORT INTO a CSV DATA ('nodelocal://1/a.csv');
-IMPORT INTO m CSV DATA ('nodelocal://1/m.csv');
-IMPORT INTO u CSV DATA ('nodelocal://1/u.csv');
+) CSV DATA (
+    'https://github.com/cockroachlabs/workshop_labs/raw/master/troubleshooting/data/u.csv.gz'
+) WITH skip = '1';
 
 CREATE STATISTICS statu FROM u;
 CREATE STATISTICS stata FROM a;
@@ -380,3 +389,20 @@ WHERE a.foxtrot = 'y4xbSD8ufOGYW3I'
 
 Congratulations, you reached the end of this exercise! What's left to be done, is testing these above 2 solutions in the real cluster and see how they perform.
 Then, you can always iterate over the troubleshooting exercise to further fine tune your query.
+
+## Reference
+
+We use [carota](https://pypi.org/project/carota/) to generate the random datasets.
+
+```bash
+# install pip3
+sudo apt-get update && sudo apt-get install python3-pip -y
+# install carota
+pip3 install --user --upgrade pip carota
+export PATH=/home/ubuntu/.local/bin:$PATH
+
+# create the dummy data
+carota -r 5000 -t "uuid; string::size=15; choices::list=true false; string::size=15; choices::list=true false; uuid; string::size=15" -o a.csv
+carota -r 1000000 -t "uuid; uuid" -o m.csv
+carota -r 300000 -t "uuid; string::size=7" -o u.csv
+```
