@@ -1,0 +1,5 @@
+UPSERT into system.locations VALUES ('region', 'us-east4', 37.478397, -76.453077), ('region', 'us-west2', 43.804133, -120.554201), ('region', 'eu-west2', 51.5073509, -0.1277583);
+SET CLUSTER SETTING cluster.organization = 'Cockroach Labs - Production Testing';
+SET CLUSTER SETTING enterprise.license = 'crl-0-EJL04ukFGAEiI0NvY2tyb2FjaCBMYWJzIC0gUHJvZHVjdGlvbiBUZXN0aW5n';
+
+##############################################################################################################################################
