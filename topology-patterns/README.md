@@ -748,12 +748,15 @@ The Duplicate Indexes topology is ideal for data that is used very frequently (f
 
 ## Lab 6 - Survive region failure and scale out
 
+**Please note**: This lab can only be done on the **Local Deployment**, which uses Docker to simulate nodes and regions.
+If you are on the **Shared Cluster Deployment**, please read along as the concept is still very important.
+
 Suppose we have a deployment such that:
 
 - our main region is US West and most of our queries go through that region.
 - The leaseholder is local, and thus
 - reads are very fast
-- writes, while the `eu-west-1` region is far (180ms roundtrip), region `us-east-1` is relatively close (60ms roundtrip) so the Raft consensus quorum is achieved as soon as the replica in `us-east-1` confirms.
+- writes, while the `eu-west-1` region is far (125ms roundtrip), region `us-east-1` is relatively close (70ms roundtrip) so the Raft consensus quorum is achieved as soon as the replica in `us-east-1` confirms.
 
 Imagine that region `us-west-2` becomes unavailable due to a power outage:
 
