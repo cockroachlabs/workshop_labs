@@ -758,7 +758,7 @@ In the Overview > Node List, click on the node10 to see that this node is alread
 You can also see from the CLI
 
 ```bash
-root@roach-newyork-1:/cockroach# cockroach node status --insecure
+$ cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
    1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 19:48:42.057632+00:00 | region=us-east-1,zone=a | true         | true
@@ -777,7 +777,7 @@ root@roach-newyork-1:/cockroach# cockroach node status --insecure
 At this point, you can decommission node `roach-seattle-3`, which from above table is node with id = 6.
 
 ```bash
-root@roach-newyork-1:/cockroach# cockroach node decommission 6 --insecure
+$ cockroach node decommission 6 --insecure
 
   id | is_live | replicas | is_decommissioning | is_draining
 -----+---------+----------+--------------------+--------------
@@ -813,7 +813,7 @@ docker rm roach-seattle-3
 Verify the status on the CLI
 
 ```bash
-root@roach-newyork-1:/cockroach# cockroach node status --insecure
+$ cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
    1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:00:45.702579+00:00 | region=us-east-1,zone=a | true         | true
@@ -897,7 +897,7 @@ Check the AdminUI. Immediately you will see the node added to the cluster, with 
 You can verify from the CLI, too
 
 ```bash
-root@roach-newyork-1:/cockroach# cockroach node status --insecure
+$ cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
    1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:23:09.69264+00:00  | region=us-east-1,zone=a | true         | true
