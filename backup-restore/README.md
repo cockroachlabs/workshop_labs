@@ -36,9 +36,9 @@ docker run --name minio --rm -d \
   minio/minio server /data
 
 # attach networks
-docker network connect us-east4-net minio
-docker network connect us-west2-net minio
-docker network connect eu-west2-net minio
+docker network connect us-east-1-net minio
+docker network connect us-west-2-net minio
+docker network connect eu-west-1-net minio
 ```
 
 Now that the infrastructure is in place, let's create a database and load some data. Connect to cluster node `roach-newyork-1`
@@ -565,56 +565,56 @@ USE movr;
 
 -- partition tables into regions based on city
 ALTER TABLE rides PARTITION BY LIST (city) (
-  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
 );
 
 ALTER TABLE users PARTITION BY LIST (city) (
-  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
 );
 
 ALTER TABLE vehicle_location_histories PARTITION BY LIST (city) (
-  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
 );
 
 ALTER TABLE vehicles PARTITION BY LIST (city) (
-  PARTITION us_west2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east4 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west2 VALUES IN ('paris','rome','amsterdam')
+  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
+  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
+  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
 );
 
--- pin partition eu_west2 to nodes located in region eu-west2
-ALTER PARTITION eu_west2 OF INDEX rides@*
+-- pin partition eu_west_1 to nodes located in region eu-west-1
+ALTER PARTITION eu_west_1 OF INDEX rides@*
 CONFIGURE ZONE USING
   num_replicas = 3,
-  constraints = '{"+region=eu-west2"}',
-  lease_preferences = '[[+region=eu-west2]]';
+  constraints = '{"+region=eu-west-1"}',
+  lease_preferences = '[[+region=eu-west-1]]';
 
-ALTER PARTITION eu_west2 OF INDEX users@*
+ALTER PARTITION eu_west_1 OF INDEX users@*
 CONFIGURE ZONE USING
   num_replicas = 3,
-  constraints = '{"+region=eu-west2"}',
-  lease_preferences = '[[+region=eu-west2]]';
+  constraints = '{"+region=eu-west-1"}',
+  lease_preferences = '[[+region=eu-west-1]]';
 
-ALTER PARTITION eu_west2 OF INDEX vehicle_location_histories@*
+ALTER PARTITION eu_west_1 OF INDEX vehicle_location_histories@*
 CONFIGURE ZONE USING
   num_replicas = 3,
-  constraints = '{"+region=eu-west2"}',
-  lease_preferences = '[[+region=eu-west2]]';
+  constraints = '{"+region=eu-west-1"}',
+  lease_preferences = '[[+region=eu-west-1]]';
 
-ALTER PARTITION eu_west2 OF INDEX vehicles@*
+ALTER PARTITION eu_west_1 OF INDEX vehicles@*
 CONFIGURE ZONE USING
   num_replicas = 3,
-  constraints = '{"+region=eu-west2"}',
-  lease_preferences = '[[+region=eu-west2]]';
+  constraints = '{"+region=eu-west-1"}',
+  lease_preferences = '[[+region=eu-west-1]]';
 ```
 
-Wait 5 minutes for range reshuffle to complete, then verify the ranges for the `eu_west2` partitions are stored in the `eu-west2` nodes.
+Wait 5 minutes for range reshuffle to complete, then verify the ranges for the `eu_west_1` partitions are stored in the `eu-west-1` nodes.
 
 ```sql
 -- check ranges for table users - repeat if you want for all other tables
@@ -626,15 +626,15 @@ WHERE start_key IS NOT NULL AND start_key NOT LIKE '%Prefix%' AND substring(star
 ```text
        start      |       end       | lh | lease_holder_locality  | replicas |                              replica_localities
 ------------------+-----------------+----+------------------------+----------+-------------------------------------------------------------------------------
-  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
-  "amsterdam"/"\x | "amsterdam"/Pre |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
-  "paris"         | "paris"/"\xcc\x |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
-  "paris"/"\xcc\x | "paris"/PrefixE |  7 | region=eu-west2,zone=a | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
-  "rome"          | "rome"/PrefixEn |  8 | region=eu-west2,zone=b | {7,8,9}  | {"region=eu-west2,zone=a","region=eu-west2,zone=b","region=eu-west2,zone=c"}
+  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
+  "amsterdam"/"\x | "amsterdam"/Pre |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
+  "paris"         | "paris"/"\xcc\x |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
+  "paris"/"\xcc\x | "paris"/PrefixE |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
+  "rome"          | "rome"/PrefixEn |  8 | region=eu-west-1,zone=b | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
 (5 rows)
 ```
 
-Notice from column `replica_localities` how all replicas are `eu-west2` based.
+Notice from column `replica_localities` how all replicas are `eu-west-1` based.
 
 Create a new MinIO server `minio-eu` that simulates your Object Storage based in the EU.
 
@@ -646,19 +646,19 @@ docker run --name minio-eu --rm -d \
   minio/minio server /data
 
 # attach networks
-docker network connect us-west2-net minio-eu
-docker network connect us-east4-net minio-eu
-docker network connect eu-west2-net minio-eu
+docker network connect us-west-2-net minio-eu
+docker network connect us-east-1-net minio-eu
+docker network connect eu-west-1-net minio-eu
 ```
 
 Open the `minio-eu` UI at <http://localhost:19000> and create bucket `backup-eu`.
 
-Backup the data that is stored in region `eu-west2` in `minio-eu`, and all other data in the default `minio` server as before. Check the ENDPOINT URLs in below command.
+Backup the data that is stored in region `eu-west-1` in `minio-eu`, and all other data in the default `minio` server as before. Check the ENDPOINT URLs in below command.
 
 ```sql
 BACKUP TO
   ('s3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin',
-   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west2&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin')
+   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west-1&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin')
   AS OF SYSTEM TIME '-10s';
 ```
 
@@ -706,7 +706,7 @@ DROP DATABASE movr CASCADE;
 
 RESTORE DATABASE movr FROM
   ('s3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin',
-   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west2&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin');
+   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west-1&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin');
 ```
 
 Good stuff! You have practiced a lot of Backup & Restore techniques, time to learn something new! In the next session, we'll review **Repaving** for our CockroachDB cluster nodes.
@@ -746,14 +746,14 @@ You can read more about the Decommission process in our [docs](https://www.cockr
 Let's spin up a new node and add it to the cluster. In this example, we want to repave node `roach-seattle-3` for node `roach-seattle-4`
 
 ```bash
-docker run -d --name=roach-seattle-4 --hostname=roach-seattle-4 --ip=172.27.0.14 --cap-add NET_ADMIN --net=us-west2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -v "roach-seattle-4-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west2,zone=c
+docker run -d --name=roach-seattle-4 --hostname=roach-seattle-4 --ip=172.27.0.14 --cap-add NET_ADMIN --net=us-west-2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -v "roach-seattle-4-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west-2,zone=c
 
 # attach container to networks
 docker network connect uswest-useast-net roach-seattle-4
 docker network connect uswest-euwest-net roach-seattle-4
 ```
 
-In the AdminUI, you should see you have now 10 nodes and 2 nodes are in the `us-west2` region, zone `c`.
+In the AdminUI, you should see you have now 10 nodes and 2 nodes are in the `us-west-2` region, zone `c`.
 
 ![adminui-decommission](media/adminui-decommission.png)
 
@@ -767,16 +767,16 @@ You can also see from the CLI
 root@roach-newyork-1:/cockroach# cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 19:48:42.057632+00:00 | region=us-east4,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 19:48:42.38807+00:00  | region=us-east4,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 19:48:42.842474+00:00 | region=us-east4,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 19:48:44.300456+00:00 | region=us-west2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 19:48:40.567553+00:00 | region=us-west2,zone=b | true         | true
-   6 | roach-seattle-3:26257 | roach-seattle-3:26257 | v20.2.x | 2020-10-08 15:43:18.704429+00:00 | 2020-10-08 19:48:41.219253+00:00 | region=us-west2,zone=c | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 19:48:44.378163+00:00 | region=eu-west2,zone=b | true         | true
-   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 19:48:40.398695+00:00 | region=eu-west2,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 19:48:40.438241+00:00 | region=eu-west2,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 19:48:40.624029+00:00 | region=us-west2,zone=c | true         | true
+   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 19:48:42.057632+00:00 | region=us-east-1,zone=a | true         | true
+   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 19:48:42.38807+00:00  | region=us-east-1,zone=b | true         | true
+   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 19:48:42.842474+00:00 | region=us-east-1,zone=c | true         | true
+   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 19:48:44.300456+00:00 | region=us-west-2,zone=a | true         | true
+   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 19:48:40.567553+00:00 | region=us-west-2,zone=b | true         | true
+   6 | roach-seattle-3:26257 | roach-seattle-3:26257 | v20.2.x | 2020-10-08 15:43:18.704429+00:00 | 2020-10-08 19:48:41.219253+00:00 | region=us-west-2,zone=c | true         | true
+   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 19:48:44.378163+00:00 | region=eu-west-1,zone=b | true         | true
+   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 19:48:40.398695+00:00 | region=eu-west-1,zone=a | true         | true
+   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 19:48:40.438241+00:00 | region=eu-west-1,zone=c | true         | true
+  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 19:48:40.624029+00:00 | region=us-west-2,zone=c | true         | true
 (10 rows)
 ```
 
@@ -822,15 +822,15 @@ Verify the status on the CLI
 root@roach-newyork-1:/cockroach# cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:00:45.702579+00:00 | region=us-east4,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:00:46.032631+00:00 | region=us-east4,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:00:42.021404+00:00 | region=us-east4,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:00:43.479506+00:00 | region=us-west2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:00:44.211455+00:00 | region=us-west2,zone=b | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:00:43.557008+00:00 | region=eu-west2,zone=b | true         | true
-   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 20:00:44.041947+00:00 | region=eu-west2,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:00:44.081871+00:00 | region=eu-west2,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:00:44.268408+00:00 | region=us-west2,zone=c | true         | true
+   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:00:45.702579+00:00 | region=us-east-1,zone=a | true         | true
+   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:00:46.032631+00:00 | region=us-east-1,zone=b | true         | true
+   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:00:42.021404+00:00 | region=us-east-1,zone=c | true         | true
+   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:00:43.479506+00:00 | region=us-west-2,zone=a | true         | true
+   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:00:44.211455+00:00 | region=us-west-2,zone=b | true         | true
+   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:00:43.557008+00:00 | region=eu-west-1,zone=b | true         | true
+   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 20:00:44.041947+00:00 | region=eu-west-1,zone=a | true         | true
+   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:00:44.081871+00:00 | region=eu-west-1,zone=c | true         | true
+  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:00:44.268408+00:00 | region=us-west-2,zone=c | true         | true
 (9 rows)
 ```
 
@@ -889,7 +889,7 @@ docker stop roach-london-1
 docker rm roach-london-1
 
 # start the new container using the same volume roach-london-1-data
-docker run -d --name=roach-london-4 --hostname=roach-london-4 --ip=172.29.0.14 --cap-add NET_ADMIN --net=eu-west2-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -v "roach-london-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west2,zone=a
+docker run -d --name=roach-london-4 --hostname=roach-london-4 --ip=172.29.0.14 --cap-add NET_ADMIN --net=eu-west-1-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -v "roach-london-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west-1,zone=a
 
 # connect to networks
 docker network connect useast-euwest-net roach-london-4
@@ -906,15 +906,15 @@ You can verify from the CLI, too
 root@roach-newyork-1:/cockroach# cockroach node status --insecure
   id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
 -----+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:23:09.69264+00:00  | region=us-east4,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:23:10.023896+00:00 | region=us-east4,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:23:05.977296+00:00 | region=us-east4,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:23:07.468981+00:00 | region=us-west2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:23:08.202968+00:00 | region=us-west2,zone=b | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:23:07.547155+00:00 | region=eu-west2,zone=b | true         | true
-   8 | roach-london-4:26257  | roach-london-4:26257  | v20.2.x | 2020-10-08 20:21:36.196613+00:00 | 2020-10-08 20:23:09.491299+00:00 | region=eu-west2,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:23:08.072601+00:00 | region=eu-west2,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:23:08.258708+00:00 | region=us-west2,zone=c | true         | true
+   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:23:09.69264+00:00  | region=us-east-1,zone=a | true         | true
+   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:23:10.023896+00:00 | region=us-east-1,zone=b | true         | true
+   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:23:05.977296+00:00 | region=us-east-1,zone=c | true         | true
+   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:23:07.468981+00:00 | region=us-west-2,zone=a | true         | true
+   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:23:08.202968+00:00 | region=us-west-2,zone=b | true         | true
+   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:23:07.547155+00:00 | region=eu-west-1,zone=b | true         | true
+   8 | roach-london-4:26257  | roach-london-4:26257  | v20.2.x | 2020-10-08 20:21:36.196613+00:00 | 2020-10-08 20:23:09.491299+00:00 | region=eu-west-1,zone=a | true         | true
+   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:23:08.072601+00:00 | region=eu-west-1,zone=c | true         | true
+  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:23:08.258708+00:00 | region=us-west-2,zone=c | true         | true
 (9 rows)
 ```
 
