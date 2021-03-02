@@ -41,13 +41,7 @@ docker network connect us-west-2-net minio
 docker network connect eu-west-1-net minio
 ```
 
-Now that the infrastructure is in place, let's create a database and load some data. Connect to cluster node `roach-newyork-1`
-
-```bash
-docker exec -it roach-newyork-1 bash
-```
-
-In the container, generate a sample database with data. Please note, this will take few minutes to complete. While it works, you can read about the `workload` function and the `movr` database in [here](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
+Now that the infrastructure is in place, let's create a database and load some data. While it works, you can read about the `workload` function and the `movr` database in [here](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
 
 ```bash
 cockroach workload init movr
