@@ -72,9 +72,9 @@ use student99;
 -- Create CHANGEFEED... set topic_prefix to your database name!!
 --
 CREATE CHANGEFEED FOR TABLE pets
-  INTO 'kafka://10.142.0.109:9092?topic_prefix=student99_'
+  INTO 'kafka://10.142.0.33:9092?topic_prefix=student99_'
   WITH updated, resolved='20s',
-     confluent_schema_registry = 'http://10.142.0.109:8081',
+     confluent_schema_registry = 'http://10.142.0.33:8081',
      format = 'experimental_avro',
      diff,
      schema_change_policy=backfill;
@@ -87,9 +87,9 @@ CREATE CHANGEFEED FOR TABLE pets
 ```bash
 ## Start a Avro consumer in a SHELL on the kafka cluster
 ##
-ssh -i ./bench-ssh-key bench@35.243.252.96
+ssh -i ./bench-ssh-key bench@glenn-confluent-0001.roachprod.crdb.io
 cd confluent-5.5.0
-./bin/kafka-avro-console-consumer --bootstrap-server localhost:9092 --topic student99_pets
+./bin/kafka-avro-console-consumer --bootstrap-server localhost:9092 --topic student2_pets
 ```
 
 **From another window, connect to the database and insert some values into the table you created:**
