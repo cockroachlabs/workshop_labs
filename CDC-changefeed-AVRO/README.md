@@ -1,8 +1,9 @@
-# Change Data Capture - Student Labs
+# Change Data Capture with AVRO - Student Labs
 
-[Workshop with AVRO](CDC-changefeed-AVRO/README.md)
+[Workshop without AVRO](CDC-changefeed/README.md)
 
 ## Overview
+Demonstrate configuration and testing of Change Data Capture feature of Cockroach v21.1.x. The change feed will output to Confluent 6.1.x (Kafka).
 
 ## Labs Prerequisites
 
@@ -22,77 +23,27 @@
 
 2. You also need:
 
-    - a modern web browser,
+    - a modern web browser
     - a SQL client:
       - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux)
       - `psql`
       - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
+    - Docker
+      - Docker version 1.11 or later is [installed and running](https://docs.docker.com/engine/installation/)
+      - Docker Compose is [installed](https://docs.docker.com/compose/install/). Docker Compose is installed by default with Docker for Mac.
+      - Docker memory is allocated minimally at 6 GB. When using Docker Desktop for Mac, the default Docker memory allocation is 2 GB. You can change the default allocation to 6 GB in Docker. Navigate to Preferences > Resources > Advanced.
+    - Confluent (local)
+      - Visit [this page](https://docs.confluent.io/platform/current/quickstart/ce-quickstart.html) and perform tasks 1-7 from [Step 1](https://docs.confluent.io/platform/current/quickstart/ce-quickstart.html#step-1-download-and-start-cp). This local Confluent binary will be used as Kafka consumer to the Kafka running in Docker.  
 
-3. Download Apache Kafka from the [official website](https://kafka.apache.org/). Go to the **Download** page, search for the latest binary for Scala 2.13 and copy the mirror URL, example below
+3. Download Confluent Platform deployment script [cp examples](https://github.com/confluentinc/examples). Goto [cp-quickstart](https://github.com/confluentinc/examples/tree/6.1.1-post/cp-quickstart) and run `start-docker.sh`. If you have Docker Desktop running, you should see something like this:
 
-    ```bash
-    # this is the closest mirror for Apache Kafka 2.7.0 built with Scala 2.13
-    wget https://mirrors.sonic.net/apache/kafka/2.7.0/kafka_2.13-2.7.0.tgz
+![docker desktop](media/docker_container_list.png)
 
-    tar xvf kafka_2.13-2.7.0.tgz
-    cd kafka_2.13-2.7.0
+## Lab 0 - Check Confluent Control Center
 
-    # install Java
-    # below on Ubuntu 20.04
-    sudo apt update
-    sudo apt install -y default-jre
-    ```
-
-## Lab 0 - Start Apache Kafka
-
-Open one more terminal, the Kafka Terminal, and `cd` into the `kafka` directory.
-
-In the Kafka Terminal, start `zookeper` and the Kafka server in the background:
-
-```bash
-# zookeeper
-bin/zookeeper-server-start.sh config/zookeeper.properties & > /dev/null 2>&1
-# kafka server
-bin/kafka-server-start.sh config/server.properties & > /dev/null 2>&1
-```
-
-Then, create a topic and start the producer
-
-```bash
-# create topic 'cockroach'
-bin/kafka-topics.sh --create --topic cockroach --bootstrap-server localhost:9092  
-
-# start producer to topic 'cockroach'
-bin/kafka-console-producer.sh --topic cockroach --bootstrap-server localhost:9092  
-```
-
-At the prompt, send any string to the Kafka brokers
-
-```bash
->Hello!
->
-```
-
-Ctrl+C to exit the Producer, then start the Consumer, from where you will read the incoming records
-
-```bash
-# start consumer
-bin/kafka-console-consumer.sh --topic cockroach --from-beginning --bootstrap-server localhost:9092
-[...]
-Hello!
-```
-
-Good, if the Consumer received the string you sent, Kafka is ready!
-
-### Kafka Reference Commands
-
-```bash
-# List Topics
-bin/kafka-topics.sh --list --bootstrap-server localhost:9092
-
-# Delete Topics
-bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic topic-name
-```
+1. Open the browser and navigate to `http://localhost:9021`. Click on the `controlcenter.cluster` to view cluster details. 
+![control center cluster](media/cc_before_click.png)
+![control center cluster details](media/cc_after_click.png)
 
 ## Lab 1 - Connect to database and create data
 
@@ -132,14 +83,18 @@ Create the changefeed with some special options.
 The [`CREATE CHANGEFEED` statement](https://www.cockroachlabs.com/docs/stable/create-changefeed) creates a new changefeed, which targets an allowlist of tables, called "watched rows".
 Every change to a watched row is emitted as a record in a configurable format (JSON by default) to a configurable sink, Kafka in this case.
 
-The `updated` option adds an "updated" timestamp to each emitted row.
+The `updated` option adds an "updated" timestamp to each emitted row. If a `cursor` is provided, the "updated" timestamps will match the MVCC timestamps (e.g. `SELECT crdb_internal_mvcc_timestamp FROM pets;`) of the emitted rows, and there is no initial scan. If a `cursor` is not provided, the changefeed will perform an initial scan (as of the time the changefeed was created), and the "updated" timestamp for each change record emitted in the initial scan will be the timestamp of the initial scan. Similarly, when a backfill is performed for a schema change, the "updated" timestamp is set to the first timestamp for when the new schema is valid.
 
 The `resolved` timestamp is a guarantee that no (previously unseen) rows with a lower update timestamp will be emitted on that partition.
 
 We use `diff` to publish a `before` field with each message, which includes the value of the row before the update was applied.
 At present, every row is sent across even if just one column updated. Thus, we need to be careful to use this option if we have very large tables.
 
+Use `format` to toggle between `json` and `experimental_avro`. You will need to deserialize the message when using AVRO. Must also use `confluent_schema_registry` parameter when using `experimental_avro`
+
 With `schema_change_policy` set to `backfill`, when schema changes with column backfill are finished, we output all watched rows using the new schema. This is the default be we'll explicitly set anyway.
+
+Use `initial_scan` to set the offset value to `0`. To read from a different TOPIC offset, use [cursor](https://www.cockroachlabs.com/docs/stable/create-changefeed.html). 
 
 ```sql
 CREATE CHANGEFEED FOR TABLE pets
@@ -147,6 +102,8 @@ CREATE CHANGEFEED FOR TABLE pets
   WITH updated, 
     resolved='20s',
     diff,
+    format=json,
+    initial_scan,
     schema_change_policy=backfill;
 ```
 
@@ -164,9 +121,9 @@ SHOW JOBS;
 ```
 
 ```text
-        job_id       |  job_type  |                                                                    description                                                                    | statement | user_name | status  | running_status |             created              |             started              | finished |             modified             | fraction_completed | error | coordinator_id
----------------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------+-----------+-----------+---------+----------------+----------------------------------+----------------------------------+----------+----------------------------------+--------------------+-------+-----------------
-  628470967522983939 | CHANGEFEED | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://host.docker.internal:9092' WITH diff, resolved = '20s', schema_change_policy = 'backfill', updated |           | root      | running | NULL           | 2021-01-28 20:08:38.506751+00:00 | 2021-01-28 20:08:38.624373+00:00 | NULL     | 2021-01-28 20:09:20.255186+00:00 | NULL               |       |           NULL
+        job_id       |   job_type    |                                                                                             description                                                                                             | statement | user_name |  status   |              running_status              |               created               |               started               |              finished               |              modified               | fraction_completed |        error         | coordinator_id
+---------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------+-----------+-----------+------------------------------------------+-------------------------------------+-------------------------------------+-------------------------------------+-------------------------------------+--------------------+----------------------+-----------------
+  665311907024240641 | CHANGEFEED    | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://localhost:9092' WITH diff, format = 'json', initial_scan, resolved = '20s', schema_change_policy = 'backfill', updated                               |           | root      | running   | running: resolved=1623107498.397992000,0 | 2021-06-07 23:11:21.001058+00:00:00 | 2021-06-07 23:11:21.164026+00:00:00 | NULL                                | 2021-06-07 23:11:41.599496+00:00:00 | NULL               |                      |           NULL
 (1 row)
 ```
 
@@ -176,10 +133,14 @@ You can confirm the same from the **DB Console** Jobs page
 
 ## Lab 2 - Insert data and check incoming kafka records
 
-In the Kafka terminal, stop the current process and start the consumer again this time listening to topic `pets`, the name of the table.
+From the directory where Confluent is installed, listen for the topic `pets`, the name of the table. Notice the output for `resolved`. This marker is displayed regardless of changes to the table. **NOTE: `jq` is used for pretty print**
 
 ```bash
-bin/kafka-console-consumer.sh --topic pets --from-beginning --bootstrap-server localhost:9092
+bryankwon@bryans-mbp bin % pwd
+/Users/bryankwon/workspace/confluent-6.1.1/bin
+bryankwon@bryans-mbp bin % ./kafka-console-consumer --topic pets --from-beginning --bootstrap-server localhost:9092 | jq
+{"resolved":"1623107047927318000.0000000000"}
+{"resolved":"1623107068072215000.0000000000"}
 ```
 
 On the SQL Terminal, insert some data
@@ -638,6 +599,64 @@ UPDATE pets SET city='100 Acre Woods' where person_name='Christopher';
     "updated": "1611931388588181000.0000000000"
 }
 ```
+
+## Lab 6 - Create CDC using AVRO
+Cancel the CHANGEFEED job again
+
+```sql
+SELECT job_id, description 
+FROM [SHOW JOBS] 
+WHERE job_type = 'CHANGEFEED' AND status = 'running';
+
+        job_id       |                                                                              description
+---------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  665311907024240641 | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://localhost:9092' WITH diff, format = 'json', initial_scan, resolved = '20s', schema_change_policy = 'backfill', updated
+(1 row)
+
+root@:26257/tpcc> cancel job 665311907024240641;
+CANCEL JOBS 1
+
+Time: 42ms total (execution 42ms / network 0ms)
+```
+
+Obtain highwater mark from the hidden MVCC column
+
+```sql
+SELECT crdb_internal_mvcc_timestamp FROM pets LIMIT 1;
+
+   crdb_internal_mvcc_timestamp
+----------------------------------
+  1623108607197894000.0000000000
+(1 row)
+```
+
+Create a new CHANGEFEED with AVRO by creating a new topic - `cdc_pets`
+
+```sql
+CREATE CHANGEFEED FOR TABLE pets
+  INTO 'kafka://localhost:9092?topic_prefix=cdc_'
+  WITH updated, 
+    resolved='20s',
+    schema_change_policy=backfill,
+    format=experimental_avro,
+    confluent_schema_registry='http://localhost:8081',
+    cursor = '1623108607197894000.0000000000';
+
+        job_id
+----------------------
+  665319168277577729
+```
+
+Start a new Kafka consumer with AVRO
+
+```bash
+./kafka-avro-console-consumer --topic cdc_pets --from-beginning --bootstrap-server localhost:9092 | jq
+```
+
+Check AVRO schema in Confluent Control Center `http://localhost:9021` 
+
+![schema](media/avro.png)
+
 
 Congratulations, you reach the end of the labs!
 
