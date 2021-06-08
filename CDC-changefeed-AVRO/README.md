@@ -1,6 +1,6 @@
 # Change Data Capture with AVRO - Student Labs
 
-[Workshop without AVRO](CDC-changefeed/README.md)
+[Go to Workshop without AVRO instead](https://github.com/cockroachlabs/workshop_labs/blob/master/CDC-changefeed/README.md)
 
 ## Overview
 Demonstrate configuration and testing of Change Data Capture feature of Cockroach v21.1.x. The change feed will output to Confluent 6.1.x (Kafka).
