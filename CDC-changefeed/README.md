@@ -1,6 +1,6 @@
 # Change Data Capture - Student Labs
 
-[Workshop with AVRO](CDC-changefeed-AVRO/README.md)
+[Go to workshop with AVRO instead](https://github.com/cockroachlabs/workshop_labs/blob/master/CDC-changefeed-AVRO/README.md)
 
 ## Overview
 
