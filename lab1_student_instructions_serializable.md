@@ -161,7 +161,7 @@ COMMIT;
 
 -- select_follower_read (implicit)
 --
-SELECT * FROM alerts  as of system time experimental_follower_read_timestamp()
+SELECT * FROM alerts  as of system time follower_read_timestamp()
 WHERE customer_id=9743;
 
 -- select_normal_different_id
