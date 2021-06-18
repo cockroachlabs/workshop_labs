@@ -16,7 +16,7 @@
         <stringProp name="checkQuery">Select 1</stringProp>
         <stringProp name="connectionAge">5000</stringProp>
         <stringProp name="dataSource">central</stringProp>
-        <stringProp name="dbUrl">jdbc:postgresql://127.0.0.1:26257/serial?autoReconnect=true&amp;sslmode=disable&amp;ssl=false&amp;ApplicationName=Demo4</stringProp>
+        <stringProp name="dbUrl">jdbc::dsfadssadfasfsafpostgresql://127.0.0.1:26257/serial?autoReconnect=true&amp;sslmode=disable&amp;ssl=false&amp;ApplicationName=Demo4</stringProp>
         <stringProp name="driver">org.postgresql.Driver</stringProp>
         <boolProp name="keepAlive">true</boolProp>
         <stringProp name="password"></stringProp>
