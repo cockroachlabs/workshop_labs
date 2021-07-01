@@ -1,7 +1,6 @@
 #!/bin/sh
 # Stop docker containers for CockroachDB topology workshop
 echo "removing docker resources..."
-spin
 for i in seattle newyork london
 do
     for j in 1 2 3
