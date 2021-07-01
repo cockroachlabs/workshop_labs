@@ -12,6 +12,7 @@ else
       echo "Running docker process found. Building docker image with tage named crdb."
 fi
 
+<<<<<<< HEAD
 # Check to see if CRDB_LIC is set as an env var
 if [[ -z "${CRDB_LIC}" ]]; then
   echo "Environment variable - CRDB_LIC - is not set. Please configure the var and re-run the script."
@@ -28,6 +29,8 @@ else
   echo "CRDB_ORG env var is set. Proceeding."
 fi
 
+=======
+>>>>>>> ca6ca061470ddf0172abb6e6d06aba894bed6856
 # Build the image with tag name 'crdb'
 BUILD_IMAGE=`docker build -t crdb .`
 echo $BUILD_IMAGE
