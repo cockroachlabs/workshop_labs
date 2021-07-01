@@ -12,6 +12,22 @@ else
       echo "Running docker process found. Building docker image with tage named crdb."
 fi
 
+# Check to see if CRDB_LIC is set as an env var
+if [[ -z "${CRDB_LIC}" ]]; then
+  echo "Environment variable - CRDB_LIC - is not set. Please configure the var and re-run the script."
+  exit 0
+else
+  echo "CRDB_LIC env var is set. Proceeding."
+fi
+
+# Check to see if CRDB_ORG is set as an env var
+if [[ -z "${CRDB_ORG}" ]]; then
+  echo "Environment variable - CRDB_ORG - is not set. Please configure the var and re-run the script."
+  exit 0
+else
+  echo "CRDB_ORG env var is set. Proceeding."
+fi
+
 # Build the image with tag name 'crdb'
 BUILD_IMAGE=`docker build -t crdb .`
 echo $BUILD_IMAGE
@@ -90,10 +106,16 @@ done
 
 configureSQL(){
 echo "configuring database"
-cockroach sql --insecure -e "UPSERT into system.locations VALUES ('region', 'us-east-1', 37.478397, -76.453077),('region', 'us-west-2', 43.804133, -120.554201),('region', 'eu-west-1', 53.142367, -7.692054);"
+#cockroach sql --insecure -e "UPSERT into system.locations VALUES ('region', 'us-east-1', 37.478397, -76.453077),('region', 'us-west-2', 43.804133, -120.554201),('region', 'eu-west-1', 53.142367, -7.692054);"
 cockroach sql --insecure -e "SET CLUSTER SETTING cluster.organization = \"${CRDB_ORG}\";"
 cockroach sql --insecure -e "SET CLUSTER SETTING enterprise.license = \"${CRDB_LIC}\";"
 }
 
+loadTestData(){
+    docker exec -it roach-newyork-1 bash -c "./cockroach workload init movr --drop --db movr postgres://root@127.0.0.1:26257?sslmode=disable --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100"
+}
+
 startDocker
+sleep 10
 configureSQL
+loadTestData
