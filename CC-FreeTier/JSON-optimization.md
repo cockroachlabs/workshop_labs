@@ -64,7 +64,7 @@ Just 1 row! The entire blob has been added to just 1 row, how useful is this wit
 
 ## Lab 2 - JSONB Functions
 
-Let's practice with some JSONB built-in functions.
+Let's practice with some JSONB built-in [functions](https://www.cockroachlabs.com/docs/stable/jsonb#functions).
 
 The JSON blob looks like this:
 
@@ -207,6 +207,8 @@ The flat file has a total of 110 rows.
 Let's create a query that counts the number with the same `c_base_ap_id`.
 
 Use the operator `->>` to access a JSONB field and returning a string.
+
+A list of operators is [here](https://www.cockroachlabs.com/docs/stable /jsonb#operators).
 
 ```sql
 SELECT myflat ->> 'c_base_ap_id' AS c_base_ap_id, count(*) 
