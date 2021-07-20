@@ -355,7 +355,7 @@ SELECT COUNT(*) FROM jflat;
 ```text
   count
 ---------
-  15939
+   5110
 ```
 
 Very good, we've a lot more data to work with!
@@ -371,47 +371,41 @@ WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
 
 ```text
    id
----------
-   3358
-   3944
-   4179
-   6475
-  16007
-  16501
-(6 rows)
+--------
+  3358
+  3944
+  4179
+(3 rows)
 
-Time: 6.148s total (execution 6.060s / network 0.088s)
+Time: 2.011s total (execution 1.811s / network 0.200s)
 ```
 
-6s, a bit too slow. Check the query plan
+2s, a bit too slow. Check the query plan
 
 ```sql
 EXPLAIN (VERBOSE) SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
 ```
 
 ```text
-                                           info
--------------------------------------------------------------------------------------------
+                                            info
+--------------------------------------------------------------------------------------------
   distribution: local
   vectorized: true
 
   • project
   │ columns: (id)
-  │ estimated row count: 1,771
+  │ estimated row count: 457
   │
   └── • filter
       │ columns: (id, myflat)
-      │ estimated row count: 1,771
+      │ estimated row count: 457
       │ filter: myflat @> '{"c_sattr19": "momjzdfu"}'
       │
       └── • scan
             columns: (id, myflat)
-            estimated row count: 15,939 (100% of the table; stats collected 1 minute ago)
+            estimated row count: 4,110 (100% of the table; stats collected 33 seconds ago)
             table: jflat@primary
             spans: FULL SCAN
-(17 rows)
-
-Time: 31ms total (execution 1ms / network 30ms)
 ```
 
 As expected, it's doing a FULL SCAN on `primary`, which we always want to avoid.
@@ -429,19 +423,16 @@ EXPLAIN (VERBOSE) SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"
 ```
 
 ```text
-                                       info
-----------------------------------------------------------------------------------
+                                      info
+---------------------------------------------------------------------------------
   distribution: local
   vectorized: true
 
   • scan
     columns: (id)
-    estimated row count: 1,771 (11% of the table; stats collected 4 minutes ago)
+    estimated row count: 568 (11% of the table; stats collected 24 seconds ago)
     table: jflat@idx_json_inverted
     spans: /"c_sattr19"/"momjzdfu"-/"c_sattr19"/"momjzdfu"/PrefixEnd
-(8 rows)
-
-Time: 32ms total (execution 1ms / network 30ms)
 ```
 
 Good, it's leveraging the inverted index. Run the query gain
@@ -452,14 +443,11 @@ SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
 
 ```text
    id
----------
-   3358
-   3944
-   4179
-   6475
-  16007
-  16501
-(6 rows)
+--------
+  3358
+  3944
+  4179
+(3 rows)
 
 Time: 33ms total (execution 2ms / network 31ms)
 ```
@@ -505,9 +493,17 @@ FROM jflat JOIN price
   484
   978
   114
-  [...]
-
-(61 rows)
+  114
+  114
+  114
+  484
+  114
+  978
+  114
+  978
+  114
+  114
+(15 rows)
 ```
 
 While joins are possible on JSONB object, it is recommanded to extract the join field into a **computed column** for efficiency.
@@ -532,11 +528,10 @@ GROUP BY 1,2;
    attr19  | seat | count | sum
 -----------+------+-------+-------
   momjzdfu | 1    |     2 | 1091
-  momjzdfu | 0    |     3 | 1747
-  momjzdfu | 2    |     1 |  865
-(3 rows)
+  momjzdfu | 0    |     1 |  659
+(2 rows)
 
-Time: 1.871s total (execution 1.764s / network 0.107s)
+Time: 518ms total (execution 486ms / network 31ms)
 ```
 
 Let's pull the query plan
@@ -553,33 +548,33 @@ GROUP BY 1,2;
 ```
 
 ```text
-                                              info
--------------------------------------------------------------------------------------------------
+                                             info
+----------------------------------------------------------------------------------------------
   distribution: local
   vectorized: true
 
   • group
   │ columns: (attr19, seat, count, sum)
-  │ estimated row count: 5,313
+  │ estimated row count: 1,703
   │ aggregate 0: count_rows()
   │ aggregate 1: sum(column7)
   │ group by: attr19, seat
   │
   └── • render
       │ columns: (column7, attr19, seat)
-      │ estimated row count: 5,313
+      │ estimated row count: 1,703
       │ render column7: (myflat->>'r_price')::INT8
       │ render attr19: myflat->>'c_sattr19'
       │ render seat: myflat->>'r_seat'
       │
       └── • filter
           │ columns: (myflat)
-          │ estimated row count: 5,313
+          │ estimated row count: 1,703
           │ filter: (myflat->>'c_sattr19') LIKE '%mom%'
           │
           └── • scan
                 columns: (myflat)
-                estimated row count: 15,939 (100% of the table; stats collected 15 minutes ago)
+                estimated row count: 5,110 (100% of the table; stats collected 1 minute ago)
                 table: jflat@primary
                 spans: FULL SCAN
 ```
@@ -642,24 +637,31 @@ GROUP BY 1,2;
 ```
 
 ```text
-       tree      |        field        |          description           |           columns            | ordering
------------------+---------------------+--------------------------------+------------------------------+-----------
-                 | distribution        | full                           |                              |
-                 | vectorized          | true                           |                              |
-  group          |                     |                                | (attr19, r_seat, count, sum) |
-   │             | estimated row count | 4111                           |                              |
-   │             | aggregate 0         | count_rows()                   |                              |
-   │             | aggregate 1         | sum(r_price)                   |                              |
-   │             | group by            | r_seat, attr19                 |                              |
-   │             | ordered             | +attr19                        |                              |
-   └── filter    |                     |                                | (r_seat, attr19, r_price)    | +attr19
-        │        | estimated row count | 5313                           |                              |
-        │        | filter              | attr19 LIKE '%mom%'            |                              |
-        └── scan |                     |                                | (r_seat, attr19, r_price)    | +attr19
-                 | estimated row count | 15939                          |                              |
-                 | table               | jflat_new@jflat_new_attr19_idx |                              |
-                 | spans               | /!NULL-                        |                              |
+                         info
+------------------------------------------------------
+  distribution: local
+  vectorized: true
 
+  • group
+  │ columns: (attr19, r_seat, count, sum)
+  │ estimated row count: 330 (missing stats)
+  │ aggregate 0: count_rows()
+  │ aggregate 1: sum(r_price)
+  │ group by: r_seat, attr19
+  │ ordered: +attr19
+  │
+  └── • filter
+      │ columns: (r_seat, attr19, r_price)
+      │ ordering: +attr19
+      │ estimated row count: 330 (missing stats)
+      │ filter: attr19 LIKE '%mom%'
+      │
+      └── • scan
+            columns: (r_seat, attr19, r_price)
+            ordering: +attr19
+            estimated row count: 990 (missing stats)
+            table: jflat_new@jflat_new_attr19_idx
+            spans: /!NULL-
 ```
 
 Very good, the query plan is using the index. Let's run to see if the RT improved
@@ -677,52 +679,14 @@ GROUP BY 1,2;
 ```text
    attr19  | r_seat | count | sum
 -----------+--------+-------+-------
-  momjzdfu | 0      |     3 | 1747
   momjzdfu | 1      |     2 | 1091
-  momjzdfu | 2      |     1 |  865
-(3 rows)
+  momjzdfu | 0      |     1 |  659
+(2 rows)
 
-Time: 10ms total (execution 9ms / network 1ms)
+Time: 43ms total (execution 10ms / network 34ms)
 ```
 
-Very good, from 76ms down to 10ms, good job!
-
-## Lab 8 - Compare RT
-
-Consider the following queries, which yield the same result
-
-```sql
-SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
-SELECT id FROM jflat_new WHERE attr19 = 'momjzdfu';
-```
-
-```text
-   id
----------
-   3358
-   3944
-   4179
-   6475
-  16007
-  16501
-(6 rows)
-
-Time: 15ms total (execution 14ms / network 2ms)
-
-   id
----------
-   3944
-   6475
-  16501
-   3358
-   4179
-  16007
-(6 rows)
-
-Time: 2ms total (execution 1ms / network 1ms)
-```
-
-It's very clear that the query that leverage the computed columns + index is far more performant than the Inverted index option.
+Very good, down to 43ms, good job!
 
 ## References
 
