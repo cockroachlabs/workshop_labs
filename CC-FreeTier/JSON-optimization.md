@@ -24,10 +24,10 @@ wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/CC-Fre
 wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/CC-FreeTier/data/json3.sql
 
 # load just the first file into the database
-cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster" < json1.sql
+cockroach sql --url "postgresql://<yourname>:<password>@[...]" < json1.sql
 
 # now connect to the CockroachDB cluster
-cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster"
+cockroach sql --url "postgresql://<yourname>:<password>@[...]"
 ```
 
 Check how many JSON objects were inserted:
@@ -251,7 +251,7 @@ Create a table with FLATTENED JSONB objects.
 
 ```bash
 # run the second file, json2.sql
-cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster" < json2.sql
+cockroach sql --url "postgresql://<yourname>:<password>@[...]" < json2.sql
 ```
 
 ```sql
@@ -341,7 +341,7 @@ Insert more data into the `jflat` table:
 ```bash
 # run the third file, json3.sql
 # this will take about a minute
-cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster" < json3.sql
+cockroach sql --url "postgresql://<yourname>:<password>@[...]" < json3.sql
 ```
 
 Let's review how many rows we have now in total
