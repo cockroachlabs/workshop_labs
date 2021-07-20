@@ -206,9 +206,7 @@ The flat file has a total of 110 rows.
 
 Let's create a query that counts the number with the same `c_base_ap_id`.
 
-Use the operator `->>` to access a JSONB field and returning a string.
-
-A list of operators is [here](https://www.cockroachlabs.com/docs/stable /jsonb#operators).
+Use the [operator](https://www.cockroachlabs.com/docs/stable/jsonb#operators) `->>` to access a JSONB field and returning a string.
 
 ```sql
 SELECT myflat ->> 'c_base_ap_id' AS c_base_ap_id, count(*) 
