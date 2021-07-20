@@ -13,41 +13,51 @@ CockroachDB supports operation on JSON objects. In these labs, we will get famil
     - a modern web browser,
     - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux)
 
-## Lab 1 - Import TABLE with big JSON object
+## Lab 1 - Load table with big JSON object
 
 Connect to the database to confirm it loaded successfully
 
 ```bash
-# use cockroach sql, defaults to localhost:26257
-cockroach sql --insecure
+# download data files
+wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/CC-FreeTier/data/json1.sql
+wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/CC-FreeTier/data/json2.sql
+wget https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/CC-FreeTier/data/json3.sql
 
-# or use the --url param for any another host:
-cockroach sql --url "postgresql://localhost:26257/defaultdb?sslmode=disable"
+# load just the first file into the database
+cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster" < json1.sql
 
-# or use psql
-psql -h localhost -p 26257 -U root defaultdb
+# now connect to the CockroachDB cluster
+cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster"
 ```
 
-Create a table by importing a CSV file from a cloud storage bucket.
+Check how many JSON objects were inserted:
 
 ```sql
-IMPORT TABLE jblob (
-    id INT PRIMARY KEY,
-    myblob JSONB
-) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/JSON-optimization/data/raw_test_blob.tsv')
-WITH
-    delimiter = e'\t';
+USE jsondb;
+
+SHOW TABLES;
+
+SELECT count(*) FROM jblob;
 ```
 
-Check how many JSON objects were imported:
-
 ```text
-        job_id       |  status   | fraction_completed | rows | index_entries | bytes
----------------------+-----------+--------------------+------+---------------+---------
-  624769960352055297 | succeeded |                  1 |    1 |             0 | 261102
+SET
+
+Time: 32ms total (execution 0ms / network 31ms)
+
+  schema_name | table_name | type  | owner | estimated_row_count | locality
+--------------+------------+-------+-------+---------------------+-----------
+  public      | jblob      | table | fabio |                   0 | NULL
 (1 row)
 
-Time: 504ms total (execution 503ms / network 1ms)
+Time: 67ms total (execution 34ms / network 33ms)
+
+  count
+---------
+      1
+(1 row)
+
+Time: 36ms total (execution 4ms / network 32ms)
 ```
 
 Just 1 row! The entire blob has been added to just 1 row, how useful is this within a database? Not much, but we can use it to test the built-in JSONB functions
@@ -235,37 +245,41 @@ Cool, good job! We can now drop this table
 DROP TABLE IF EXISTS jblob CASCADE;
 ```
 
-## Lab 3 - Import Table with Flattened JSON objects
+## Lab 3 - Load table with flattened JSON objects
 
-Create a table with FLATTENED JSONB objects by importing a CSV file from a cloud storage bucket.
-This CSV file was pre-processed to read the JSON file and extract all values into rows, below the code for reference
+Create a table with FLATTENED JSONB objects.
 
-```python
-import json
-
-# will work only if you have enough Memory to read the entire file
-with open('file.json') as f:
-    data = json.load(f)
-
-with open('file.tsv', 'w') as f:
-    [f.write('{}\t{}\n'.format(i, json.dumps(data[i], separators=(',', ':')))) for i in range(len(data))]
+```bash
+# run the second file, json2.sql
+cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster" < json2.sql
 ```
 
-At the SQL prompt, import the data
-
 ```sql
-IMPORT TABLE jflat (
-    id INT PRIMARY KEY,
-    myflat JSONB
-) CSV DATA ('https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/JSON-optimization/data/raw_test_flat.tsv')
-WITH
-    delimiter = e'\t';
+USE jsondb;
+
+SHOW TABLES;
+
+SELECT count(*) FROM jflat;
 ```
 
 ```text
-        job_id       |  status   | fraction_completed | rows | index_entries | bytes
----------------------+-----------+--------------------+------+---------------+---------
-  624770775819517953 | succeeded |                  1 |  110 |             0 | 262051
+SET
+
+Time: 32ms total (execution 0ms / network 32ms)
+
+  schema_name | table_name | type  | owner | estimated_row_count | locality
+--------------+------------+-------+-------+---------------------+-----------
+  public      | jflat      | table | fabio |                   0 | NULL
+(1 row)
+
+Time: 67ms total (execution 34ms / network 32ms)
+
+  count
+---------
+    110
+(1 row)
+
+Time: 35ms total (execution 4ms / network 31ms)
 ```
 
 The flat file has a total of 110 rows.
@@ -322,20 +336,19 @@ LIMIT 10;
 
 ## Lab 5 - Optimize Query Performance with Inverted Indexes
 
-Import more data into the `jflat` table:
+Insert more data into the `jflat` table:
 
-```sql
-IMPORT INTO jflat (id, myflat)
-CSV DATA (
-    'https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/JSON-optimization/data/raw_test_flat2.tsv'
-)
-WITH
-    delimiter = e'\t';
+```bash
+# run the third file, json3.sql
+# this will take about a minute
+cockroach sql --url "postgresql://<yourname>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslrootcert=$HOME/.postgresql/root.crt&options=--cluster%3D<your-cluster" < json3.sql
 ```
 
 Let's review how many rows we have now in total
 
 ```sql
+USE jsondb;
+
 SELECT COUNT(*) FROM jflat;
 ```
 
@@ -367,30 +380,38 @@ WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
   16501
 (6 rows)
 
-Time: 557ms total (execution 554ms / network 2ms)
+Time: 6.148s total (execution 6.060s / network 0.088s)
 ```
 
-557ms, a bit too slow. Check the query plan
+6s, a bit too slow. Check the query plan
 
 ```sql
 EXPLAIN (VERBOSE) SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
 ```
 
 ```text
-       tree      |        field        |              description              |   columns    | ordering
------------------+---------------------+---------------------------------------+--------------+-----------
-                 | distribution        | full                                  |              |
-                 | vectorized          | true                                  |              |
-  project        |                     |                                       | (id)         |
-   │             | estimated row count | 1771                                  |              |
-   └── filter    |                     |                                       | (id, myflat) |
-        │        | estimated row count | 1771                                  |              |
-        │        | filter              | myflat @> '{"c_sattr19": "momjzdfu"}' |              |
-        └── scan |                     |                                       | (id, myflat) |
-                 | estimated row count | 15939                                 |              |
-                 | table               | jflat@primary                         |              |
-                 | spans               | FULL SCAN                             |              |
+                                           info
+-------------------------------------------------------------------------------------------
+  distribution: local
+  vectorized: true
 
+  • project
+  │ columns: (id)
+  │ estimated row count: 1,771
+  │
+  └── • filter
+      │ columns: (id, myflat)
+      │ estimated row count: 1,771
+      │ filter: myflat @> '{"c_sattr19": "momjzdfu"}'
+      │
+      └── • scan
+            columns: (id, myflat)
+            estimated row count: 15,939 (100% of the table; stats collected 1 minute ago)
+            table: jflat@primary
+            spans: FULL SCAN
+(17 rows)
+
+Time: 31ms total (execution 1ms / network 30ms)
 ```
 
 As expected, it's doing a FULL SCAN on `primary`, which we always want to avoid.
@@ -408,14 +429,19 @@ EXPLAIN (VERBOSE) SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"
 ```
 
 ```text
-  tree |        field        |                        description                        | columns | ordering
--------+---------------------+-----------------------------------------------------------+---------+-----------
-       | distribution        | local                                                     |         |
-       | vectorized          | true                                                      |         |
-  scan |                     |                                                           | (id)    |
-       | estimated row count | 1771                                                      |         |
-       | table               | jflat@idx_json_inverted                                   |         |
-       | spans               | /"c_sattr19"/"momjzdfu"-/"c_sattr19"/"momjzdfu"/PrefixEnd |         |
+                                       info
+----------------------------------------------------------------------------------
+  distribution: local
+  vectorized: true
+
+  • scan
+    columns: (id)
+    estimated row count: 1,771 (11% of the table; stats collected 4 minutes ago)
+    table: jflat@idx_json_inverted
+    spans: /"c_sattr19"/"momjzdfu"-/"c_sattr19"/"momjzdfu"/PrefixEnd
+(8 rows)
+
+Time: 32ms total (execution 1ms / network 30ms)
 ```
 
 Good, it's leveraging the inverted index. Run the query gain
@@ -435,66 +461,53 @@ SELECT id FROM jflat WHERE myflat @> '{"c_sattr19": "momjzdfu"}';
   16501
 (6 rows)
 
-Time: 1ms total (execution 13ms / network 1ms)
+Time: 33ms total (execution 2ms / network 31ms)
 ```
 
-1ms! Great improvement!
+33ms! Great improvement!
 
 ## Lab 6 - Joins on JSONB objects
 
 Create a simple table out of `jflat`.
 
 ```sql
-CREATE TABLE jflat3 AS SELECT * FROM jflat LIMIT 5;
+CREATE TABLE price AS SELECT * FROM jflat LIMIT 3;
 ```
 
-Check the `c_base_ap_id` of the inserted rows
+Check the `r_price` of the inserted rows
 
 ```sql
-SELECT myflat ->> 'c_base_ap_id' AS c_base_ap_id FROM jflat3;
+SELECT myflat ->> 'r_price' AS price FROM price;
 ```
 
 ```text
-  c_base_ap_id
-----------------
-  192
-  77
-  168
-  148
-  269
-(5 rows)
+  price
+---------
+  978
+  114
+  484
+(3 rows)
 ```
 
 Run below query, to confirm you can do joins on JSONB objects.
 
 ```sql
-SELECT jflat.myflat ->> 'c_base_ap_id' AS c_base_ap_id 
-FROM jflat JOIN jflat3 
-  ON jflat.myflat ->> 'c_base_ap_id' = jflat3.myflat ->> 'c_base_ap_id';
+SELECT jflat.myflat ->> 'r_price' AS price 
+FROM jflat JOIN price
+  ON jflat.myflat ->> 'r_price' = price.myflat ->> 'r_price';
 ```
 
 ```text
-  c_base_ap_id
-----------------
-  192
-  77
-  168
-  148
-  269
-  168
-  148
-  192
-  148
-  77
-  168
-  77
-  269
-  77
-  77
-  148
-  148
-  148
-(18 rows)
+  price
+---------
+  978
+  114
+  484
+  978
+  114
+  [...]
+
+(61 rows)
 ```
 
 While joins are possible on JSONB object, it is recommanded to extract the join field into a **computed column** for efficiency.
@@ -523,7 +536,7 @@ GROUP BY 1,2;
   momjzdfu | 2    |     1 |  865
 (3 rows)
 
-Time: 76ms total (execution 74ms / network 1ms)
+Time: 1.871s total (execution 1.764s / network 0.107s)
 ```
 
 Let's pull the query plan
@@ -540,28 +553,35 @@ GROUP BY 1,2;
 ```
 
 ```text
-         tree         |        field        |             description             |          columns           | ordering
-----------------------+---------------------+-------------------------------------+----------------------------+-----------
-                      | distribution        | full                                |                            |
-                      | vectorized          | true                                |                            |
-  group               |                     |                                     | (attr19, seat, count, sum) |
-   │                  | estimated row count | 5313                                |                            |
-   │                  | aggregate 0         | count_rows()                        |                            |
-   │                  | aggregate 1         | sum(column7)                        |                            |
-   │                  | group by            | attr19, seat                        |                            |
-   └── render         |                     |                                     | (column7, attr19, seat)    |
-        │             | estimated row count | 5313                                |                            |
-        │             | render 0            | (myflat->>'r_price')::INT8          |                            |
-        │             | render 1            | myflat->>'c_sattr19'                |                            |
-        │             | render 2            | myflat->>'r_seat'                   |                            |
-        └── filter    |                     |                                     | (myflat)                   |
-             │        | estimated row count | 5313                                |                            |
-             │        | filter              | (myflat->>'c_sattr19') LIKE '%mom%' |                            |
-             └── scan |                     |                                     | (myflat)                   |
-                      | estimated row count | 15939                               |                            |
-                      | table               | jflat@primary                       |                            |
-                      | spans               | FULL SCAN                           |                            |
+                                              info
+-------------------------------------------------------------------------------------------------
+  distribution: local
+  vectorized: true
 
+  • group
+  │ columns: (attr19, seat, count, sum)
+  │ estimated row count: 5,313
+  │ aggregate 0: count_rows()
+  │ aggregate 1: sum(column7)
+  │ group by: attr19, seat
+  │
+  └── • render
+      │ columns: (column7, attr19, seat)
+      │ estimated row count: 5,313
+      │ render column7: (myflat->>'r_price')::INT8
+      │ render attr19: myflat->>'c_sattr19'
+      │ render seat: myflat->>'r_seat'
+      │
+      └── • filter
+          │ columns: (myflat)
+          │ estimated row count: 5,313
+          │ filter: (myflat->>'c_sattr19') LIKE '%mom%'
+          │
+          └── • scan
+                columns: (myflat)
+                estimated row count: 15,939 (100% of the table; stats collected 15 minutes ago)
+                table: jflat@primary
+                spans: FULL SCAN
 ```
 
 As you can see, it's doing a FULL SCAN: the type of filtering requested is not possible with Inverted Indexes.
