@@ -606,7 +606,7 @@ Time: 43ms total (execution 10ms / network 34ms)
 
 Very good, down to 43ms, good job!
 
-Congratulations, you reach the end of the labs!
+Congratulations, you reached the end of the labs!
 
 ## Clean up
 
