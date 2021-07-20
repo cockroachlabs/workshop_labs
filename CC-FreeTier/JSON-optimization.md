@@ -606,6 +606,18 @@ Time: 43ms total (execution 10ms / network 34ms)
 
 Very good, down to 43ms, good job!
 
+Congratulations, you reach the end of the labs!
+
+## Clean up
+
+Drop the database if you want to return to the previous state
+
+```sql
+USE defaultdb;
+DROP DATABASE IF EXISTS jsondb CASCADE;
+SHOW DATABASES;
+```
+
 ## References
 
 Official Docs:
