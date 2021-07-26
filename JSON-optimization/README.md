@@ -328,6 +328,10 @@ LIMIT 10;
 Import more data into the `jflat` table:
 
 ```sql
+DROP TABLE IF EXISTS jblob CASCADE;
+```
+
+```sql
 IMPORT INTO jflat (id, myflat)
 CSV DATA (
     'https://raw.githubusercontent.com/cockroachlabs/workshop_labs/master/JSON-optimization/data/raw_test_flat2.tsv'
