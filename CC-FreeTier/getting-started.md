@@ -4,7 +4,7 @@
 
 This lab will cover the basics of getting started with connecting to your first free tier cluster.
 
-First, let's review some terminilogy to get you familiar with the space.
+First, let's review some terminology to get you familiar with the space.
 
 **CockroachDB**: CockroachDB is a distributed SQL database built on a transactional and strongly-consistent key-value store. It **scales** horizontally; **survives** disk, machine, rack, and even datacenter failures with minimal latency disruption and no manual intervention; supports **strongly-consistent** ACID transactions; and provides a familiar **SQL** API for structuring, manipulating, and querying data.
 
@@ -18,7 +18,8 @@ Learn more [here](https://www.cockroachlabs.com/product/cockroachcloud/).
 **Cockroach Cloud Free Tier (beta)**: CockroachCloud Free (beta) delivers free CockroachDB clusters for you and your organization. It is a managed instance of CockroachDB that that is free forever. 
 
 ## Lab Prerequisites
-* None 
+* A modern web browser (Chrome,Firefox)
+* Terminal or Powershell (This Lab uses a MacOS Terminal)
 
 ## The Lab 
 
