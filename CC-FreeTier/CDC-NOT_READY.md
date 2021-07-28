@@ -1,8 +1,8 @@
 # READ BEFORE PROCEEDING!
-# Current free tier config do not allow outbound connections
-# This tutorial will be updated when CDC is configurable in free tier
+# NOTE: Current free tier config do not allow outbound connections
+# NOTE: Schema Registry with Confluent Cloud is not currently supported with CDC (cannot pass basic auth creds for SR)
 
-# Setting up CDC with AVRO using CockroachDB Cloud and Confluent Cloud
+# Setting up CDC with CockroachDB Cloud and Confluent Cloud
 
 ## Overview
 Kafka is one of the most popular choice to pipeline database changefeed for multiple consumers. We will look at steps to connect CockroachDB Cloud changefeed to Confluent Cloud. 
@@ -28,6 +28,16 @@ Kafka is one of the most popular choice to pipeline database changefeed for mult
       - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux)
       - `psql`
       - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
+
+## Lab 0 - Connect to Confluent Cloud and create API Key
+
+API Key and secret will be used in the Kafka connection string: `sasl_user` and `sasl_password`
+
+![api_key](data/confluent_cloud_api_key.png)
+
+URL encode the Kafka connection string (e.g. https://www.urlencoder.org/ )
+
+![url_encode](data/confluent_cloud_url_encode.png)
 
 ## Lab 1 - Connect to database and create data
 
@@ -78,8 +88,8 @@ With `schema_change_policy` set to `backfill`, when schema changes with column b
 Use `initial_scan` to set the offset value to `0`. To read from a different TOPIC offset, use [cursor](https://www.cockroachlabs.com/docs/stable/create-changefeed.html). 
 
 ```sql
-EXPERIMENTAL CHANGEFEED FOR TABLE pets
-  INTO 'kafka://pkc-ep9mm.us-east-2.aws.confluent.cloud:9092'
+CREATE CHANGEFEED FOR TABLE pets
+  INTO 'kafka%3A%2F%2Fpkc-ep9mm.us-east-2.aws.confluent.cloud%3A9092%3Ftopic_prefix%3Dcdc_demo_%26tls_enabled%3Dtrue%26sasl_enabled%3Dtrue%26sasl_user%3DREDACTED%26sasl_password%3DREDACTED%26sasl_mechanism%3DPLAIN'
   WITH updated, 
     resolved='20s',
     diff,
