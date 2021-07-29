@@ -1,7 +1,7 @@
 # READ BEFORE PROCEEDING!
-# NOTE: CockroachDB Cloud Free Tier (beta) is not allowed external connections and cannot connect to endpoints such as Confluent Cloud
-# NOTE: CDC cannot be configured to Confluent Cloud Basic and Standard versions as these versions DO NOT allow cluster settings to be modified 
-# NOTE: Schema Registry with Confluent Cloud is not currently supported with CDC (cannot pass basic auth creds for SR)
+__NOTE: CockroachDB Cloud Free Tier (beta) is not allowed external connections and cannot connect to endpoints such as Confluent Cloud__
+__NOTE: CDC cannot be configured to Confluent Cloud Basic and Standard versions as these versions DO NOT allow cluster settings to be modified__
+__NOTE: Schema Registry with Confluent Cloud is not currently supported with CDC (cannot pass basic auth creds for SR)__
 
 # Setting up CDC with CockroachDB Cloud (dedicated) and Confluent Platform 
 
@@ -64,12 +64,6 @@ CREATE TABLE pets (
 );
 ```
 
-Log into [Confluent Cloud](https://confluent.cloud) and create a topic
-![topic](media/confluent_cloud_topic_1.png)
-
-Grab the topic url from cluster settings
-![cluster_settings](media/confluent_cloud_topic_2.png)
-
 Create the changefeed with some special options.
 
 The [`CREATE CHANGEFEED` statement](https://www.cockroachlabs.com/docs/stable/create-changefeed) creates a new changefeed, which targets an allowlist of tables, called "watched rows".
@@ -88,7 +82,7 @@ With `schema_change_policy` set to `backfill`, when schema changes with column b
 
 Use `initial_scan` to set the offset value to `0`. To read from a different TOPIC offset, use [cursor](https://www.cockroachlabs.com/docs/stable/create-changefeed.html). 
 
-## NOTE: If credentials are needed to publish to Kafka topic, URL encode the Kafka endpoint string (e.g. `kafka%3A%2F%2Fpkc-ep9mm.us-east-2.aws.confluent.cloud%3A9092%3Ftls_enabled%3Dtrue%26sasl_enabled%3Dtrue%26sasl_user%3REDACTED%26sasl_password%3DREDACTED%26sasl_mechanism%3DPLAIN%26insecure_tls_skip_verify%3Dtrue`)
+__NOTE: If credentials are needed to publish to Kafka topic, URL encode the Kafka endpoint string (e.g. `kafka%3A%2F%2Fpkc-ep9mm.us-east-2.aws.confluent.cloud%3A9092%3Ftls_enabled%3Dtrue%26sasl_enabled%3Dtrue%26sasl_user%3REDACTED%26sasl_password%3DREDACTED%26sasl_mechanism%3DPLAIN%26insecure_tls_skip_verify%3Dtrue`)__
 
 ```sql
 CREATE CHANGEFEED FOR TABLE pets
