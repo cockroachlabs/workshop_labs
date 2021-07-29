@@ -1,15 +1,16 @@
 # READ BEFORE PROCEEDING!
-# NOTE: Current free tier config do not allow outbound connections
+# NOTE: CockroachDB Cloud Free Tier (beta) is not allowed external connections and cannot connect to endpoints such as Confluent Cloud
+# NOTE: CDC cannot be configured to Confluent Cloud Basic and Standard versions as these versions DO NOT allow cluster settings to be modified 
 # NOTE: Schema Registry with Confluent Cloud is not currently supported with CDC (cannot pass basic auth creds for SR)
 
-# Setting up CDC with CockroachDB Cloud and Confluent Cloud
+# Setting up CDC with CockroachDB Cloud (dedicated) and Confluent Platform 
 
 ## Overview
 Kafka is one of the most popular choice to pipeline database changefeed for multiple consumers. We will look at steps to connect CockroachDB Cloud changefeed to Confluent Cloud. 
 
 ## Prerequisites
 - [Connection to CockroachDB Cloud](https://www.cockroachlabs.com/docs/cockroachcloud/connect-to-a-free-cluster.html)
-- [Connection to Confluent Cloud](https://docs.confluent.io/cloud/current/get-started/index.html)
+- [Confluent Platform - single node demo](https://github.com/confluentinc/examples/tree/6.2.0-post/cp-quickstart)
 
 ## Labs Prerequisites
 
@@ -29,15 +30,15 @@ Kafka is one of the most popular choice to pipeline database changefeed for mult
       - `psql`
       - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
 
-## Lab 0 - Connect to Confluent Cloud and create API Key
+## Lab 0 - Install Confluent Platform to AWS or GCP VM instance
+## NOTE: Step 2 is needed to get around [this issue](https://www.confluent.io/blog/kafka-listeners-explained/)
 
-API Key and secret will be used in the Kafka connection string: `sasl_user` and `sasl_password`
-
-![api_key](data/confluent_cloud_api_key.png)
-
-URL encode the Kafka connection string (e.g. https://www.urlencoder.org/ )
-
-![url_encode](data/confluent_cloud_url_encode.png)
+1. Provision GCP or AWS VM instance
+2. edit `/etc/hosts` file on VM instance from step 1 and add `0.0.0.0   INSERT_AWS_PUBLIC_HOSTNAME_HERE`
+3. Perform steps 1-6 from [Confluent quick start page](https://docs.confluent.io/platform/current/quickstart/ce-quickstart.html#ce-quickstart?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.cp-quickstart)
+4. Install Java JRE (e.g. `sudo apt install default-jre`)
+5. Download and run `start.sh` from `https://github.com/confluentinc/examples/blob/6.2.0-post/cp-quickstart/start.sh`
+6. UI is accessible from port 9021 (broker is running on prot 9092)
 
 ## Lab 1 - Connect to database and create data
 
@@ -64,10 +65,10 @@ CREATE TABLE pets (
 ```
 
 Log into [Confluent Cloud](https://confluent.cloud) and create a topic
-![topic](data/confluent_cloud_topic_1.png)
+![topic](media/confluent_cloud_topic_1.png)
 
 Grab the topic url from cluster settings
-![cluster_settings](data/confluent_cloud_topic_2.png)
+![cluster_settings](media/confluent_cloud_topic_2.png)
 
 Create the changefeed with some special options.
 
@@ -87,9 +88,11 @@ With `schema_change_policy` set to `backfill`, when schema changes with column b
 
 Use `initial_scan` to set the offset value to `0`. To read from a different TOPIC offset, use [cursor](https://www.cockroachlabs.com/docs/stable/create-changefeed.html). 
 
+## NOTE: If credentials are needed to publish to Kafka topic, URL encode the Kafka endpoint string (e.g. `kafka%3A%2F%2Fpkc-ep9mm.us-east-2.aws.confluent.cloud%3A9092%3Ftls_enabled%3Dtrue%26sasl_enabled%3Dtrue%26sasl_user%3REDACTED%26sasl_password%3DREDACTED%26sasl_mechanism%3DPLAIN%26insecure_tls_skip_verify%3Dtrue`)
+
 ```sql
 CREATE CHANGEFEED FOR TABLE pets
-  INTO 'kafka%3A%2F%2Fpkc-ep9mm.us-east-2.aws.confluent.cloud%3A9092%3Ftopic_prefix%3Dcdc_demo_%26tls_enabled%3Dtrue%26sasl_enabled%3Dtrue%26sasl_user%3DREDACTED%26sasl_password%3DREDACTED%26sasl_mechanism%3DPLAIN'
+  INTO 'kafka://<aws-ec2-public>:9092'
   WITH updated, 
     resolved='20s',
     diff,
@@ -114,7 +117,7 @@ SHOW JOBS;
 ```text
         job_id       |   job_type    |                                                                                             description                                                                                             | statement | user_name |  status   |              running_status              |               created               |               started               |              finished               |              modified               | fraction_completed |        error         | coordinator_id
 ---------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------+-----------+-----------+------------------------------------------+-------------------------------------+-------------------------------------+-------------------------------------+-------------------------------------+--------------------+----------------------+-----------------
-  665311907024240641 | CHANGEFEED    | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://localhost:9092' WITH diff, format = 'json', initial_scan, resolved = '20s', schema_change_policy = 'backfill', updated                               |           | root      | running   | running: resolved=1623107498.397992000,0 | 2021-06-07 23:11:21.001058+00:00:00 | 2021-06-07 23:11:21.164026+00:00:00 | NULL                                | 2021-06-07 23:11:41.599496+00:00:00 | NULL               |                      |           NULL
+  665311907024240641 | CHANGEFEED    | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://<aws-ec2-public>:9092' WITH diff, format = 'json', initial_scan, resolved = '20s', schema_change_policy = 'backfill', updated                               |           | root      | running   | running: resolved=1623107498.397992000,0 | 2021-06-07 23:11:21.001058+00:00:00 | 2021-06-07 23:11:21.164026+00:00:00 | NULL                                | 2021-06-07 23:11:41.599496+00:00:00 | NULL               |                      |           NULL
 (1 row)
 ```
 
@@ -127,9 +130,8 @@ You can confirm the same from the **DB Console** Jobs page
 From the directory where Confluent is installed, listen for the topic `pets`, the name of the table. Notice the output for `resolved`. This marker is displayed regardless of changes to the table. **NOTE: `jq` is used for pretty print**
 
 ```bash
-bryankwon@bryans-mbp bin % pwd
-/Users/bryankwon/workspace/confluent-6.1.1/bin
-bryankwon@bryans-mbp bin % ./kafka-console-consumer --topic pets --from-beginning --bootstrap-server localhost:9092 | jq
+> cd /mnt/data1/confluent/bin
+> bin % ./kafka-console-consumer --topic pets --from-beginning --bootstrap-server <aws-ec2-public>:9092 | jq
 {"resolved":"1623107047927318000.0000000000"}
 {"resolved":"1623107068072215000.0000000000"}
 ```
@@ -481,7 +483,7 @@ WHERE job_type = 'CHANGEFEED' AND status = 'running';
 ```text
         job_id       |                                                              description
 ---------------------+-----------------------------------------------------------------------------------------------------------------------------------------
-  628673297637244929 | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://localhost:9092' WITH diff, resolved = '20s', schema_change_policy = 'backfill', updated
+  628673297637244929 | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://<aws-ec2-public>:9092' WITH diff, resolved = '20s', schema_change_policy = 'backfill', updated
 (1 row)
 ```
 
@@ -514,7 +516,7 @@ Use the `high_water_timestamp` value to start the new changefeed with the new op
 
 ```sql
 CREATE CHANGEFEED FOR TABLE pets
-  INTO 'kafka://localhost:9092'
+  INTO 'kafka://<aws-ec2-public>:9092'
   WITH updated, 
     resolved='20s',
     schema_change_policy=backfill,
@@ -601,7 +603,7 @@ WHERE job_type = 'CHANGEFEED' AND status = 'running';
 
         job_id       |                                                                              description
 ---------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  665311907024240641 | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://localhost:9092' WITH diff, format = 'json', initial_scan, resolved = '20s', schema_change_policy = 'backfill', updated
+  665311907024240641 | CREATE CHANGEFEED FOR TABLE pets INTO 'kafka://<aws-ec2-public>:9092' WITH diff, format = 'json', initial_scan, resolved = '20s', schema_change_policy = 'backfill', updated
 (1 row)
 
 root@:26257/tpcc> cancel job 665311907024240641;
@@ -625,12 +627,12 @@ Create a new CHANGEFEED with AVRO by creating a new topic - `cdc_pets`
 
 ```sql
 CREATE CHANGEFEED FOR TABLE pets
-  INTO 'kafka://localhost:9092?topic_prefix=cdc_'
+  INTO 'kafka://<aws-ec2-public>:9092?topic_prefix=cdc_'
   WITH updated, 
     resolved='20s',
     schema_change_policy=backfill,
     format=experimental_avro,
-    confluent_schema_registry='http://localhost:8081',
+    confluent_schema_registry='http://<aws-ec2-public>:8081',
     cursor = '1623108607197894000.0000000000';
 
         job_id
@@ -641,12 +643,12 @@ CREATE CHANGEFEED FOR TABLE pets
 Start a new Kafka consumer with AVRO
 
 ```bash
-./kafka-avro-console-consumer --topic cdc_pets --from-beginning --bootstrap-server localhost:9092 | jq
+./kafka-avro-console-consumer --topic cdc_pets --from-beginning --bootstrap-server <aws-ec2-public>:9092 | jq
 ```
 
-Check AVRO schema in Confluent Control Center `http://localhost:9021` 
+Check AVRO schema in Confluent Control Center `http://<aws-ec2-public>:9021` 
 
-![schema](media/avro.png)
+![schema](data/avro.png)
 
 
 Congratulations, you reach the end of the labs!
