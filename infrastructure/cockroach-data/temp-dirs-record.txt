@@ -1,0 +1,1 @@
+/Users/bryankwon/workspace/workshop_labs/infrastructure/cockroach-data/cockroach-temp030461794

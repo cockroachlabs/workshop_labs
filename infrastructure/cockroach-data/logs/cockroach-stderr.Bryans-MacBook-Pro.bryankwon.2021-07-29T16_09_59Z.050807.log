@@ -1,0 +1,7 @@
+I210729 16:09:59.994722 1 util/log/file_sync_buffer.go:238 ⋮ [config]   file created at: 2021/07/29 16:09:59
+I210729 16:09:59.994742 1 util/log/file_sync_buffer.go:238 ⋮ [config]   running on machine: ‹Bryans-MacBook-Pro›
+I210729 16:09:59.994763 1 util/log/file_sync_buffer.go:238 ⋮ [config]   binary: CockroachDB CCL v21.1.5 (x86_64-apple-darwin19, built 2021/07/02 04:00:15, go1.15.11)
+I210729 16:09:59.994769 1 util/log/file_sync_buffer.go:238 ⋮ [config]   arguments: ‹[cockroach start-single-node --insecure --listen-addr=localhost:26257 --http-addr=localhost:8080]›
+I210729 16:09:59.994781 1 util/log/file_sync_buffer.go:238 ⋮ [config]   log format (utf8=✓): crdb-v2
+I210729 16:09:59.994786 1 util/log/file_sync_buffer.go:238 ⋮ [config]   line format: [IWEF]yymmdd hh:mm:ss.uuuuuu goid [chan@]file:line redactionmark \[tags\] [counter] msg
+I210729 16:09:59.994520 1 util/log/flags.go:180  [-] 1  stderr capture started
