@@ -23,6 +23,7 @@ This repository contains instructions for the various labs that are part of  the
 - [Backup and Restore](/backup-restore/)
 - [CDC - Changefeed](/CDC-changefeed/)
 - [JSON Optimization](/JSON-optimization/)
+- [Logging](/logging/)
 - [Optimizing Serializable Transactions](/optimizing-serializable-transactions/)
 - [Query Optimization](/query-optimization/)
 - [Spatial Data](/spatial-data/)
