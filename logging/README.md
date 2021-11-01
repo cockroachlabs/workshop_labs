@@ -53,9 +53,7 @@ Each sink can be configured with **parameters**
 | `exit-on-error` | When true, stops the Cockroach node if an error is encountered while writing to the sink. We recommend enabling this option on file sinks in order to avoid losing any log entries. When set to false, this can be used to mark certain sinks (such as stderr) as non-critical. |
 | `auditable` | If true, enables exit-on-error on the sink. Also disables buffered-writes if the sink is under file-groups. This guarantees non-repudiability for any logs in the sink, but can incur a performance overhead and higher disk IOPS consumption. This setting is typically enabled for security-related logs. |
 
-## Labs
-
-### Setup
+## Setup
 
 Create file `logs.yaml` to store your logging configuration.
 Read through it:
@@ -79,12 +77,17 @@ file-defaults:
   auditable: false
 fluent-defaults:
   filter: INFO
-  format: json
+  # format: json-fluent # default
   redact: false
   redactable: true
   exit-on-error: false
   auditable: false
 sinks:
+  # fluent-servers:
+  #  myhost:
+  #    channels: [DEV, OPS, HEALTH]
+  #    address: 127.0.0.1:5170
+  #    net: tcp
   file-groups:
     default:
       channels: [DEV, OPS, HEALTH, SQL_SCHEMA, USER_ADMIN, PRIVILEGES]
@@ -103,7 +106,7 @@ sinks:
   stderr:
     channels: all
     filter: NONE
-    format: json-fluent-compact
+    format: json
     redact: false
     redactable: true
     exit-on-error: true
@@ -127,6 +130,8 @@ cockroach start-single-node --certs-dir=certs --background --log-config-file=log
 # log into the cluster as root
 cockroach sql --certs-dir=certs
 ```
+
+### File output
 
 Good, now open a new Terminal window to inspect the files that were created
 
@@ -201,6 +206,122 @@ I211027 20:34:11.553235 10838 9@util/log/event_log.go:32 ⋮ [intExec=‹cancel/
 
 Very good! Now you have a simple setup to test how logging works.
 
+### Fluentd output
+
+You can also hook up [Fluentd](https://www.fluentd.org/) to test how logging is handled over a network.
+
+Create a file `fluent.conf` in your home directory
+
+```bash
+##########
+# Inputs #
+##########
+
+# this source reads files in a directory
+# <source>
+#   @type tail
+#   path "/var/log/*.log"
+#   read_from_head true
+#   tag gino
+#   <parse>
+#     @type json
+#     time_type string
+#     time_format "%Y-%m-%d %H:%M:%S.%N"
+#     # time_type float
+#     time_key timestamp
+#   </parse>
+# </source>
+
+# this source listens on a network port
+<source>
+  @type tcp
+  tag CRDB
+  <parse>
+    @type json
+    time_type float
+    time_key timestamp
+  </parse>
+  port 5170
+  bind 0.0.0.0
+  delimiter "\n"
+</source>
+
+###########
+# Outputs #
+###########
+
+# output to file buffer
+<match **>
+  @type file
+  path /output/
+  append true
+  <buffer>
+    timekey 1d
+    timekey_use_utc true
+    timekey_wait 1m
+  </buffer>
+  <format>
+    @type out_file
+    delimiter ","
+    time_format "%Y-%m-%d %H:%M:%S.%N"
+  </format>
+</match>
+```
+
+Then, start the server using Docker
+
+```bash
+cd ~
+mkdir output
+
+# make sure you map the path accordingly
+docker run -ti --rm -v /Users/fabio/fluent.conf:/fluentd/etc/fluent.conf -v /Users/fabio/output:/output -p=5170:5170 fluent/fluentd
+```
+
+If fluent start successfully, you should see this output on stdout:
+
+```text
+2021-11-01 16:56:24 +0000 [info]: parsing config file is succeeded path="/fluentd/etc/fluent.conf"
+2021-11-01 16:56:24 +0000 [info]: using configuration file: <ROOT>
+[...]
+2021-11-01 16:56:24 +0000 [info]: adding source type="tcp"
+2021-11-01 16:56:24 +0000 [info]: #0 starting fluentd worker pid=17 ppid=7 worker=0
+2021-11-01 16:56:24 +0000 [info]: #0 fluentd worker is now running worker=0
+```
+
+Ok, fluent started successfully and it's listening for incoming messages.
+
+Now, stop CockroachDB
+
+```bash
+cockroach quit --certs-dir=certs
+```
+
+Uncomment this section in the `logs.yaml` file
+
+```yaml
+  fluent-servers:
+    myhost:
+      channels: [DEV, OPS, HEALTH]
+      address: 127.0.0.1:5170
+      net: tcp
+```
+
+Restart CockroachDB
+
+```bash
+cockroach start-single-node --certs-dir=certs --background --log-config-file=logs.yaml
+```
+
+Check directory `output` and tail the file
+
+```bash
+$ tail -n1 output/buffer.*.log
+2021-11-01 17:03:09.353577800   CRDB    {"tag":"cockroach.health","c":2,"t":"1635786189.332476000","x":"92c25c70-6e91-41f6-9480-6b2de3cb729a","N":1,"s":1,"sev":"I","g":325,"f":"server/status/runtime.go","l":569,"n":73,"r":1,"tags":{"n":"1"},"message":"runtime stats: 101 MiB RSS, 271 goroutines (stacks: 3.5 MiB), 27 MiB/58 MiB Go alloc/total (heap fragmentation: 7.4 MiB, heap reserved: 8.9 MiB, heap released: 17 MiB), 3.8 MiB/7.0 MiB CGO alloc/total (0.0 CGO/sec), 0.0/0.0 %(u/s)time, 0.0 %gc (0x), 79 KiB/180 KiB (r/w)net"}
+```
+
+Good stuff, you successfully integrated Fluentd with CockroachDB logging framework!
+
 ## Reference
 
 - [Logging Overview](https://www.cockroachlabs.com/docs/stable/logging-overview.html)
@@ -209,3 +330,4 @@ Very good! Now you have a simple setup to test how logging works.
 - [Log Formats](https://www.cockroachlabs.com/docs/v21.1/log-formats.html)
 - [Notable Event Types](https://www.cockroachlabs.com/docs/v21.1/eventlog.html)
 - [Cluster Settings](https://www.cockroachlabs.com/docs/v21.1/cluster-settings)
+- [Fluentd Docs](https://docs.fluentd.org/)
