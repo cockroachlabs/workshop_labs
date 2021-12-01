@@ -17,52 +17,20 @@ There are 6 recommended topology patterns:
 
 ## Labs Prerequisites
 
-### Local Deployment
-
-1. Build the dev cluster following [these instructions](https://dev.to/cockroachlabs/simulating-a-multi-region-cockroachdb-cluster-on-localhost-with-docker-59f6).
-
-2. You also need:
-
-    - a modern web browser,
-    - a SQL client:
-      - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux)
-      - `psql`
-      - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
-
-### Shared Cluster Deployment
-
-SSH into the Jumpbox using the IP address provided by the Instructor.
+1. A modern web browser
+2. A SSH client:
+    - Terminal (MacOS/Linux)
+    - Powershell or Putty (Windows)
 
 ## Lab 0 - Create database and load data
 
-### Local Deployment
-
-Connect to any node and run the [workload simulator](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html). Please note that loading the data can take up to 5 minutes.
+SSH into any of the 3 jumpboxes using the IP addresses and SSH key provided by the instructor, for example:
 
 ```bash
-docker exec -it roach-newyork-1 bash -c "./cockroach workload init movr --drop --db movr postgres://root@127.0.0.1:26257?sslmode=disable --num-histories 50000 --num-rides 50000 --num-users 1000 --num-vehicles 100"
+ssh -i ~/workshop.pem ubuntu@144.144.188.188
 ```
 
-Connect to the database to confirm it loaded successfully
-
-```bash
-# use cockroach sql, defaults to localhost:26257
-cockroach sql --insecure -d movr
-
-# or use the --url param for any another host:
-# port mapping:
-# 26257 --> us-west-2 (Seattle)
-# 26258 --> us-east-1 (New York)
-# 26259 --> eu-west-1 (London)
-cockroach sql --url "postgresql://localhost:26258/movr?sslmode=disable"
-
-# or use psql
-psql -h localhost -p 26257 -U root movr
-```
-
-### Shared Cluster Deployment
-
-Connect to the database
+Once logged in the jumpbox, connect to the database
 
 ```bash
 cockroach sql --insecure
@@ -107,7 +75,7 @@ SHOW TABLES;
 Time: 133.429ms
 ```
 
-Open the DB Console at <http://localhost:8080>. Check the **Advanced Debug > Localities** page to see the localities associated with your nodes.
+Open the DB Console at <http://ip-address:8080>. Check the **Advanced Debug > Localities** page to see the localities associated with your nodes.
 
 ![localities](media/localities.png)
 
@@ -258,7 +226,7 @@ CONFIGURE ZONE USING
   lease_preferences = '[[+region=eu-west-1]]';
 ```
 
-After few minutes, verify all replicas for the European cities are in the `eu-west-1` region
+After few minutes, verify all replicas for the European cities are in the `eu-west-1` region. You can also run this [Replication Report](https://www.cockroachlabs.com/docs/stable/query-replication-reports.html#find-out-which-of-your-tables-have-a-constraint-violation) to confirm when the rebalance is done and no range is in violation.
 
 ```sql
 SELECT * FROM ridesranges ORDER BY lease_holder_locality;
@@ -281,7 +249,9 @@ SELECT * FROM ridesranges ORDER BY lease_holder_locality;
 (11 rows)
 ```
 
-As expected! European cities are pinned to region `eu-west-1` - a tag you passed when you create the cluster. You can have multiple layer of tags (area/region/zone/datacenter) for a finer control on where you'd like to pin your data. Let Geo-Partitioned Replicas help you comply with your legal requirements for data locality and regulation like GDPR. You can read more on our [blog](https://www.cockroachlabs.com/blog/gdpr-compliance-for-my-database/).
+As expected! European cities are pinned to region `eu-west-1` - a tag you passed when you create the cluster. You can have multiple layer of tags (area/region/zone/datacenter) for a finer control on where you'd like to pin your data.
+Let Geo-Partitioned Replicas help you comply with your legal requirements for data locality and regulation like GDPR.
+You can read more on our [blog](https://www.cockroachlabs.com/blog/gdpr-compliance-for-my-database/).
 
 ### What you can survive
 
@@ -748,8 +718,8 @@ The Duplicate Indexes topology is ideal for data that is used very frequently (f
 
 ## Lab 6 - Survive region failure and scale out
 
-**Please note**: This lab can only be done on the **Local Deployment**, which uses Docker to simulate nodes and regions.
-If you are on the **Shared Cluster Deployment**, please read along as the concept is still very important.
+This is not a lab that is easy to replicate in a shared environment.
+Therefore, please read along, you will surely gain a lot of insight into how CockroachDB resiliency system works.
 
 Suppose we have a deployment such that:
 
@@ -769,21 +739,11 @@ The total latency for the query is 125 + 70 + 70 = 265ms. To temporarely remedy 
 - move all former US West ranges from region US East to region EU West - but that means we can't survive if EU West goes down as we'd have all replicas in that region;
 - scale out the Cockroach cluster and deploy nodes on a **new** datacenter close to EU West, so that the Raft consensus is achieved quicker and we can still survive another region failure.
 
-In this lab we decide for the second option, being the safest. First, reduce the time CRDB considers nodes dead down from 5 to 1.15 minutes, the lowest.
+In this lab we decide for the second option, being the safest.
 
-```sql
-SET CLUSTER SETTING server.time_until_store_dead = '75s';
-```
+Simulate region failure by stopping/destroying the VMs in US-West.
 
-Simulate region failure. Ensure to run all following `docker` commands on a new terminal, on localhost.
-
-```bash
-docker stop haproxy-seattle roach-seattle-1 roach-seattle-2 roach-seattle-3
-```
-
-Check the DB Console: the website is down as the node that serves port 8080 died. **Use port 8180 instead**.
-
-In a little over a minute, 3 nodes will be set to **Dead**, and CockroachDB will start replicating the ranges into the remaining regions.
+Immediately, 3 nodes will be marked as **Suspect**, and in about 5 minutes, the nodes will be set to **Dead** and CockroachDB will start replicating the under-replicated ranges into the remaining regions.
 
 ![dead-nodes](media/dead-nodes.png)
 
@@ -817,28 +777,13 @@ SELECT * FROM ridesranges ORDER BY lease_holder_locality;
 
 From above table we can see that the US West data was successfully and evenly replicated to across the remaining regions.
 
-Create a new running docker container using the `cockroachdb` image. This will be our SQL client app connecting from Seattle.
+SSH to the Seattle jumpbox server, this will be our SQL client app connecting from US West. Then, connect to the database in London.
 
 ```bash
-docker run -d --rm --name=seattle-client --hostname=seattle-client --cap-add NET_ADMIN --net=us-west-2-net crdb start --insecure --join=fake1,fake2,fake3
-
-# add network connections and latency to seattle-client
-docker network connect uswest-useast-net seattle-client
-docker network connect uswest-euwest-net seattle-client
-docker exec seattle-client tc qdisc add dev eth1 root netem delay 37ms
-docker exec seattle-client tc qdisc add dev eth2 root netem delay 61ms
-
-# Connect
-docker exec -it seattle-client bash
+cockroach sql --url "postgresql://london-loadbalancer:26257/movr?sslmode=disable"  
 ```
 
-From within `seattle-client`, connect to the database in London.
-
-```bash
-cockroach sql --url "postgresql://roach-london-1:26257/movr?sslmode=disable"  
-```
-
-Verify you see the ~180ms lantecy to EU West region. Please note that for this simple case, we connect to a cluster node instead of the HAProxy.
+Verify you see the ~125ms lantecy to EU West region.
 
 ```sql
 SHOW LOCALITY;
@@ -932,42 +877,6 @@ Time: 1.7808906s
 We now understand the ramification of a failed region and the toll it takes on the overall latency. We understand that region US West will take several hours to become operational again and we decide to remedy by scaling out the cluster, also because we are afraid another region might go down and the Cockroach cluster would become unavailable, too, as quorum can't be reached with only 1 out of 3 ranges being available.
 
 Provision the datacenter in Frankfurt, Germany. We call this region EU Central
-
-```bash
-# create local network eucentral-net
-docker network create --driver=bridge --subnet=172.26.0.0/16 --ip-range=172.26.0.0/24 --gateway=172.26.0.1 eucentral-net
-
-# create inter-regional networks
-docker network create --driver=bridge --subnet=172.33.0.0/16 --ip-range=172.33.0.0/24 --gateway=172.33.0.1 useast-eucentral-net
-docker network create --driver=bridge --subnet=172.34.0.0/16 --ip-range=172.34.0.0/24 --gateway=172.34.0.1 euwest-eucentral-net
-
-# create 3 nodes in Frankfurt - no need for HAProxy...
-docker run -d --rm --name=roach-frankfurt-1 --hostname=roach-frankfurt-1 --ip=172.26.0.11 --cap-add NET_ADMIN --net=eucentral-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8480:8080 -v "roach-frankfurt-1-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central-1,zone=a
-docker run -d --rm --name=roach-frankfurt-2 --hostname=roach-frankfurt-2 --ip=172.26.0.12 --cap-add NET_ADMIN --net=eucentral-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8481:8080 -v "roach-frankfurt-2-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central-1,zone=b
-docker run -d --rm --name=roach-frankfurt-3 --hostname=roach-frankfurt-3 --ip=172.26.0.13 --cap-add NET_ADMIN --net=eucentral-net --add-host=roach-frankfurt-1:172.26.0.11 --add-host=roach-frankfurt-2:172.26.0.12 --add-host=roach-frankfurt-3:172.26.0.13 -p 8482:8080 -v "roach-frankfurt-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-central-1,zone=c
-
-# attach networks and add latency
-# Frankfurt
-for j in 1 2 3
-do
-    docker network connect useast-eucentral-net roach-frankfurt-$j
-    docker network connect euwest-eucentral-net roach-frankfurt-$j
-    docker exec roach-frankfurt-$j tc qdisc add dev eth1 root netem delay 29ms
-    docker exec roach-frankfurt-$j tc qdisc add dev eth2 root netem delay 5ms
-done
-# New York
-for j in 1 2 3
-do
-    docker network connect useast-eucentral-net roach-newyork-$j
-    docker exec roach-newyork-$j tc qdisc add dev eth3 root netem delay 29ms
-done
-# London
-for j in 1 2 3
-do
-    docker network connect euwest-eucentral-net roach-london-$j
-    docker exec roach-london-$j tc qdisc add dev eth3 root netem delay 5ms
-done
-```
 
 Check the DB Console: slowly, you should see the live nodes increasing from 6 to 9. If you refresh the map, you should see the Frankfurt datacenter.
 
