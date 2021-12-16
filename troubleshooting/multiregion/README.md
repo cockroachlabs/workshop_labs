@@ -78,17 +78,19 @@ Create the CockroachDB cluster. You can use [roachprod](https://github.com/cockr
 roachprod create ${USER}-labs -c gce -n 12 --gce-zones us-east1-b,us-east1-c,us-west1-b,us-west1-a
 roachprod stage ${USER}-labs release v21.1.12
 roachprod start ${USER}-labs
+roachprod run ${USER}-labs:1 -- "./cockroach sql --insecure -e \"SET CLUSTER SETTING cluster.organization ='Workshop';\""
 roachprod run ${USER}-labs:1 -- "./cockroach sql --insecure -e \"SET CLUSTER SETTING enterprise.license ='${CRDB_LIC}';\""
+
 roachprod adminurl --open ${USER}-labs:1
 ```
 
 Open Admin UI and confirm nodes are grouped into 4 zones, and zones are grouped into 2 regions.
 
-![localities](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/localities.png)
+![localities](../media/localities.png)
 
 Check the latency: should be minimal within zones of the same region.
 
-![network-latency](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/network-latency.png)
+![network-latency](../media/network-latency.png)
 
 ### Recreate the dataset
 
@@ -159,7 +161,7 @@ IMPORT INTO credits CSV DATA ('nodelocal://1/c.csv');
 
 You can monitor the import in the DB Console in the **Jobs** page
 
-![import-job](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/import-job.png)
+![import-job](../media/import-job.png)
 
 Cool, you've successfully created the cluster as per customer specifications, recreated the database schema and imported the dataset of dummy data into the database!
 
@@ -211,7 +213,7 @@ roachprod sql ${USER}-labs:1
 
 We've imported 2 tables, let's see what they look like in terms of size, columns, ranges, indexes. You can view these details using the AdminUI and/or with the `SHOW RANGES` command.
 
-![databases](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/databases.png)
+![databases](../media/databases.png)
 
 ```sql
 SHOW CREATE TABLE credits;
@@ -358,17 +360,17 @@ _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(
 
 While it runs, check the Metrics in the DBConsole. Open the **Hardware** dashboard to see if you can replicate the spike in high CPU usage.
 
-![cpu](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/cpu.png)
+![cpu](../media/cpu.png)
 
 Notice how 2 nodes have very high CPU usage compared to all other nodes. Take notice in the **Summary** of the values for QPS - 4046 - and P99 latency - 402ms -, too.
 
 Check the latency for these 2 queries. Open the **Statements** page or review the scrolling stats in your terminal.
 
-![stmt-latency](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/stmt-latency.png)
+![stmt-latency](../media/stmt-latency.png)
 
 Check also **Service Latency** charts in the **SQL** dashboard for a better understanding.
 
-![sql-p99](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/sql-p99.png)
+![sql-p99](../media/sql-p99.png)
 
 Stop the workload now. You can definitely replicate the customer scenario: high CPU spikes and high latency.
 
@@ -474,7 +476,7 @@ We can try to isolate the issue by running only Q2 in our workload, and let's se
 
 Switch to the Jumpbox Terminal and edit file `workload.sql` to comment Q1 out, then restart the workload. Give it a couple of minutes, and you should see that n3 is hot again, so we know that Q2 is the culprit.
 
-![hot-n3](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/hot-n3.png)
+![hot-n3](../media/hot-n3.png)
 
 Let's see if we have a hot range.
 
@@ -585,7 +587,7 @@ roachprod ssh ${USER}-jump:1
 
 Check the **Hardware** dashboard again
 
-![cpu-even](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/cpu-even.png)
+![cpu-even](../media/cpu-even.png)
 
 Much better, good job! Let's see how the ranges for the index are spread out:
 
@@ -973,6 +975,6 @@ _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(
 
 Compare to the initial result: huge improvement in performance! We doubled the QPS and halved the Lantency!
 
-![final](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/final.png)
+![final](../media/final.png)
 
 Congratulations, you reached the end of the Troubleshooting workshop! We hope you have now a better understanding on the process of troubleshoot an underperforming cluster.
