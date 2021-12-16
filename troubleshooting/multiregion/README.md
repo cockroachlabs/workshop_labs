@@ -76,7 +76,7 @@ Create the CockroachDB cluster. You can use [roachprod](https://github.com/cockr
 ```bash
 # default machine type is n1-standard-4 (4 vCPUs / 16GB MEM)
 roachprod create ${USER}-labs -c gce -n 12 --gce-zones us-east1-b,us-east1-c,us-west1-b,us-west1-a
-roachprod stage ${USER}-labs release latest
+roachprod stage ${USER}-labs release v21.1.12
 roachprod start ${USER}-labs
 roachprod run ${USER}-labs:1 -- "./cockroach sql --insecure -e \"SET CLUSTER SETTING enterprise.license ='${CRDB_LIC}';\""
 roachprod adminurl --open ${USER}-labs:1
@@ -356,7 +356,7 @@ _elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(
    22.0s        0         2001.1         1972.0     92.3    251.7    352.3    385.9  2: SELECT c.id, c.code, c.channel, c.status, c.end_date, c.start_date FROM credits AS c, offers AS o WHERE c.id = o.id AND c.code = o.code AND c.status = 'A' AND c.end_date >= '2020-11-20' AND c.start_date <= '2020-11-20' AND o.token = 'c744250a-1377-4cdf-a1f4-5b85a4d29aaa';
 ```
 
-While it runs, check the Metrics in the AdminUI. Open the **Hardware** dashboard to see if you can replicate the spike in high CPU usage.
+While it runs, check the Metrics in the DBConsole. Open the **Hardware** dashboard to see if you can replicate the spike in high CPU usage.
 
 ![cpu](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/cpu.png)
 
@@ -976,7 +976,3 @@ Compare to the initial result: huge improvement in performance! We doubled the Q
 ![final](https://github.com/cockroachlabs/workshop_labs/blob/master/troubleshooting/media/final.png)
 
 Congratulations, you reached the end of the Troubleshooting workshop! We hope you have now a better understanding on the process of troubleshoot an underperforming cluster.
-
-## Extras
-
-Head over [here](labs.md) for another example you can run from your desktop computer!
