@@ -8,83 +8,37 @@ This workshop walks through the process of troubleshooting a problematic cluster
 
 - [Demo singleregion deployment](singleregion-hotrange-gcp/README.md)
 
-## Local Deployment
+## Labs Prerequisites
 
-Create a 3 node cluster
+1. A modern web browser
+2. A SSH client:
+    - Terminal (MacOS/Linux)
+    - Powershell or Putty (Windows)
+
+## Lab 0 - Create database and load data
+
+SSH into the jumpbox using the IP address and SSH key provided by the instructor, for example:
 
 ```bash
-# install v21.1.5
-curl https://binaries.cockroachdb.com/cockroach-v21.1.5.darwin-10.9-amd64.tgz | tar -xJ && cp -i cockroach-v21.1.5.darwin-10.9-amd64/cockroach /usr/local/bin/
-mkdir -p /usr/local/lib/cockroach
-cp -i cockroach-v21.1.5.darwin-10.9-amd64/lib/libgeos.dylib /usr/local/lib/cockroach/
-cp -i cockroach-v21.1.5.darwin-10.9-amd64/lib/libgeos_c.dylib /usr/local/lib/cockroach/
-
-## start node1 
-cockroach start \
---insecure \
---store=node1 \
---listen-addr=localhost:26257 \
---http-addr=localhost:8080 \
---join=localhost:26257,localhost:26258,localhost:26259 \
---locality=region=tokyo,rack=R01,hole=7 \
---background
-
-## start node2 
-cockroach start \
---insecure \
---store=node2 \
---listen-addr=localhost:26258 \
---http-addr=localhost:8081 \
---join=localhost:26257,localhost:26258,localhost:26259 \
---locality=region=tokyo,rack=R01,hole=16 \
---background
-
-## start node3
-cockroach start \
---insecure \
---store=node3 \
---listen-addr=localhost:26259 \
---http-addr=localhost:8082 \
---join=localhost:26257,localhost:26258,localhost:26259 \
---locality=region=tokyo,rack=R01,hole=10 \
---background
-
-## initialize cluster 
-cockroach init --insecure --host=localhost:26257
-
-## wait for replication to complete
-
-# check node status
-cockroach node status --insecure
-  id |     address     |   sql_address   |  build  |         started_at         |         updated_at         |           locality            | is_available | is_live
------+-----------------+-----------------+---------+----------------------------+----------------------------+-------------------------------+--------------+----------
-   1 | localhost:26257 | localhost:26257 | v21.1.5 | 2021-07-21 14:39:49.419714 | 2021-07-21 14:40:03.002681 | region=tokyo,rack=R01,hole=7  | true         | true
-   2 | localhost:26259 | localhost:26259 | v21.1.5 | 2021-07-21 14:39:49.981583 | 2021-07-21 14:40:03.68324  | region=tokyo,rack=R01,hole=10 | true         | true
-   3 | localhost:26258 | localhost:26258 | v21.1.5 | 2021-07-21 14:39:50.476567 | 2021-07-21 14:40:04.169306 | region=tokyo,rack=R01,hole=16 | true         | true
-(3 rows)
+ssh -i ~/workshop.pem ubuntu@12.34.56.78
 ```
 
-Connect to the database
+Once logged in the jumpbox, connect to the database
 
 ```bash
-# use cockroach sql, defaults to localhost:26257
 cockroach sql --insecure
-
-# or use the --url param for any another host:
-cockroach sql --url "postgresql://localhost:26257/defaultdb?sslmode=disable"
-
-# or use psql
-psql -h localhost -p 26257 -U root defaultdb
 ```
 
-## Lab 0
-
-Import the data and load stats
+At the SQL prompt, create your database
 
 ```sql
 CREATE DATABASE <your-name>;
 USE <your-name>;
+```
 
+You can now import the data
+
+```sql
 IMPORT TABLE a (
     id UUID NOT NULL,
     alpha STRING NOT NULL,
@@ -129,7 +83,7 @@ CREATE STATISTICS statm FROM m;
 
 Perfect, good job, we've replicated the schema locally with some dummy data.
 
-## Optimization
+## Lab 1 - Optimization
 
 Below is the query the customer is running. Examine the query plan
 
