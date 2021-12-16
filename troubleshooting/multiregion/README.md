@@ -1,4 +1,4 @@
-# Troubleshooting Workshop - Student labs
+# Demo Multiregion
 
 This workshop walks through the process of troubleshooting a problematic cluster.
 
