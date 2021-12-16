@@ -39,7 +39,7 @@ USE <your-name>;
 You can now import the data
 
 ```sql
-IMPORT TABLE a (
+CREATE TABLE a (
     id UUID NOT NULL,
     alpha STRING NOT NULL,
     bravo BOOL NOT NULL,
@@ -51,27 +51,36 @@ IMPORT TABLE a (
     INDEX a_foxtrot_delta_bravo_idx (foxtrot ASC, delta ASC, bravo ASC),
     INDEX a_echo_idx (echo ASC),
     FAMILY "primary" (id, alpha, bravo, charlie, delta, echo, foxtrot)
-) CSV DATA (
+); 
+
+IMPORT INTO a 
+CSV DATA (
     'https://github.com/cockroachlabs/workshop_labs/raw/master/troubleshooting/data/a.csv.gz'
 ) WITH skip = '1';
 
-IMPORT TABLE m (
+CREATE TABLE m (
     echo UUID NOT NULL,
     id UUID NOT NULL,
     CONSTRAINT "primary" PRIMARY KEY (echo ASC, id ASC),
     INDEX m_id_echo_idx (id ASC, echo ASC),
     FAMILY "primary" (echo, id)
-) CSV DATA (
+);
+
+IMPORT INTO m
+CSV DATA (
     'https://github.com/cockroachlabs/workshop_labs/raw/master/troubleshooting/data/m.csv.gz'
 ) WITH skip = '1';
 
-IMPORT TABLE u (
+CREATE TABLE u (
     id UUID NOT NULL,
     golf STRING NOT NULL,
     CONSTRAINT "primary" PRIMARY KEY (id ASC),
     INDEX u_golf_idx (golf ASC, id ASC),
     FAMILY "primary" (id, golf)
-) CSV DATA (
+);
+
+IMPORT INTO u
+CSV DATA (
     'https://github.com/cockroachlabs/workshop_labs/raw/master/troubleshooting/data/u.csv.gz'
 ) WITH skip = '1';
 
@@ -206,7 +215,7 @@ This is easely fixable: let's recreate index `a@a_foxtrot_delta_bravo_idx` to in
 ```sql
 -- recreate the index
 DROP INDEX a_foxtrot_delta_bravo_idx;
--- we don't really need to explicitly id, as it is added implicitly
+-- we don't really need to explicitly add 'id', as it is added implicitly
 CREATE INDEX a_foxtrot_delta_bravo_echo_idx on a(foxtrot ASC, delta ASC, bravo ASC, echo ASC) storing (charlie);
 
 -- confirm id have been added, just so you know
@@ -229,6 +238,16 @@ SHOW INDEXES FROM a;
 ```
 
 Pull the query plan again, and you should see that an index-join is no longer required
+
+```sql
+EXPLAIN (VERBOSE) SELECT a.id, a.charlie
+FROM a
+WHERE a.foxtrot = '106718'
+  AND a.delta = true
+  AND a.bravo = false
+  AND a.echo
+    IN ('e3e70682-c209-4cac-a29f-6fbed82c07cd', 'e3e70682-c209-4cac-a29f-6fbed82c07ce', '13e70682-c209-4cac-a29f-6fbed82c07cd');
+```
 
 ```text
    info
@@ -423,8 +442,8 @@ WHERE a.foxtrot = 'y4xbSD8ufOGYW3I'
 ```
 
 ```text
-                                            info
---------------------------------------------------------------------------------------------
+                                                       info
+------------------------------------------------------------------------------------------------------------------
   distribution: full
   vectorized: true
 
@@ -432,30 +451,40 @@ WHERE a.foxtrot = 'y4xbSD8ufOGYW3I'
   │ columns: (id, charlie)
   │ estimated row count: 1
   │
-  └── • hash join (inner)
+  └── • project
       │ columns: (id, bravo, charlie, delta, echo, foxtrot, echo, id, id, golf)
       │ estimated row count: 1
-      │ equality: (id) = (id)
-      │ right cols are key
       │
-      ├── • lookup join (inner)
-      │   │ columns: (id, bravo, charlie, delta, echo, foxtrot, echo, id)
-      │   │ estimated row count: 1
-      │   │ table: m@primary
-      │   │ equality: (echo) = (echo)
-      │   │
-      │   └── • scan
-      │         columns: (id, bravo, charlie, delta, echo, foxtrot)
-      │         estimated row count: 1 (0.02% of the table; stats collected 7 minutes ago)
-      │         table: a@a_foxtrot_delta_bravo_echo_idx
-      │         spans: /"y4xbSD8ufOGYW3I"/1/0-/"y4xbSD8ufOGYW3I"/1/1
-      │
-      └── • scan
-            columns: (id, golf)
-            estimated row count: 1 (<0.01% of the table; stats collected 9 minutes ago)
-            table: u@u_golf_idx
-            spans: /"ABCDEF"-/"ABCDEF"/PrefixEnd
-(30 rows)
+      └── • lookup join (inner)
+          │ columns: ("lookup_join_const_col_@15", id, bravo, charlie, delta, echo, foxtrot, echo, id, id, golf)
+          │ table: u@u_golf_idx
+          │ equality: (lookup_join_const_col_@15, id) = (golf,id)
+          │ equality cols are key
+          │
+          └── • render
+              │ columns: ("lookup_join_const_col_@15", id, bravo, charlie, delta, echo, foxtrot, echo, id)
+              │ estimated row count: 1
+              │ render lookup_join_const_col_@15: 'ABCDEF'
+              │ render id: id
+              │ render bravo: bravo
+              │ render charlie: charlie
+              │ render delta: delta
+              │ render echo: echo
+              │ render foxtrot: foxtrot
+              │ render echo: echo
+              │ render id: id
+              │
+              └── • lookup join (inner)
+                  │ columns: (id, bravo, charlie, delta, echo, foxtrot, echo, id)
+                  │ estimated row count: 1
+                  │ table: m@primary
+                  │ equality: (echo) = (echo)
+                  │
+                  └── • scan
+                        columns: (id, bravo, charlie, delta, echo, foxtrot)
+                        estimated row count: 1 (0.02% of the table; stats collected 3 minutes ago)
+                        table: a@a_foxtrot_delta_bravo_echo_idx
+                        spans: /"y4xbSD8ufOGYW3I"/1/0-/"y4xbSD8ufOGYW3I"/1/1
 ```
 
 Congratulations, you reached the end of this exercise! What's left to be done, is testing these above 2 solutions in the real cluster and see how they perform.
@@ -466,12 +495,6 @@ Then, you can always iterate over the troubleshooting exercise to further fine t
 We use [carota](https://pypi.org/project/carota/) to generate the random datasets.
 
 ```bash
-# install pip3
-sudo apt-get update && sudo apt-get install python3-pip -y
-# install carota
-pip3 install --user --upgrade pip carota
-export PATH=/home/ubuntu/.local/bin:$PATH
-
 # create the dummy data
 carota -r 5000 -t "uuid; string::size=15; choices::list=true false; string::size=15; choices::list=true false; uuid; string::size=15" -o a.csv
 carota -r 1000000 -t "uuid; uuid" -o m.csv
