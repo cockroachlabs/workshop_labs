@@ -26,6 +26,7 @@ This repository contains instructions for the various labs that are part of  the
 - [Logging](/logging/)
 - [Optimizing Serializable Transactions](/optimizing-serializable-transactions/)
 - [Query Optimization](/query-optimization/)
+- [Security and Monitoring](/security-monitoring/)
 - [Spatial Data](/spatial-data/)
 - [Topology Patterns](/topology-patterns/)
 - [Troubleshooting](/troubleshooting/)
