@@ -484,17 +484,17 @@ Upload file `hot.py` to the jumpbox, or run it locally on a new terminal if you 
 
 ```bash
 $ python3 hot.py --numtop 10 --host ${USER}-labs-0001.roachprod.crdb.io --adminport 26258 --dbport 26257  
-rank  rangeId	       QPS	     Nodes	 leaseHolder	DBname, TableName, IndexName
-  1:       38	794.242896	[1, 6, 10]	           1	['defaultdb', 'offers', '']
-  2:       40	392.493559	 [1, 4, 8]	           8	['defaultdb', 'credits', 'credits_pid_idx']
-  3:        6	 20.439625	[3, 5, 9, 7, 11]	           9	['', '', '']
-  4:       35	 12.610958	[2, 4, 9, 12, 11]	           2	['system', 'sqlliveness', '']
-  5:        4	 11.466768	 [6, 2, 9]	           2	['', '', '']
-  6:       11	  3.546137	[3, 1, 5, 10, 7]	           3	['system', 'jobs', '']
-  7:       26	  3.130371	[1, 5, 4, 7, 12]	           5	['system', 'namespace2', '']
-  8:        3	  3.114577	[5, 2, 4, 9, 12]	           4	['', '', '']
-  9:        2	  2.698034	[1, 4, 10, 12, 8]	           4	['', '', '']
- 10:        7	  1.493684	[1, 2, 4, 7, 12]	           7	['system', 'lease', '']
+rank  rangeId        QPS             Nodes  leaseHolder   DBname, TableName, IndexName
+  1:       38 794.242896        [1, 6, 10]            1   ['defaultdb', 'offers', '']
+  2:       40 392.493559         [1, 4, 8]            8   ['defaultdb', 'credits', 'credits_pid_idx']
+  3:        6  20.439625  [3, 5, 9, 7, 11]            9   ['', '', '']
+  4:       35  12.610958 [2, 4, 9, 12, 11]            2   ['system', 'sqlliveness', '']
+  5:        4  11.466768         [6, 2, 9]            2   ['', '', '']
+  6:       11   3.546137  [3, 1, 5, 10, 7]            3   ['system', 'jobs', '']
+  7:       26   3.130371  [1, 5, 4, 7, 12]            5   ['system', 'namespace2', '']
+  8:        3   3.114577  [5, 2, 4, 9, 12]            4   ['', '', '']
+  9:        2   2.698034 [1, 4, 10, 12, 8]            4   ['', '', '']
+ 10:        7   1.493684  [1, 2, 4, 7, 12]            7   ['system', 'lease', '']
 ```
 
 So it looks like rangeId 38 on n1 is hot. What's in that range, why that range?
