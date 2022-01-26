@@ -340,3 +340,10 @@ $ tail -f cockroach-audit.log
 {"tag":"cockroach.sessions","channel_numeric":4,"channel":"SESSIONS","timestamp":"1643210192.152171435","cluster_id":"025d51d8-d34b-41d9-bb52-cd6bc4be727a","node_id":1,"version":"v21.2.4","severity_numeric":1,"severity":"INFO","goroutine":10233,"file":"util/log/event_log.go","line":32,"entry_counter":7,"redactable":1,"tags":{"n":"1","client":"‹127.0.0.1:60986›","hostssl":"","user":"root"},"event":{"Timestamp":1643210192152164938,"EventType":"client_session_end","InstanceID":1,"Network":"tcp","RemoteAddress":"‹127.0.0.1:60986›","Duration":627461243318}}
 {"tag":"cockroach.sessions","channel_numeric":4,"channel":"SESSIONS","timestamp":"1643210192.152309853","cluster_id":"025d51d8-d34b-41d9-bb52-cd6bc4be727a","node_id":1,"version":"v21.2.4","severity_numeric":1,"severity":"INFO","goroutine":10233,"file":"util/log/event_log.go","line":32,"entry_counter":8,"redactable":1,"tags":{"n":"1","client":"‹127.0.0.1:60986›","hostssl":""},"event":{"Timestamp":1643210192152307070,"EventType":"client_connection_end","InstanceID":1,"Network":"tcp","RemoteAddress":"‹127.0.0.1:60986›","Duration":627467394341}}
 ```
+
+## Clean up
+
+```bash
+roachprod destroy ${USER}-demo
+roachprod destroy ${USER}-jump
+```
