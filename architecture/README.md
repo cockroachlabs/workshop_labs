@@ -1,4 +1,4 @@
-# Architecture workshop - Answers
+# Architecture workshop
 
 The following labs will take you through various query tuning scenarios and allow you to discover various ways to observe, diagnose, and optimize query performance with CockroachDB.
 
@@ -124,7 +124,7 @@ CockroachDB splits and merges ranges depending on range size, load, etc.
 In this lab we'll manually split a range to simulate an event.
 ```sql
 SELECT * FROM inventory LIMIT 1 OFFSET 500000;
-ALTER TABLE inventory SPLIT AT VALUES SELECT id FROM inventory LIMIT 1 OFFSET 500000;
+ALTER TABLE inventory SPLIT AT SELECT id FROM inventory LIMIT 1 OFFSET 500000;
 ```
 
 ```text
