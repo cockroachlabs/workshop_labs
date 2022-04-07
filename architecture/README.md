@@ -70,7 +70,7 @@ CREATE TABLE inventory (
   quantity INT8
 );
 INSERT INTO inventory (product_name, quantity)
-SELECT concat('product', generate_series(1, 1000000)::String), 10000.0*random()::INT8;
+SELECT concat('product', generate_series(1, 1000000)::String), (10000.0*random())::INT8;
 ```
 
 ```text
