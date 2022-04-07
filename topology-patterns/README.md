@@ -27,7 +27,7 @@ There are 6 recommended topology patterns:
 SSH into any of the 3 jumpboxes using the IP addresses and SSH key provided by the instructor, for example:
 
 ```bash
-ssh -i ~/workshop.pem ubuntu@144.144.188.188
+ssh -i ~/workshop.pem ubuntu@<ip-address>
 ```
 
 Once logged in the jumpbox, connect to the database

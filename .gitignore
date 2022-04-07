@@ -1,3 +1,4 @@
 **/.DS_Store
 infrastructure/single-region-dockercompose-cluster/docker-up.sh
 infrastructure/single-region-dockercompose-cluster/docker-down.sh
+.*
