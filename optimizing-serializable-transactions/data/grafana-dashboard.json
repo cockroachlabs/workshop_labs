@@ -1,0 +1,219 @@
+{
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "target": {
+            "limit": 100,
+            "matchAny": false,
+            "tags": [],
+            "type": "dashboard"
+          },
+          "type": "dashboard"
+        }
+      ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 1,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+      {
+        "description": "",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisGridShow": true,
+              "axisLabel": "latency",
+              "axisPlacement": "right",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 15,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "id": 2,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "right"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_select_follower_read_sum / latency_select_follower_read_count * 1000",
+            "instant": false,
+            "interval": "",
+            "legendFormat": "select_follower_read",
+            "refId": "select_follower_read"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_select_high_sum / latency_select_high_count * 1000",
+            "hide": false,
+            "instant": false,
+            "interval": "",
+            "legendFormat": "select_high",
+            "refId": "select_high"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_select_low_sum / latency_update_low_count * 1000",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "select_low",
+            "refId": "select_low"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_select_normal_sum / latency_update_normal_count * 1000",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "select_normal",
+            "refId": "select_normal"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_update_low_sum / latency_update_low_count * 1000",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "update_low",
+            "refId": "update_low"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_update_high_sum / latency_update_high_count * 1000",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "update_high",
+            "refId": "update_high"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_bulk_updates_sum / latency_bulk_updates_count * 1000",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "bulk_updates",
+            "refId": "bulk_updates"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "fozEXGU7z"
+            },
+            "exemplar": true,
+            "expr": "latency_update_sfu_sum / latency_update_sfu_count * 1000",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "update_sfu",
+            "refId": "update_sfu"
+          }
+        ],
+        "title": "Demo 1",
+        "type": "timeseries"
+      }
+    ],
+    "refresh": "",
+    "schemaVersion": 35,
+    "style": "dark",
+    "tags": [],
+    "templating": {
+      "list": []
+    },
+    "time": {
+      "from": "now-5m",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "Demo",
+    "uid": "6XJPjG87k",
+    "version": 9,
+    "weekStart": ""
+  }

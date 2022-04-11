@@ -76,12 +76,12 @@ Create the CockroachDB cluster. You can use [roachprod](https://github.com/cockr
 ```bash
 # default machine type is n1-standard-4 (4 vCPUs / 16GB MEM)
 roachprod create ${USER}-labs -c gce -n 12 --gce-zones us-east1-b,us-east1-c,us-west1-b,us-west1-a
-roachprod stage ${USER}-labs release v21.1.12
+roachprod stage ${USER}-labs release latest
 roachprod start ${USER}-labs
-roachprod run ${USER}-labs:1 -- "./cockroach sql --insecure -e \"SET CLUSTER SETTING cluster.organization ='Workshop';\""
-roachprod run ${USER}-labs:1 -- "./cockroach sql --insecure -e \"SET CLUSTER SETTING enterprise.license ='${CRDB_LIC}';\""
+roachprod sql ${USER}-labs:1 -- -e "SET CLUSTER SETTING cluster.organization = 'Workshop';"
+roachprod sql ${USER}-labs:1 -- -e "SET CLUSTER SETTING enterprise.license = '$(lic)';"
 
-roachprod adminurl --open ${USER}-labs:1
+roachprod adminurl ${USER}-labs:1
 ```
 
 Open Admin UI and confirm nodes are grouped into 4 zones, and zones are grouped into 2 regions.
