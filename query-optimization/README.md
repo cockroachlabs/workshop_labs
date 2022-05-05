@@ -14,7 +14,7 @@ The following labs will take you through various query tuning scenarios and allo
 SSH into the jumpbox using the IP address and SSH key provided by the instructor, for example:
 
 ```bash
-ssh -i ~/workshop.pem ubuntu@144.144.188.188
+ssh -i ~/workshop.pem ubuntu@<jumpbox-ip>
 ```
 
 Once logged in the jumpbox, connect to the database
