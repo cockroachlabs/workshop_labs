@@ -174,7 +174,7 @@ Let's create a Jumpbox server from which to run the workload to simulate the App
 # simple ubuntu box on a starndard 4cpu/16 mem VM
 roachprod create ${USER}-jump -c gce -n 1
 # install cockroachdb just to have the sql client
-roachprod stage ${USER}-jump release latest
+roachprod stage ${USER}-jump release v21.1.8
 # install workload
 roachprod stage ${USER}-jump workload
 # get the internal IP of one of the cluster nodes

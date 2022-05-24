@@ -10,42 +10,63 @@ You can read this excellent [blog post](https://www.cockroachlabs.com/blog/distr
 
 ## Labs Prerequisites
 
-1. Build the 3 regions dev cluster following [these instructions](https://dev.to/cockroachlabs/simulating-a-multi-region-cockroachdb-cluster-on-localhost-with-docker-59f6).
+1. AWS EC2 access
 
-2. You also need:
+2. AWS S3 access
 
+3. You also need:
     - a modern web browser,
-    - a SQL client:
-      - [Cockroach SQL client](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-linux)
-      - `psql`
-      - [DBeaver Community edition](https://dbeaver.io/download/) (SQL tool with built-in CockroachDB plugin)
+    - a Terminal (Linux/Mac) or PowerShell (Windows)
 
-## Lab 0 - Create S3 Compatible service and sample database
+## Lab 0 - Setup
 
-We will use a S3 compatible service to store our backup files. For this workshop, we will use [MinIO](https://min.io/).
+Open the AWS Console and create 3 buckets, one for each region used in the CockroachDB cluster.
+In this demo, we use the following buckets:
 
-MinIO is a S3 compatible object storage service and it is very popular among private cloud deployments.
+- workshop-us-east-1
+- workshop-us-east-2
+- workshop-us-west-1
 
-Start MinIO, then head to the MinIO UI at <http://localhost:9000>. The default Access Key and Secret Key is `minioadmin`.
+![s3-buckets](media/s3-buckets.png)
 
-```bash
-# start container minio
-docker run --name minio --rm -d \
-  -p 9000:9000 \
-  -v minio-data:/data \
-  minio/minio server /data
+Now, create the CockroachDB cluster across 3 regions; 1 node per region is sufficient, and make sure the `locality` is setup correctly.
 
-# attach networks
-docker network connect us-east-1-net minio
-docker network connect us-west-2-net minio
-docker network connect eu-west-1-net minio
+Also, make sure the EC2 instances are created with an instance role that has the following policy attached.
+
+```text
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::workshop-us-east-1/*",
+                "arn:aws:s3:::workshop-us-east-1",
+                "arn:aws:s3:::workshop-us-east-2/*",
+                "arn:aws:s3:::workshop-us-east-2",
+                "arn:aws:s3:::workshop-us-west-1/*",
+                "arn:aws:s3:::workshop-us-west-1"
+            ]
+        }
+    ]
+}
 ```
 
-Now that the infrastructure is in place, let's create a database and load some data. While it works, you can read about the `workload` function and the `movr` database in [here](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
+This policy allows the ec2 instances to communicate with S3 without exposing the access keys.
+
+Here for example the locality of the demo cluster:
+
+![localities](media/localities.png)
+
+Once the cluster is deployed, SSH into any of the CockroachDB nodes and create the dataset
 
 ```bash
-cockroach workload init movr
+cockroach workload init tpcc
 ```
+
+This will take a few minutes to load. While it works, you can read about the `workload` function and the `tpcc` database in [here](https://www.cockroachlabs.com/docs/stable/cockroach-workload.html).
 
 Once done, connect to the database
 
@@ -56,39 +77,52 @@ cockroach sql --insecure
 Check the data was created correctly
 
 ```sql
-SELECT * FROM movr.rides LIMIT 5;
+SHOW DATABASES;
 ```
 
 ```text
-                   id                  |   city    | vehicle_city |               rider_id               |              vehicle_id              |         start_address          |           end_address           |        start_time         |         end_time          | revenue
----------------------------------------+-----------+--------------+--------------------------------------+--------------------------------------+--------------------------------+---------------------------------+---------------------------+---------------------------+----------
-  ab020c49-ba5e-4800-8000-00000000014e | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 1905 Christopher Locks Apt. 77 | 66037 Belinda Plaza Apt. 93     | 2018-12-13 03:04:05+00:00 | 2018-12-14 08:04:05+00:00 |   77.00
-  ab851eb8-51eb-4800-8000-00000000014f | amsterdam | amsterdam    | b851eb85-1eb8-4000-8000-000000000024 | aaaaaaaa-aaaa-4800-8000-00000000000a | 70458 Mary Crest               | 33862 Charles Junctions Apt. 49 | 2018-12-26 03:04:05+00:00 | 2018-12-28 10:04:05+00:00 |   81.00
-  ac083126-e978-4800-8000-000000000150 | amsterdam | amsterdam    | c28f5c28-f5c2-4000-8000-000000000026 | aaaaaaaa-aaaa-4800-8000-00000000000a | 50217 Victoria Fields Apt. 44  | 56217 Wilson Spring             | 2018-12-07 03:04:05+00:00 | 2018-12-07 10:04:05+00:00 |    9.00
-  ac8b4395-8106-4800-8000-000000000151 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | bbbbbbbb-bbbb-4800-8000-00000000000b | 34704 Stewart Ports Suite 56   | 53889 Frank Lake Apt. 49        | 2018-12-22 03:04:05+00:00 | 2018-12-22 16:04:05+00:00 |   27.00
-  ad0e5604-1893-4800-8000-000000000152 | amsterdam | amsterdam    | ae147ae1-47ae-4800-8000-000000000022 | aaaaaaaa-aaaa-4800-8000-00000000000a | 10806 Kevin Spur               | 15744 Valerie Squares           | 2018-12-08 03:04:
+  database_name | owner | primary_region | regions | survival_goal
+----------------+-------+----------------+---------+----------------
+  defaultdb     | root  | NULL           | {}      | NULL
+  postgres      | root  | NULL           | {}      | NULL
+  system        | node  | NULL           | {}      | NULL
+  tpcc          | root  | NULL           | {}      | NULL
+(4 rows)
+
+
+Time: 14ms total (execution 14ms / network 0ms)
 ```
 
-You can also check the **Databases** page in the AdminUI at <http://localhost:8080> for an overview of your databases and their size.
+You can also check the **Databases** page in the DB Console at <http://<any-node-ip>:8080> for an overview of your databases and their size.
 
-![adminui-databases](media/adminui-databases.png)
+![databases](media/databases.png)
 
 Good job, we are now ready to perform our first backup job.
 
 ## Lab 1 - Full Cluster Backup
 
-In Minio UI, create a bucket called `backup`.
+In the `workshop-us-east-1` bucket, we create a bucket called `demo`.
 
-Connect to the SQL client, then backup the entire cluster to MinIO.
+Connect to the SQL client, then backup the entire cluster to S3.
 
 ```sql
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
+BACKUP INTO 's3://workshop-us-east-1/demo?AUTH=implicit'
   AS OF SYSTEM TIME '-10s';
 ```
 
-Check the Job progress in the Admin UI
+```text
+        job_id       |  status   | fraction_completed |   rows   | index_entries |   bytes
+---------------------+-----------+--------------------+----------+---------------+-------------
+  764594124031229953 | succeeded |                  1 | 50007602 |       6000107 | 7238990915
+(1 row)
 
-![adminui-jobs](media/adminui-jobs.png)
+
+Time: 29.051s total (execution 29.050s / network 0.000s)
+```
+
+Check the Job progress in the DB Console
+
+![full-cluster-backup](media/full-cluster-backup.png)
 
 Alternatively, you can also list the JOBS using SQL
 
@@ -108,56 +142,72 @@ FROM [SHOW JOBS]
 WHERE job_type != 'SCHEMA CHANGE GC';
 
 -- query last 5 jobs
-SELECT * FROM jobsview ORDER BY created DESC LIMIT 5;
+SELECT * FROM jobsview ORDER BY created DESC LIMIT 1;
 ```
 
 ```text
-        job_id       |   job_type    |                      short_description                      |  status   |             created              |    duration     | pct_done | error
----------------------+---------------+-------------------------------------------------------------+-----------+----------------------------------+-----------------+----------+--------
-  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=minioadmin | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
-  597905751889248257 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:18.564897 |        1 |
-  597905748751515649 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:03.050331 |        1 |
-  597905649737793537 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:03.039549 |        1 |
-  597905652866678785 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:18.768623 |        1 |
+        job_id       | job_type |                      short_description                      |  status   |          created           |    duration     | pct_done | error
+---------------------+----------+-------------------------------------------------------------+-----------+----------------------------+-----------------+----------+--------
+  764594124031229953 | BACKUP   | BACKUP INTO '/2022/05/24-152639.13' IN 's3://workshop-us-ea | succeeded | 2022-05-24 15:26:49.136449 | 00:00:28.977442 |        1 |
+(1 row)
 ```
 
 Verify what was backed up remotely
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
+SHOW BACKUPS IN 's3://workshop-us-east-1/demo?AUTH=implicit';
 ```
 
 ```text
-  database_name | parent_schema_name |        object_name         | object_type | start_time |             end_time             | size_bytes | rows | is_full_cluster
-----------------+--------------------+----------------------------+-------------+------------+----------------------------------+------------+------+------------------
-  NULL          | NULL               | system                     | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |         99 |    2 |      true
-  system        | public             | zones                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        201 |    7 |      true
-  system        | public             | settings                   | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        371 |    5 |      true
-  system        | public             | ui                         | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        155 |    1 |      true
-  system        | public             | jobs                       | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |      14002 |   18 |      true
-  system        | public             | locations                  | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |        360 |    7 |      true
-  system        | public             | role_members               | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |         94 |    1 |      true
-  system        | public             | comments                   | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  NULL          | NULL               | defaultdb                  | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | movr                       | database    | NULL       | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |       4911 |   50 |      true
-  movr          | public             | vehicles                   | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |       3182 |   15 |      true
-  movr          | public             | rides                      | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |     156387 |  500 |      true
-  movr          | public             | vehicle_location_histories | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |      73918 | 1000 |      true
-  movr          | public             | promo_codes                | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |     219973 | 1000 |      true
-  movr          | public             | user_promo_codes           | table       | NULL       | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-(20 rows)
+          path
+-------------------------
+  /2022/05/24-152639.13
+(1 row)
 ```
 
-Very good! The output shows both the `system` and `movr` databases backups are safely stored in S3!
+```sql
+SHOW BACKUP '/2022/05/24-152639.13' IN 's3://workshop-us-east-1/demo?AUTH=implicit';
+```
 
-Check how the backup files are actually stored in the MinIO server.
+```text
+  database_name | parent_schema_name |      object_name       | object_type | backup_type | start_time |          end_time          | size_bytes |   rows   | is_full_cluster
+----------------+--------------------+------------------------+-------------+-------------+------------+----------------------------+------------+----------+------------------
+  NULL          | NULL               | system                 | database    | full        | NULL       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |         99 |        2 |      true
+  system        | public             | zones                  | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |        236 |        8 |      true
+  system        | public             | settings               | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |        311 |        5 |      true
+  system        | public             | ui                     | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |        155 |        1 |      true
+  system        | public             | jobs                   | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |      45667 |       45 |      true
+  system        | public             | locations              | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |       3452 |       64 |      true
+  system        | public             | role_members           | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |         94 |        1 |      true
+  system        | public             | comments               | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | role_options           | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |        251 |        1 |      true
+  system        | public             | database_role_settings | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | full        | NULL       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | full        | NULL       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  NULL          | NULL               | tpcc                   | database    | full        | NULL       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |       5260 |      100 |      true
+  tpcc          | public             | district               | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |     101389 |     1000 |      true
+  tpcc          | public             | customer               | table       | full        | NULL       | 2022-05-24 15:26:39.136487 | 1841491350 |  3000093 |      true
+  tpcc          | public             | history                | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |  226045989 |  3000013 |      true
+  tpcc          | public             | order                  | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |  163465000 |  3000005 |      true
+  tpcc          | public             | new_order              | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |   12600000 |   900000 |      true
+  tpcc          | public             | item                   | table       | full        | NULL       | 2022-05-24 15:26:39.136487 |    8253886 |   100000 |      true
+  tpcc          | public             | stock                  | table       | full        | NULL       | 2022-05-24 15:26:39.136487 | 3217442720 | 10000183 |      true
+  tpcc          | public             | order_line             | table       | full        | NULL       | 2022-05-24 15:26:39.136487 | 1769535056 | 30006081 |      true
+(28 rows)
+```
 
-![minio](media/minio.png)
+Very good! The output shows both the `system` and `tpcc` databases backups are safely stored in S3!
+
+Check how the backup files are actually stored in AWS S3 server.
+
+![s3-full-cluster-backup](media/s3-full-cluster-backup.png)
 
 These are the files for our **Full Cluster** backup. In the next lab we will run an **incremental** backup and see how the files will be nicely organized.
 
@@ -190,241 +240,308 @@ SELECT * FROM bank.bank LIMIT 5;
 ```
 
 With the new data added, let's take another backup.
-As in the specified location `s3://backup/2020-01` there is already a Full Backup, Cockroach will create a separate directory and put the incremental backup files in there.
+As in the specified location there is already a Full Backup, Cockroach will create a separate directory and put the incremental backup files in there.
 
 ```sql
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
+BACKUP INTO LATEST IN 's3://workshop-us-east-1/demo?AUTH=implicit'
   AS OF SYSTEM TIME '-10s';
 ```
 
 Check the JOBS table to confirm the backup is complete
 
 ```sql
-SELECT * FROM jobsview ORDER BY created DESC LIMIT 5;
+SELECT * FROM jobsview ORDER BY created DESC LIMIT 2;
 ```
 
 ```text
-        job_id       |   job_type    |                      short_description                      |  status   |             created              |    duration     | pct_done | error
----------------------+---------------+-------------------------------------------------------------+-----------+----------------------------------+-----------------+----------+--------
-  597908447545393153 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=minioadmin | succeeded | 2020-10-12 21:19:37.595622+00:00 | 00:00:31.972327 |        1 |
-  597906048349470721 | BACKUP        | BACKUP TO 's3://backup/2020-01?AWS_ACCESS_KEY_ID=minioadmin | succeeded | 2020-10-12 21:07:25.419137+00:00 | 00:00:31.57873  |        1 |
-  597905751889248257 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:18.564897 |        1 |
-  597905748751515649 | SCHEMA CHANGE | ALTER TABLE movr.public.user_promo_codes ADD FOREIGN KEY (c | succeeded | 2020-10-12 21:05:53.16299+00:00  | 00:00:03.050331 |        1 |
-  597905652866678785 | SCHEMA CHANGE | ALTER TABLE movr.public.vehicle_location_histories ADD FORE | succeeded | 2020-10-12 21:05:22.95018+00:00  | 00:00:18.768623 |        1 |
-````
+        job_id       | job_type |                      short_description                      |  status   |          created           |    duration     | pct_done | error
+---------------------+----------+-------------------------------------------------------------+-----------+----------------------------+-----------------+----------+--------
+  764596186123829249 | BACKUP   | BACKUP INTO '/2022/05/24-152639.13' IN 's3://workshop-us-ea | succeeded | 2022-05-24 15:37:18.437207 | 00:00:01.834882 |        1 |
+  764594124031229953 | BACKUP   | BACKUP INTO '/2022/05/24-152639.13' IN 's3://workshop-us-ea | succeeded | 2022-05-24 15:26:49.136449 | 00:00:28.977442 |        1 |
+(2 rows)
 
-Check in MinIO how the files are organized. You can see that there is a new folder `20201012` (today's date).
+
+Time: 4ms total (execution 4ms / network 0ms)````
+
+Check in S3 how the files are organized. You can see that there is a new directory `incremental`.
+
+![s3-incremental](media/s3-incremental.png)
 
 Now let's see the available backups at the new location
 
 ```sql
-SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
+SHOW BACKUPS IN 's3://workshop-us-east-1/demo?AUTH=implicit';
+```
+
+Still only 1 path
+
+```text
+          path
+-------------------------
+  /2022/05/24-152639.13
+(1 row)
+```
+
+Let's however pull again the details of that specific backup path
+
+```sql
+SHOW BACKUP '/2022/05/24-152639.13' IN 's3://workshop-us-east-1/demo?AUTH=implicit'; 
 ```
 
 ```text
-  database_name | parent_schema_name |        object_name         | object_type |            start_time            |             end_time             | size_bytes | rows | is_full_cluster
-----------------+--------------------+----------------------------+-------------+----------------------------------+----------------------------------+------------+------+------------------
-  NULL          | NULL               | system                     | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         99 |    2 |      true
-  system        | public             | zones                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        201 |    7 |      true
-  system        | public             | settings                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        371 |    5 |      true
-  system        | public             | ui                         | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        155 |    1 |      true
-  system        | public             | jobs                       | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      14002 |   18 |      true
-  system        | public             | locations                  | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        360 |    7 |      true
-  system        | public             | role_members               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         94 |    1 |      true
-  system        | public             | comments                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  NULL          | NULL               | defaultdb                  | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | movr                       | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       4911 |   50 |      true
-  movr          | public             | vehicles                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       3182 |   15 |      true
-  movr          | public             | rides                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     156387 |  500 |      true
-  movr          | public             | vehicle_location_histories | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      73918 | 1000 |      true
-  movr          | public             | promo_codes                | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     219973 | 1000 |      true
-  movr          | public             | user_promo_codes           | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  NULL          | NULL               | system                     | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | zones                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | settings                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | ui                         | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | jobs                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |      18801 |    7 |      true
-  system        | public             | locations                  | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | role_members               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | comments                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  NULL          | NULL               | defaultdb                  | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | movr                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | vehicles                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | rides                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | vehicle_location_histories | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | promo_codes                | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | user_promo_codes           | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  defaultdb     | public             | jobsview                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  NULL          | NULL               | bank                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  bank          | public             | bank                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |     114634 | 1000 |      true
-(43 rows)
+  database_name | parent_schema_name |      object_name       | object_type | backup_type |         start_time         |          end_time          | size_bytes |   rows   | is_full_cluster
+----------------+--------------------+------------------------+-------------+-------------+----------------------------+----------------------------+------------+----------+------------------
+  NULL          | NULL               | system                 | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |         99 |        2 |      true
+  system        | public             | zones                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        236 |        8 |      true
+  system        | public             | settings               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        311 |        5 |      true
+  system        | public             | ui                     | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        155 |        1 |      true
+  system        | public             | jobs                   | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |      45667 |       45 |      true
+  system        | public             | locations              | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |       3452 |       64 |      true
+  system        | public             | role_members           | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |         94 |        1 |      true
+  system        | public             | comments               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | role_options           | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        251 |        1 |      true
+  system        | public             | database_role_settings | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  NULL          | NULL               | tpcc                   | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |       5260 |      100 |      true
+  tpcc          | public             | district               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |     101389 |     1000 |      true
+  tpcc          | public             | customer               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 | 1841491350 |  3000093 |      true
+  tpcc          | public             | history                | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |  226045989 |  3000013 |      true
+  tpcc          | public             | order                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |  163465000 |  3000005 |      true
+  tpcc          | public             | new_order              | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |   12600000 |   900000 |      true
+  tpcc          | public             | item                   | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |    8253886 |   100000 |      true
+  tpcc          | public             | stock                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 | 3217442720 | 10000183 |      true
+  tpcc          | public             | order_line             | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 | 1769535056 | 30006081 |      true
+  NULL          | NULL               | system                 | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | zones                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | settings               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | ui                     | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | jobs                   | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       1923 |        3 |      true
+  system        | public             | locations              | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | role_members           | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | comments               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | role_options           | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | database_role_settings | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  NULL          | NULL               | tpcc                   | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | district               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | customer               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | history                | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | order                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | new_order              | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | item                   | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | stock                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | order_line             | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  defaultdb     | public             | jobsview               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  NULL          | NULL               | bank                   | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  bank          | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  bank          | public             | bank                   | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |     115634 |     1000 |      true
+(60 rows)
 ```
 
-Very good! We have not updated the `movr` database, so `size_bytes` shows zeros, but we can see that a row for `bank` has been added. Also, we can see that the start and end time define when the incremental backups have been taken.
+Very good! We have not updated the `tpcc` database, so `size_bytes` shows zeros, but we can see that 2 rows for `bank` have been added.
+Also, we can see that the start and end time define when the incremental backups have been taken.
 
 Another "day" has passed. Let's take another incremental backup
 
 ```sql
 -- ??? Who did this, what's going on?!?
-UPDATE movr.users SET NAME = 'malicious user'
-WHERE id IN ('ae147ae1-47ae-4800-8000-000000000022',
-            'b3333333-3333-4000-8000-000000000023',
-            'b851eb85-1eb8-4000-8000-000000000024');
+UPDATE tpcc.customer 
+  SET c_credit_lim = 1000000
+  WHERE c_id = 1;
 
--- wait 10 seconds else the above changes won't be captured!
-BACKUP TO 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
+
+BACKUP INTO LATEST IN 's3://workshop-us-east-1/demo?AUTH=implicit'
   AS OF SYSTEM TIME '-10s';
 ```
 
-Check MinIO: another folder has been added for the new timestamp.
-
-Confirm the backup looks good
-
-```sql
-SHOW BACKUP 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
-```
+Then view the backups
 
 ```text
-  database_name | parent_schema_name |        object_name         | object_type |            start_time            |             end_time             | size_bytes | rows | is_full_cluster
-----------------+--------------------+----------------------------+-------------+----------------------------------+----------------------------------+------------+------+------------------
-  NULL          | NULL               | system                     | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         99 |    2 |      true
-  system        | public             | zones                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        201 |    7 |      true
-  system        | public             | settings                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        371 |    5 |      true
-  system        | public             | ui                         | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        155 |    1 |      true
-  system        | public             | jobs                       | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      14002 |   18 |      true
-  system        | public             | locations                  | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |        360 |    7 |      true
-  system        | public             | role_members               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |         94 |    1 |      true
-  system        | public             | comments                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  NULL          | NULL               | defaultdb                  | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | movr                       | database    | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       4911 |   50 |      true
-  movr          | public             | vehicles                   | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |       3182 |   15 |      true
-  movr          | public             | rides                      | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     156387 |  500 |      true
-  movr          | public             | vehicle_location_histories | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |      73918 | 1000 |      true
-  movr          | public             | promo_codes                | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |     219973 | 1000 |      true
-  movr          | public             | user_promo_codes           | table       | NULL                             | 2020-10-12 21:07:14.570127+00:00 |          0 |    0 |      true
-  NULL          | NULL               | system                     | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | zones                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | settings                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | ui                         | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | jobs                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |      18801 |    7 |      true
-  system        | public             | locations                  | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | role_members               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | comments                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  NULL          | NULL               | defaultdb                  | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | movr                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | vehicles                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | rides                      | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | vehicle_location_histories | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | promo_codes                | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  movr          | public             | user_promo_codes           | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  defaultdb     | public             | jobsview                   | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |          0 |    0 |      true
-  NULL          | NULL               | bank                       | database    | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |       NULL | NULL |      true
-  bank          | public             | bank                       | table       | 2020-10-12 21:07:14.570127+00:00 | 2020-10-12 21:19:27.053348+00:00 |     114634 | 1000 |      true
-  NULL          | NULL               | system                     | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | zones                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | settings                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | ui                         | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | jobs                       | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |      13702 |    2 |      true
-  system        | public             | locations                  | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | role_members               | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | comments                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  NULL          | NULL               | defaultdb                  | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | movr                       | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |        309 |    3 |      true
-  movr          | public             | vehicles                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  movr          | public             | rides                      | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  movr          | public             | vehicle_location_histories | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  movr          | public             | promo_codes                | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  movr          | public             | user_promo_codes           | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  defaultdb     | public             | jobsview                   | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-  NULL          | NULL               | bank                       | database    | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |       NULL | NULL |      true
-  bank          | public             | bank                       | table       | 2020-10-12 21:19:27.053348+00:00 | 2020-10-12 21:28:24.809179+00:00 |          0 |    0 |      true
-(66 rows)
+  database_name | parent_schema_name |      object_name       | object_type | backup_type |         start_time         |          end_time          | size_bytes |   rows   | is_full_cluster
+----------------+--------------------+------------------------+-------------+-------------+----------------------------+----------------------------+------------+----------+------------------
+  NULL          | NULL               | system                 | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |         99 |        2 |      true
+  system        | public             | zones                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        236 |        8 |      true
+  system        | public             | settings               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        311 |        5 |      true
+  system        | public             | ui                     | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        155 |        1 |      true
+  system        | public             | jobs                   | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |      45667 |       45 |      true
+  system        | public             | locations              | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |       3452 |       64 |      true
+  system        | public             | role_members           | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |         94 |        1 |      true
+  system        | public             | comments               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | role_options           | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |        251 |        1 |      true
+  system        | public             | database_role_settings | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  NULL          | NULL               | tpcc                   | database    | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | full        | NULL                       | 2022-05-24 15:26:39.136487 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |       5260 |      100 |      true
+  tpcc          | public             | district               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |     101389 |     1000 |      true
+  tpcc          | public             | customer               | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 | 1841491350 |  3000093 |      true
+  tpcc          | public             | history                | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |  226045989 |  3000013 |      true
+  tpcc          | public             | order                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |  163465000 |  3000005 |      true
+  tpcc          | public             | new_order              | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |   12600000 |   900000 |      true
+  tpcc          | public             | item                   | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 |    8253886 |   100000 |      true
+  tpcc          | public             | stock                  | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 | 3217442720 | 10000183 |      true
+  tpcc          | public             | order_line             | table       | full        | NULL                       | 2022-05-24 15:26:39.136487 | 1769535056 | 30006081 |      true
+  NULL          | NULL               | system                 | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | zones                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | settings               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | ui                     | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | jobs                   | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       1923 |        3 |      true
+  system        | public             | locations              | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | role_members           | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | comments               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | role_options           | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | database_role_settings | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  NULL          | NULL               | tpcc                   | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | district               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | customer               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | history                | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | order                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | new_order              | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | item                   | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | stock                  | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  tpcc          | public             | order_line             | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  defaultdb     | public             | jobsview               | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |          0 |        0 |      true
+  NULL          | NULL               | bank                   | database    | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  bank          | NULL               | public                 | schema      | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |       NULL |     NULL |      true
+  bank          | public             | bank                   | table       | incremental | 2022-05-24 15:26:39.136487 | 2022-05-24 15:37:08.437249 |     115634 |     1000 |      true
+  NULL          | NULL               | system                 | database    | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | zones                  | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | settings               | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | ui                     | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | jobs                   | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |        809 |        2 |      true
+  system        | public             | locations              | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | role_members           | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | comments               | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | role_options           | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | database_role_settings | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  NULL          | NULL               | tpcc                   | database    | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  tpcc          | public             | district               | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  tpcc          | public             | customer               | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |     564812 |     1000 |      true
+  tpcc          | public             | history                | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  tpcc          | public             | order                  | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  tpcc          | public             | new_order              | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  tpcc          | public             | item                   | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  tpcc          | public             | stock                  | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  tpcc          | public             | order_line             | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  defaultdb     | public             | jobsview               | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+  NULL          | NULL               | bank                   | database    | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  bank          | NULL               | public                 | schema      | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |       NULL |     NULL |      true
+  bank          | public             | bank                   | table       | incremental | 2022-05-24 15:37:08.437249 | 2022-05-24 15:45:22.847397 |          0 |        0 |      true
+(92 rows)
 ```
 
 The backup process looks good, but you got hacked! A malicious user has corrupted some of your data!!
 
 ```sql
-SELECT * FROM movr.users WHERE name = 'malicious user';
+SELECT c_credit_lim FROM tpcc.customer WHERE c_id = 1 LIMIT 10;
 ```
 
 ```text
-                   id                  |   city    |      name      |            address            | credit_card
----------------------------------------+-----------+----------------+-------------------------------+--------------
-  ae147ae1-47ae-4800-8000-000000000022 | amsterdam | malicious user | 88194 Angela Gardens Suite 94 | 4443538758
-  b3333333-3333-4000-8000-000000000023 | amsterdam | malicious user | 29590 Butler Plain Apt. 25    | 3750897994
-  b851eb85-1eb8-4000-8000-000000000024 | amsterdam | malicious user | 32768 Eric Divide Suite 88    | 8107478823
-(3 rows)
+ c_credit_lim
+----------------
+    1000000.00
+    1000000.00
+    1000000.00
+    1000000.00
+    1000000.00
+    1000000.00
+    1000000.00
+    1000000.00
+    1000000.00
+    1000000.00
+(10 rows)
 ```
+
+Now what?
 
 ## Lab 3 - Restore a database
 
-After careful consideration, you decide that it's best to drop the database and restore from the last valid backup - the 2nd incremental backup - with `enddate` = `2020-10-12 21:19:27.053348+00:00`.
+After careful consideration, you decide that it's best to drop the database and restore from the last valid backup - the 2nd incremental backup - with `enddate` = `2022-05-24 15:37:08.437249`.
 
 ```sql
 -- this can take 2-3 minutes
-DROP DATABASE movr CASCADE;
+DROP DATABASE tpcc CASCADE;
 
 -- check note below re timestamp precision - notice I added a trailing 5 to the microseconds...
-RESTORE DATABASE movr
-FROM 's3://backup/2020-01?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
-  AS OF SYSTEM TIME '2020-10-12 21:19:27.0533485+00:00';
+RESTORE DATABASE tpcc
+FROM LATEST IN 's3://workshop-us-east-1/demo?AUTH=implicit'
+  AS OF SYSTEM TIME '2022-05-24 15:37:08.437249';
 ```
 
 ```text
-DROP DATABASE
-
-Time: 513.329ms
-
-        job_id       |  status   | fraction_completed | rows | index_entries | bytes
----------------------+-----------+--------------------+------+---------------+---------
-  596743986481856513 | succeeded |                  1 | 2565 |          1015 | 458371
+        job_id       |  status   | fraction_completed |   rows   | index_entries |   bytes
+---------------------+-----------+--------------------+----------+---------------+-------------
+  764599796801142785 | succeeded |                  1 | 50007085 |       6000000 | 7247941750
 (1 row)
 ```
 
 **Please note:** you might get an error like below when you try to restore
 
 ```text
-ERROR: invalid RESTORE timestamp: restoring to arbitrary time requires that BACKUP for requested time be created with 'revision_history' option. nearest BACKUP times are 2020-10-12 21:07:14.5701275 +0000 UTC or 2020-10-12 21:19:27.0533485 +0000 UTC
+ERROR: invalid RESTORE timestamp: restoring to arbitrary time requires that BACKUP for requested time be created with 'revision_history' option. nearest BACKUP times are 2022-05-24 15:26:39.136487236 +0000 UTC or 2022-05-24 15:37:08.437249624 +0000 UTC
 ```
 
-That's because the timestamp you entered is not exactly the `enddate` timestamp. Check the timestamp suggested in the error message. In this example, I have updated the enddate by adding a '5' to my microseconds.
+That's because the timestamp you entered is not exactly the `enddate` timestamp. Check the timestamp suggested in the error message. In this example, I have updated the enddate by adding a '624' to my microseconds.
 
 ```sql
 --- verify the malicious user is gone
-SELECT * FROM movr.users WHERE name = 'malicious user';
+SELECT c_credit_lim FROM tpcc.customer WHERE c_id = 1 LIMIT 10;
 ```
 
 ```text
-  id | city | name | address | credit_card
------+------+------+---------+--------------
-(0 rows)
-
-Time: 9.259ms
+  c_credit_lim
+----------------
+      50000.00
+      50000.00
+      50000.00
+      50000.00
+      50000.00
+      50000.00
+      50000.00
+      50000.00
+      50000.00
+      50000.00
+(10 rows)
 ```
 
 Good, you're back in business!
@@ -440,24 +557,25 @@ There are many ways in which you can manage your backups. Read the docs to find 
 
 You are happy with the way your backups are taken and you want to automate this process with the following schedule:
 
-- Weekly on Sunday: Full Cluster backup
-- Daily: incremental backup
+- daily at midnight: Full Cluster backup
+- hourly: incremental backup
 
-You can run this schedule from CockroachDB directly, without using tolls like `cron` or `anacron`. Run below statement
+You can run this schedule from CockroachDB directly, without using tools like `cron` or `anacron`. Run below statement
 
 ```sql
 CREATE SCHEDULE weekly
-  FOR BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'
-    RECURRING '@daily'
-    FULL BACKUP '@weekly'
+  FOR BACKUP INTO 's3://workshop-us-east-1/weekly?AUTH=implicit'
+    WITH revision_history
+    RECURRING '@hourly'
+    FULL BACKUP '@daily'
     WITH SCHEDULE OPTIONS first_run = 'now';
 ```
 
 ```text
-     schedule_id     | label  |                     status                     |            first_run             | schedule |                                                                    backup_stmt
----------------------+--------+------------------------------------------------+----------------------------------+----------+---------------------------------------------------------------------------------------------------------------------------------------------------------
-  598169895033896961 | weekly | PAUSED: Waiting for initial backup to complete | NULL                             | @daily   | BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin' WITH detached
-  598169897925541889 | weekly | ACTIVE                                         | 2020-10-13 19:29:10.756144+00:00 | @weekly  | BACKUP INTO 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin' WITH detached
+     schedule_id     | label  |                     status                     |           first_run           | schedule |                                        backup_stmt
+---------------------+--------+------------------------------------------------+-------------------------------+----------+---------------------------------------------------------------------------------------------
+  764635942894501889 | weekly | PAUSED: Waiting for initial backup to complete | NULL                          | @hourly  | BACKUP INTO 's3://workshop-us-east-1/weekly?AUTH=implicit' WITH revision_history, detached
+  764635943065354241 | weekly | ACTIVE                                         | 2022-05-24 18:59:31.113695+00 | @daily   | BACKUP INTO 's3://workshop-us-east-1/weekly?AUTH=implicit' WITH revision_history, detached
 (2 rows)
 ```
 
@@ -468,239 +586,155 @@ SHOW SCHEDULES;
 ```
 
 ```text
-          id         |         label          | schedule_status |         next_run          | state | recurrence | jobsrunning | owner |             created              |                                                                                            command
----------------------+------------------------+-----------------+---------------------------+-------+------------+-------------+-------+----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  598169895033896961 | weekly                 | ACTIVE          | 2020-10-14 00:00:00+00:00 |       | @daily     |           0 | root  | 2020-10-13 19:29:16.627381+00:00 | {"backup_statement": "BACKUP INTO LATEST IN 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fminio%3A9000&AWS_SECRET_ACCESS_KEY=redacted' WITH detached", "backup_type": 1}
-  598169897925541889 | weekly                 | ACTIVE          | 2020-10-18 00:00:00+00:00 |       | @weekly    |           0 | root  | 2020-10-13 19:29:20.901034+00:00 | {"backup_statement": "BACKUP INTO 's3://backup/weekly?AWS_ACCESS_KEY_ID=id&AWS_ENDPOINT=http%3A%2F%2Fminio%3A9000&AWS_SECRET_ACCESS_KEY=redacted' WITH detached"}
-(2 rows)
+          id         |        label         | schedule_status |        next_run        |   state   | recurrence | jobsrunning | owner |            created            |                                                                                            command
+---------------------+----------------------+-----------------+------------------------+-----------+------------+-------------+-------+-------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  764581162389667841 | sql-stats-compaction | ACTIVE          | 2022-05-24 20:00:00+00 | succeeded | @hourly    |           0 | node  | 2022-05-24 14:20:53.541426+00 | {}
+  764635942894501889 | weekly               | ACTIVE          | 2022-05-24 20:00:00+00 | NULL      | @hourly    |           0 | root  | 2022-05-24 18:59:31.113709+00 | {"backup_statement": "BACKUP INTO LATEST IN \'s3://workshop-us-east-1/weekly?AUTH=implicit\' WITH revision_history, detached", "backup_type": 1, "dependent_schedule_id": 764635943065354241}
+  764635943065354241 | weekly               | ACTIVE          | 2022-05-25 00:00:00+00 | NULL      | @daily     |           0 | root  | 2022-05-24 18:59:31.113709+00 | {"backup_statement": "BACKUP INTO \'s3://workshop-us-east-1/weekly?AUTH=implicit\' WITH revision_history, detached", "dependent_schedule_id": 764635942894501889}
+(3 rows)
 ```
 
-As we set the `first_run` to `now`, the first backup job was started, and most likely it just finished, confirm in the Admin UI > Jobs page. Being the first backup, this is necessarely a Full Backup regardless of the schedule.
+As we set the `first_run` to `now`, the first backup job was started, and most likely it just finished, confirm in the DB Console > Jobs page.
+Being the first backup, this is necessarely a Full Backup regardless of the schedule.
 
 Let's verify we can see the first backup
 
 ```sql
-SHOW BACKUP 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
-```
-
-```text
-ERROR: s3 object does not exist: NoSuchKey: The specified key does not exist.
-        status code: 404, request id: , host id:: external_storage: file doesn't exist
-```
-
-We got an error: this is because the scheduler creates a directory structure for the backups, and the structure is `your-location/yyyy/mm/dd-hhmmss.00`.
-
-Check this structure in MinioUI
-
-So what we can use instead is below statement which gives us a list of all backup paths for any given location.
-
-```sql
-SHOW BACKUPS IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
+SHOW BACKUPS IN 's3://workshop-us-east-1/weekly?AUTH=implicit';
 ```
 
 ```text
           path
-------------------------
-  2020/10/13-192910.75
+-------------------------
+  /2022/05/24-185931.11
+(1 row)
 ```
 
-Now we can use this information to view the backup
-
 ```sql
-SHOW BACKUP '2020/10/13-192910.75' IN 's3://backup/weekly?AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
+SHOW BACKUP '/2022/05/24-185931.11' IN 's3://workshop-us-east-1/weekly?AUTH=implicit';
 ```
 
 ```text
-  database_name | parent_schema_name |        object_name         | object_type | start_time |             end_time             | size_bytes | rows | is_full_cluster
-----------------+--------------------+----------------------------+-------------+------------+----------------------------------+------------+------+------------------
-  NULL          | NULL               | system                     | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
-  system        | public             | users                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |         99 |    2 |      true
-  system        | public             | zones                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        201 |    7 |      true
-  system        | public             | settings                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        374 |    5 |      true
-  system        | public             | ui                         | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        155 |    1 |      true
-  system        | public             | jobs                       | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |      94732 |   41 |      true
-  system        | public             | locations                  | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |        360 |    7 |      true
-  system        | public             | role_members               | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |         94 |    1 |      true
-  system        | public             | comments                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
-  system        | public             | role_options               | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
-  system        | public             | scheduled_jobs             | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |       1425 |    4 |      true
-  NULL          | NULL               | defaultdb                  | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
-  NULL          | NULL               | postgres                   | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
-  defaultdb     | public             | jobsview                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
-  NULL          | NULL               | bank                       | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
-  bank          | public             | bank                       | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |     114634 | 1000 |      true
-  NULL          | NULL               | movr                       | database    | NULL       | 2020-10-13 19:29:10.756144+00:00 |       NULL | NULL |      true
-  movr          | public             | users                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |       4911 |   50 |      true
-  movr          | public             | vehicles                   | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |       3182 |   15 |      true
-  movr          | public             | rides                      | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |     156387 |  500 |      true
-  movr          | public             | vehicle_location_histories | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |      73918 | 1000 |      true
-  movr          | public             | promo_codes                | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |     219973 | 1000 |      true
-  movr          | public             | user_promo_codes           | table       | NULL       | 2020-10-13 19:29:10.756144+00:00 |          0 |    0 |      true
-(23 rows)
+  database_name | parent_schema_name |      object_name       | object_type | backup_type | start_time |          end_time          | size_bytes |   rows   | is_full_cluster
+----------------+--------------------+------------------------+-------------+-------------+------------+----------------------------+------------+----------+------------------
+  NULL          | NULL               | system                 | database    | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |         99 |        2 |      true
+  system        | public             | zones                  | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |        236 |        8 |      true
+  system        | public             | settings               | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |        311 |        5 |      true
+  system        | public             | ui                     | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |        155 |        1 |      true
+  system        | public             | jobs                   | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |     310989 |       64 |      true
+  system        | public             | locations              | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |       3713 |       64 |      true
+  system        | public             | role_members           | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |         94 |        1 |      true
+  system        | public             | comments               | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |          0 |        0 |      true
+  system        | public             | role_options           | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |        813 |        1 |      true
+  system        | public             | database_role_settings | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  defaultdb     | public             | jobsview               | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |          0 |        0 |      true
+  NULL          | NULL               | bank                   | database    | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  bank          | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  bank          | public             | bank                   | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |     115634 |     1000 |      true
+  NULL          | NULL               | tpcc                   | database    | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 18:59:31.113695 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |       5360 |      100 |      true
+  tpcc          | public             | district               | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |     102389 |     1000 |      true
+  tpcc          | public             | customer               | table       | full        | NULL       | 2022-05-24 18:59:31.113695 | 1847491350 |  3000097 |      true
+  tpcc          | public             | history                | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |  229045989 |  3000013 |      true
+  tpcc          | public             | order                  | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |  163465000 |  3000005 |      true
+  tpcc          | public             | new_order              | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |   12600000 |   900000 |      true
+  tpcc          | public             | item                   | table       | full        | NULL       | 2022-05-24 18:59:31.113695 |    8253886 |   100000 |      true
+  tpcc          | public             | stock                  | table       | full        | NULL       | 2022-05-24 18:59:31.113695 | 3217442720 | 10000172 |      true
+  tpcc          | public             | order_line             | table       | full        | NULL       | 2022-05-24 18:59:31.113695 | 1769535056 | 30006081 |      true
+(32 rows)
 ```
 
-Perfect! Let it run for a few days, ideally until next week so you can see the scheduler run Sunday's full backup cluster job.
+Perfect! Let it run for a few days, ideally until tomorrow so you can see the scheduler run Sunday's full backup cluster job.
 
 You can learn more about [Backup Schedule](https://www.cockroachlabs.com/docs/v20.2/manage-a-backup-schedule.html) and the SQL command [CREATE SCHEDULE FOR BACKUP](https://www.cockroachlabs.com/docs/v20.2/create-schedule-for-backup) in our docs.
 
 ## Lab 5 - Locality-aware Backups
 
-You can create [locality-aware backups](https://www.cockroachlabs.com/docs/dev/take-and-restore-locality-aware-backups.html) such that each node writes files only to the backup destination that matches the node locality configured at node startup.
+You can create [locality-aware backups](https://www.cockroachlabs.com/docs/stable/take-and-restore-locality-aware-backups.html) such that each node writes files only to the backup destination that matches the node locality configured at node startup.
 
 This is useful for:
 
 - Reducing cloud storage data transfer costs by keeping data within cloud regions.
 - Helping you comply with data domiciling requirements, like GDPR.
 
-Setup `movr` so that European Union data is partitioned and stored in EU located nodes.
-
 ```sql
-USE movr;
-
--- partition tables into regions based on city
-ALTER TABLE rides PARTITION BY LIST (city) (
-  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
-);
-
-ALTER TABLE users PARTITION BY LIST (city) (
-  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
-);
-
-ALTER TABLE vehicle_location_histories PARTITION BY LIST (city) (
-  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
-);
-
-ALTER TABLE vehicles PARTITION BY LIST (city) (
-  PARTITION us_west_2 VALUES IN ('los angeles', 'seattle', 'san francisco'),
-  PARTITION us_east_1 VALUES IN ('new york','boston', 'washington dc'),
-  PARTITION eu_west_1 VALUES IN ('paris','rome','amsterdam')
-);
-
--- pin partition eu_west_1 to nodes located in region eu-west-1
-ALTER PARTITION eu_west_1 OF INDEX rides@*
-CONFIGURE ZONE USING
-  num_replicas = 3,
-  constraints = '{"+region=eu-west-1"}',
-  lease_preferences = '[[+region=eu-west-1]]';
-
-ALTER PARTITION eu_west_1 OF INDEX users@*
-CONFIGURE ZONE USING
-  num_replicas = 3,
-  constraints = '{"+region=eu-west-1"}',
-  lease_preferences = '[[+region=eu-west-1]]';
-
-ALTER PARTITION eu_west_1 OF INDEX vehicle_location_histories@*
-CONFIGURE ZONE USING
-  num_replicas = 3,
-  constraints = '{"+region=eu-west-1"}',
-  lease_preferences = '[[+region=eu-west-1]]';
-
-ALTER PARTITION eu_west_1 OF INDEX vehicles@*
-CONFIGURE ZONE USING
-  num_replicas = 3,
-  constraints = '{"+region=eu-west-1"}',
-  lease_preferences = '[[+region=eu-west-1]]';
-```
-
-Wait 5 minutes for range reshuffle to complete, then verify the ranges for the `eu_west_1` partitions are stored in the `eu-west-1` nodes.
-
-```sql
--- check ranges for table users - repeat if you want for all other tables
-SELECT SUBSTRING(start_key, 2, 15) AS start, SUBSTRING(end_key, 2, 15) AS end, lease_holder AS lh, lease_holder_locality, replicas, replica_localities
-FROM [SHOW RANGES FROM TABLE users]
-WHERE start_key IS NOT NULL AND start_key NOT LIKE '%Prefix%' AND substring(start_key, 3, 4) IN ('amst', 'pari', 'rome');
-```
-
-```text
-       start      |       end       | lh | lease_holder_locality  | replicas |                              replica_localities
-------------------+-----------------+----+------------------------+----------+-------------------------------------------------------------------------------
-  "amsterdam"     | "amsterdam"/"\x |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
-  "amsterdam"/"\x | "amsterdam"/Pre |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
-  "paris"         | "paris"/"\xcc\x |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
-  "paris"/"\xcc\x | "paris"/PrefixE |  7 | region=eu-west-1,zone=a | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
-  "rome"          | "rome"/PrefixEn |  8 | region=eu-west-1,zone=b | {7,8,9}  | {"region=eu-west-1,zone=a","region=eu-west-1,zone=b","region=eu-west-1,zone=c"}
-(5 rows)
-```
-
-Notice from column `replica_localities` how all replicas are `eu-west-1` based.
-
-Create a new MinIO server `minio-eu` that simulates your Object Storage based in the EU.
-
-```bash
-# start container minio-eu
-docker run --name minio-eu --rm -d \
-  -p 19000:9000 \
-  -v minio-eu-data:/data \
-  minio/minio server /data
-
-# attach networks
-docker network connect us-west-2-net minio-eu
-docker network connect us-east-1-net minio-eu
-docker network connect eu-west-1-net minio-eu
-```
-
-Open the `minio-eu` UI at <http://localhost:19000> and create bucket `backup-eu`.
-
-Backup the data that is stored in region `eu-west-1` in `minio-eu`, and all other data in the default `minio` server as before. Check the ENDPOINT URLs in below command.
-
-```sql
-BACKUP TO
-  ('s3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin',
-   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west-1&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin')
+BACKUP INTO
+  ('s3://workshop-us-east-1/local?COCKROACH_LOCALITY=default&AUTH=implicit',
+   's3://workshop-us-east-2/local?COCKROACH_LOCALITY=region%3Dus-east-2&AUTH=implicit',
+   's3://workshop-us-west-1/local?COCKROACH_LOCALITY=region%3Dus-west-1&AUTH=implicit'
+   )
   AS OF SYSTEM TIME '-10s';
 ```
 
-Verify data is stored in both MinIO servers: left side is `minio`, right side is `minio-eu`.
+Open the AWS Console and check that you do see data stored in each of the 3 buckets.
+The bucket that you set to be the default will also contain all metadata.
 
-![minio-minio-eu](media/minio-minio-eu.png)
+![local-1](media/local-1.png)
+![local-2](media/local-2.png)
+![local-3](media/local-3.png)
 
 Using SQL, point the command to the default location to view the entire backup
 
 ```sql
-SHOW BACKUP
+SHOW BACKUPS IN
   's3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
 ```
 
-You can also view the individual backup files and the ranges they correspond to and confirm the files are stored in the correct bucket.
+```text
+          path
+-------------------------
+  /2022/05/24-191507.78
+(1 row)
+```
 
 ```sql
-SELECT path, substring(start_pretty, 0, 25) AS start, substring(end_pretty, 0, 25) AS end
-FROM
-    [SHOW BACKUP FILES
-     's3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin'];
+SHOW BACKUP '/2022/05/24-191507.78' IN 's3://workshop-us-east-1/local?AUTH=implicit';
 ```
 
 ```text
-           path          |             start             |              end
--------------------------+-------------------------------+--------------------------------
-[...]
-  600397201844666377.sst | /Table/53/1/"amsterdam"       | /Table/53/1/"amsterdam"/"\xb3
-  600397201847517192.sst | /Table/53/1/"amsterdam"/"\xb3 | /Table/53/1/"amsterdam"/Prefi
-  600397202053070852.sst | /Table/53/1/"amsterdam"/Prefi | /Table/53/1/"boston"/"333333D
-  600397201648549892.sst | /Table/53/1/"boston"/"333333D | /Table/53/1/"los angeles"/"\x
-  600397201648582660.sst | /Table/53/1/"los angeles"/"\x | /Table/53/1/"new york"/"\x19\
-  600397201649926148.sst | /Table/53/1/"new york"/"\x19\ | /Table/53/1/"paris"
-  600397201849417736.sst | /Table/53/1/"paris"           | /Table/53/1/"paris"/"\xcc\xcc
-  600397201897947144.sst | /Table/53/1/"paris"/"\xcc\xcc | /Table/53/1/"paris"/PrefixEnd
-  600397201881628680.sst | /Table/53/1/"rome"            | /Table/53/1/"rome"/PrefixEnd
-  600397202088984577.sst | /Table/53/1/"rome"/PrefixEnd  | /Table/53/1/"san francisco"/"
-[...]
-```
-
-Optionally, you can drop `movr` and restore it
-
-```sql
-DROP DATABASE movr CASCADE;
-
-RESTORE DATABASE movr FROM
-  ('s3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin',
-   's3://backup-eu?COCKROACH_LOCALITY=region%3Deu-west-1&AWS_ENDPOINT=http://minio-eu:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin');
+  database_name | parent_schema_name |      object_name       | object_type | backup_type | start_time |          end_time          | size_bytes |   rows   | is_full_cluster
+----------------+--------------------+------------------------+-------------+-------------+------------+----------------------------+------------+----------+------------------
+  NULL          | NULL               | system                 | database    | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  system        | public             | users                  | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |         99 |        2 |      true
+  system        | public             | zones                  | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |        236 |        8 |      true
+  system        | public             | settings               | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |        311 |        5 |      true
+  system        | public             | ui                     | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |        155 |        1 |      true
+  system        | public             | jobs                   | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |      79268 |       66 |      true
+  system        | public             | locations              | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |       3452 |       64 |      true
+  system        | public             | role_members           | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |         94 |        1 |      true
+  system        | public             | comments               | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |          0 |        0 |      true
+  system        | public             | role_options           | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |          0 |        0 |      true
+  system        | public             | scheduled_jobs         | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |        890 |        3 |      true
+  system        | public             | database_role_settings | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |          0 |        0 |      true
+  system        | public             | tenant_settings        | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |          0 |        0 |      true
+  NULL          | NULL               | defaultdb              | database    | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  defaultdb     | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  NULL          | NULL               | postgres               | database    | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  postgres      | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  defaultdb     | public             | jobsview               | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |          0 |        0 |      true
+  NULL          | NULL               | bank                   | database    | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  bank          | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  bank          | public             | bank                   | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |     115634 |     1000 |      true
+  NULL          | NULL               | tpcc                   | database    | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  tpcc          | NULL               | public                 | schema      | full        | NULL       | 2022-05-24 19:15:07.787368 |       NULL |     NULL |      true
+  tpcc          | public             | warehouse              | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |       5360 |      100 |      true
+  tpcc          | public             | district               | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |     102389 |     1000 |      true
+  tpcc          | public             | customer               | table       | full        | NULL       | 2022-05-24 19:15:07.787368 | 1847491350 |  3000097 |      true
+  tpcc          | public             | history                | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |  229045989 |  3000013 |      true
+  tpcc          | public             | order                  | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |  163465000 |  3000005 |      true
+  tpcc          | public             | new_order              | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |   12600000 |   900000 |      true
+  tpcc          | public             | item                   | table       | full        | NULL       | 2022-05-24 19:15:07.787368 |    8253886 |   100000 |      true
+  tpcc          | public             | stock                  | table       | full        | NULL       | 2022-05-24 19:15:07.787368 | 3217442720 | 10000168 |      true
+  tpcc          | public             | order_line             | table       | full        | NULL       | 2022-05-24 19:15:07.787368 | 1769535056 | 30006080 |      true
+(32 rows)
 ```
 
 Good stuff! You have practiced a lot of Backup & Restore techniques, time to learn something new! In the next session, we'll review **Repaving** for our CockroachDB cluster nodes.
