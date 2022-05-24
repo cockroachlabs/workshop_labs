@@ -1,6 +1,6 @@
 # Backup and Restore - Student Labs
 
-In these labs we will familiarize with the Backup & Restore functionality in CockroachDB. We also include a lab to practice Repaving.
+In this demo we will familiarize with the Backup & Restore functionality in CockroachDB. We also include a write-up to understand the practice of Repaving.
 
 ## Overview
 
@@ -10,11 +10,9 @@ You can read this excellent [blog post](https://www.cockroachlabs.com/blog/distr
 
 ## Labs Prerequisites
 
-1. AWS EC2 access
+1. Access to AWS S3 and EC2
 
-2. AWS S3 access
-
-3. You also need:
+2. You also need:
     - a modern web browser,
     - a Terminal (Linux/Mac) or PowerShell (Windows)
 
@@ -30,6 +28,10 @@ In this demo, we use the following buckets:
 ![s3-buckets](media/s3-buckets.png)
 
 Now, create the CockroachDB cluster across 3 regions; 1 node per region is sufficient, and make sure the `locality` is setup correctly.
+
+Here for example the locality of the demo cluster:
+
+![localities](media/localities.png)
 
 Also, make sure the EC2 instances are created with an instance role that has the following policy attached.
 
@@ -55,10 +57,6 @@ Also, make sure the EC2 instances are created with an instance role that has the
 ```
 
 This policy allows the ec2 instances to communicate with S3 without exposing the access keys.
-
-Here for example the locality of the demo cluster:
-
-![localities](media/localities.png)
 
 Once the cluster is deployed, SSH into any of the CockroachDB nodes and create the dataset
 
