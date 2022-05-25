@@ -650,7 +650,7 @@ SHOW BACKUP '/2022/05/24-185931.11' IN 's3://workshop-us-east-1/daily?AUTH=impli
 (32 rows)
 ```
 
-Perfect! Let it run for a few days, ideally until tomorrow so you can see the scheduler run Sunday's full backup cluster job.
+Perfect! Let it run for a few days, ideally until tomorrow so you can see the scheduler run the next full cluster backup job at midnight.
 
 You can learn more about [Backup Schedule](https://www.cockroachlabs.com/docs/stable/manage-a-backup-schedule.html) and the SQL command [CREATE SCHEDULE FOR BACKUP](https://www.cockroachlabs.com/docs/stable/create-schedule-for-backup) in our docs.
 
