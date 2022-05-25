@@ -4,7 +4,7 @@ In this demo we will familiarize with the Backup & Restore functionality in Cock
 
 ## Overview
 
-CockroachDB is by design fault tolerant and resilient, so Backup is only required for DR. Still, it is good practice to backup your entire database on at least a weekly basis with hourly/daily incremental backups.
+CockroachDB is by design fault tolerant and resilient, so Backup is only required for DR. Still, it is good practice to backup your entire database on at least a daily basis with hourly/daily incremental backups.
 
 You can read this excellent [blog post](https://www.cockroachlabs.com/blog/distributed-database-performance/) about how to architecture CockroachDB and the importance of Backups, but also how CockroachDB naturally brings RPO to zero.
 
@@ -91,7 +91,7 @@ SHOW DATABASES;
 Time: 14ms total (execution 14ms / network 0ms)
 ```
 
-You can also check the **Databases** page in the DB Console at <http://<any-node-ip>:8080> for an overview of your databases and their size.
+You can also check the **Databases** page in the DB Console at <http://any-node-ip:8080> for an overview of your databases and their size.
 
 ![databases](media/databases.png)
 
@@ -209,7 +209,7 @@ Check how the backup files are actually stored in AWS S3 server.
 
 These are the files for our **Full Cluster** backup. In the next lab we will run an **incremental** backup and see how the files will be nicely organized.
 
-You can learn a lot more about Cockroach Backup strategies [in the docs](https://www.cockroachlabs.com/docs/v20.2/take-full-and-incremental-backups.html), too!
+You can learn a lot more about Cockroach Backup strategies [in the docs](https://www.cockroachlabs.com/docs/stable/take-full-and-incremental-backups.html), too!
 
 ## Lab 2 - Incremental Backup
 
@@ -259,7 +259,8 @@ SELECT * FROM jobsview ORDER BY created DESC LIMIT 2;
 (2 rows)
 
 
-Time: 4ms total (execution 4ms / network 0ms)````
+Time: 4ms total (execution 4ms / network 0ms)
+````
 
 Check in S3 how the files are organized. You can see that there is a new directory `incremental`.
 
@@ -546,10 +547,9 @@ Good, you're back in business!
 
 There are many ways in which you can manage your backups. Read the docs to find out more about:
 
-- [Backups with revision history and restore from point in time](https://www.cockroachlabs.com/docs/v20.2/take-backups-with-revision-history-and-restore-from-a-point-in-time.html)
-- [Encrypted Backup and Restore](https://www.cockroachlabs.com/docs/v20.2/take-and-restore-encrypted-backups.html)
-- [Locality-aware Backups](https://www.cockroachlabs.com/docs/v20.2/take-and-restore-locality-aware-backups.html)
-- [Scheduling Backups](https://www.cockroachlabs.com/docs/v20.2/manage-a-backup-schedule.html)
+- [Backups with revision history and restore from point in time](https://www.cockroachlabs.com/docs/stable/take-backups-with-revision-history-and-restore-from-a-point-in-time.html)
+- [Encrypted Backup and Restore](https://www.cockroachlabs.com/docs/stable/take-and-restore-encrypted-backups.html)
+- [Locality-aware Backups](https://www.cockroachlabs.com/docs/stable/take-and-restore-locality-aware-backups.html)
 
 ## Lab 4 - Automate backup jobs
 
@@ -558,11 +558,13 @@ You are happy with the way your backups are taken and you want to automate this 
 - daily at midnight: Full Cluster backup
 - hourly: incremental backup
 
-You can run this schedule from CockroachDB directly, without using tools like `cron` or `anacron`. Run below statement
+You can run this schedule from CockroachDB directly, without using tools like `cron` or `anacron`.
+
+Run below statement. Notice that we are using the `WITH revision_history`, see the [docs](https://www.cockroachlabs.com/docs/v22.1/backup#with-revision-history) so that our backup includes any change recorded in the MVCC log.
 
 ```sql
-CREATE SCHEDULE weekly
-  FOR BACKUP INTO 's3://workshop-us-east-1/weekly?AUTH=implicit'
+CREATE SCHEDULE daily
+  FOR BACKUP INTO 's3://workshop-us-east-1/daily?AUTH=implicit'
     WITH revision_history
     RECURRING '@hourly'
     FULL BACKUP '@daily'
@@ -570,10 +572,10 @@ CREATE SCHEDULE weekly
 ```
 
 ```text
-     schedule_id     | label  |                     status                     |           first_run           | schedule |                                        backup_stmt
----------------------+--------+------------------------------------------------+-------------------------------+----------+---------------------------------------------------------------------------------------------
-  764635942894501889 | weekly | PAUSED: Waiting for initial backup to complete | NULL                          | @hourly  | BACKUP INTO 's3://workshop-us-east-1/weekly?AUTH=implicit' WITH revision_history, detached
-  764635943065354241 | weekly | ACTIVE                                         | 2022-05-24 18:59:31.113695+00 | @daily   | BACKUP INTO 's3://workshop-us-east-1/weekly?AUTH=implicit' WITH revision_history, detached
+     schedule_id     | label |                     status                     |           first_run           | schedule |                                       backup_stmt
+---------------------+-------+------------------------------------------------+-------------------------------+----------+--------------------------------------------------------------------------------------------
+  764635942894501889 | daily | PAUSED: Waiting for initial backup to complete | NULL                          | @hourly  | BACKUP INTO 's3://workshop-us-east-1/daily?AUTH=implicit' WITH revision_history, detached
+  764635943065354241 | daily | ACTIVE                                         | 2022-05-24 18:59:31.113695+00 | @daily   | BACKUP INTO 's3://workshop-us-east-1/daily?AUTH=implicit' WITH revision_history, detached
 (2 rows)
 ```
 
@@ -586,10 +588,8 @@ SHOW SCHEDULES;
 ```text
           id         |        label         | schedule_status |        next_run        |   state   | recurrence | jobsrunning | owner |            created            |                                                                                            command
 ---------------------+----------------------+-----------------+------------------------+-----------+------------+-------------+-------+-------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  764581162389667841 | sql-stats-compaction | ACTIVE          | 2022-05-24 20:00:00+00 | succeeded | @hourly    |           0 | node  | 2022-05-24 14:20:53.541426+00 | {}
-  764635942894501889 | weekly               | ACTIVE          | 2022-05-24 20:00:00+00 | NULL      | @hourly    |           0 | root  | 2022-05-24 18:59:31.113709+00 | {"backup_statement": "BACKUP INTO LATEST IN \'s3://workshop-us-east-1/weekly?AUTH=implicit\' WITH revision_history, detached", "backup_type": 1, "dependent_schedule_id": 764635943065354241}
-  764635943065354241 | weekly               | ACTIVE          | 2022-05-25 00:00:00+00 | NULL      | @daily     |           0 | root  | 2022-05-24 18:59:31.113709+00 | {"backup_statement": "BACKUP INTO \'s3://workshop-us-east-1/weekly?AUTH=implicit\' WITH revision_history, detached", "dependent_schedule_id": 764635942894501889}
-(3 rows)
+  764635942894501889 | daily                | ACTIVE          | 2022-05-24 20:00:00+00 | NULL      | @hourly    |           0 | root  | 2022-05-24 18:59:31.113709+00 | {"backup_statement": "BACKUP INTO LATEST IN \'s3://workshop-us-east-1/daily?AUTH=implicit\' WITH revision_history, detached", "backup_type": 1, "dependent_schedule_id": 764635943065354241}
+  764635943065354241 | daily                | ACTIVE          | 2022-05-25 00:00:00+00 | NULL      | @daily     |           0 | root  | 2022-05-24 18:59:31.113709+00 | {"backup_statement": "BACKUP INTO \'s3://workshop-us-east-1/daily?AUTH=implicit\' WITH revision_history, detached", "dependent_schedule_id": 764635942894501889}
 ```
 
 As we set the `first_run` to `now`, the first backup job was started, and most likely it just finished, confirm in the DB Console > Jobs page.
@@ -598,7 +598,7 @@ Being the first backup, this is necessarely a Full Backup regardless of the sche
 Let's verify we can see the first backup
 
 ```sql
-SHOW BACKUPS IN 's3://workshop-us-east-1/weekly?AUTH=implicit';
+SHOW BACKUPS IN 's3://workshop-us-east-1/daily?AUTH=implicit';
 ```
 
 ```text
@@ -609,7 +609,7 @@ SHOW BACKUPS IN 's3://workshop-us-east-1/weekly?AUTH=implicit';
 ```
 
 ```sql
-SHOW BACKUP '/2022/05/24-185931.11' IN 's3://workshop-us-east-1/weekly?AUTH=implicit';
+SHOW BACKUP '/2022/05/24-185931.11' IN 's3://workshop-us-east-1/daily?AUTH=implicit';
 ```
 
 ```text
@@ -652,7 +652,7 @@ SHOW BACKUP '/2022/05/24-185931.11' IN 's3://workshop-us-east-1/weekly?AUTH=impl
 
 Perfect! Let it run for a few days, ideally until tomorrow so you can see the scheduler run Sunday's full backup cluster job.
 
-You can learn more about [Backup Schedule](https://www.cockroachlabs.com/docs/v20.2/manage-a-backup-schedule.html) and the SQL command [CREATE SCHEDULE FOR BACKUP](https://www.cockroachlabs.com/docs/v20.2/create-schedule-for-backup) in our docs.
+You can learn more about [Backup Schedule](https://www.cockroachlabs.com/docs/stable/manage-a-backup-schedule.html) and the SQL command [CREATE SCHEDULE FOR BACKUP](https://www.cockroachlabs.com/docs/stable/create-schedule-for-backup) in our docs.
 
 ## Lab 5 - Locality-aware Backups
 
@@ -682,8 +682,7 @@ The bucket that you set to be the default will also contain all metadata.
 Using SQL, point the command to the default location to view the entire backup
 
 ```sql
-SHOW BACKUPS IN
-  's3://backup?COCKROACH_LOCALITY=default&AWS_ENDPOINT=http://minio:9000&AWS_ACCESS_KEY_ID=minioadmin&AWS_SECRET_ACCESS_KEY=minioadmin';
+SHOW BACKUPS IN 's3://workshop-us-east-1/local?AUTH=implicit';
 ```
 
 ```text
@@ -767,100 +766,7 @@ Cons:
 - Significantly slower (might be hours)
 - Higher network bandwidth usage
 
-You can read more about the Decommission process in our [docs](https://www.cockroachlabs.com/docs/v20.2/remove-nodes.html).
-
-Let's spin up a new node and add it to the cluster. In this example, we want to repave node `roach-seattle-3` for node `roach-seattle-4`
-
-```bash
-docker run -d --name=roach-seattle-4 --hostname=roach-seattle-4 --ip=172.27.0.14 --cap-add NET_ADMIN --net=us-west-2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -v "roach-seattle-4-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west-2,zone=c
-
-# attach container to networks
-docker network connect uswest-useast-net roach-seattle-4
-docker network connect uswest-euwest-net roach-seattle-4
-```
-
-In the AdminUI, you should see you have now 10 nodes and 2 nodes are in the `us-west-2` region, zone `c`.
-
-![adminui-decommission](media/adminui-decommission.png)
-
-In the Overview > Node List, click on the node10 to see that this node is already up and operational
-
-![adminui-node10](media/adminui-node10.png)
-
-You can also see from the CLI
-
-```bash
-$ cockroach node status --insecure
-  id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
------+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 19:48:42.057632+00:00 | region=us-east-1,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 19:48:42.38807+00:00  | region=us-east-1,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 19:48:42.842474+00:00 | region=us-east-1,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 19:48:44.300456+00:00 | region=us-west-2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 19:48:40.567553+00:00 | region=us-west-2,zone=b | true         | true
-   6 | roach-seattle-3:26257 | roach-seattle-3:26257 | v20.2.x | 2020-10-08 15:43:18.704429+00:00 | 2020-10-08 19:48:41.219253+00:00 | region=us-west-2,zone=c | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 19:48:44.378163+00:00 | region=eu-west-1,zone=b | true         | true
-   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 19:48:40.398695+00:00 | region=eu-west-1,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 19:48:40.438241+00:00 | region=eu-west-1,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 19:48:40.624029+00:00 | region=us-west-2,zone=c | true         | true
-(10 rows)
-```
-
-At this point, you can decommission node `roach-seattle-3`, which from above table is node with id = 6.
-
-```bash
-$ cockroach node decommission 6 --insecure
-
-  id | is_live | replicas | is_decommissioning | is_draining
------+---------+----------+--------------------+--------------
-   6 |  true   |       21 |        true        |    false
-(1 row)
-.....
-  id | is_live | replicas | is_decommissioning | is_draining
------+---------+----------+--------------------+--------------
-   6 |  true   |       19 |        true        |    false
-(1 row)
-
-[...]
-
-  id | is_live | replicas | is_decommissioning | is_draining
------+---------+----------+--------------------+--------------
-   6 |  true   |        0 |        true        |    false
-(1 row)
-
-No more data reported on target nodes. Please verify cluster health before removing the nodes.
-```
-
-Verify the node is empty using the AdminUI
-
-![adminui-node6](media/adminui-node6.png)
-
-And finally you can just stop and remove the container. Please note: it will take a few minutes for the AdminUI to update with the correct status of the cluster
-
-```bash
-docker stop roach-seattle-3
-docker rm roach-seattle-3
-```
-
-Verify the status on the CLI
-
-```bash
-$ cockroach node status --insecure
-  id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
------+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:00:45.702579+00:00 | region=us-east-1,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:00:46.032631+00:00 | region=us-east-1,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:00:42.021404+00:00 | region=us-east-1,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:00:43.479506+00:00 | region=us-west-2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:00:44.211455+00:00 | region=us-west-2,zone=b | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:00:43.557008+00:00 | region=eu-west-1,zone=b | true         | true
-   8 | roach-london-1:26257  | roach-london-1:26257  | v20.2.x | 2020-10-08 15:43:22.22653+00:00  | 2020-10-08 20:00:44.041947+00:00 | region=eu-west-1,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:00:44.081871+00:00 | region=eu-west-1,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:00:44.268408+00:00 | region=us-west-2,zone=c | true         | true
-(9 rows)
-```
-
-Good job, you've successfully and safely repaved one node using decommission!
+You can read more about the Decommission process in our [docs](https://www.cockroachlabs.com/docs/stable/remove-nodes.html).
 
 ### Data Swap
 
@@ -883,71 +789,8 @@ Cons:
 - Less resilient during this swap, one node is down, so it should only be done one node at a time
 - If this takes longer than 5 mins, the system will declare the node dead and it will start the repair process.
 
-The key to this is: automation. We will not use any DevOps tools however as in this lab we focus on the process. Also, as our cluster runs on docker containes and not on VMs, the process varies slightly.
-
-The CockroachDB data storage is mounted as a Docker Volume. Check the docker volume in your cluster
-
-```bash
-$ docker volume ls
-DRIVER              VOLUME NAME
-local               roach-london-1-data
-local               roach-london-2-data
-local               roach-london-3-data
-local               roach-newyork-1-data
-local               roach-newyork-2-data
-local               roach-newyork-3-data
-local               roach-seattle-1-data
-local               roach-seattle-2-data
-local               roach-seattle-3-data
-local               roach-seattle-4-data
-```
-
-You remember that in the previous exercise we have stopped and removed `roach-seattle-3` and yet its Volume persisted. We will take advantage of this feature for this repaving technique.
-
-Let's repave node `roach-london-1` for `roach-london-4`
-
-```bash
-# drain roach-london-1
-docker exec -it roach-london-1 cockroach node drain --insecure
-
-# stop and remove the node immediately
-docker stop roach-london-1
-docker rm roach-london-1
-
-# start the new container using the same volume roach-london-1-data
-docker run -d --name=roach-london-4 --hostname=roach-london-4 --ip=172.29.0.14 --cap-add NET_ADMIN --net=eu-west-1-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -v "roach-london-1-data:/cockroach/cockroach-data" cockroachdb/cockroach:latest start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west-1,zone=a
-
-# connect to networks
-docker network connect useast-euwest-net roach-london-4
-docker network connect uswest-euwest-net roach-london-4
-```
-
-Check the AdminUI. Immediately you will see the node added to the cluster, with no need to repair!
-
-![adminui-node8](media/adminui-node8.png)
-
-You can verify from the CLI, too
-
-```bash
-$ cockroach node status --insecure
-  id |        address        |      sql_address      |  build  |            started_at            |            updated_at            |        locality        | is_available | is_live
------+-----------------------+-----------------------+---------+----------------------------------+----------------------------------+------------------------+--------------+----------
-   1 | roach-newyork-1:26257 | roach-newyork-1:26257 | v20.2.x | 2020-10-08 15:43:06.102417+00:00 | 2020-10-08 20:23:09.69264+00:00  | region=us-east-1,zone=a | true         | true
-   2 | roach-newyork-2:26257 | roach-newyork-2:26257 | v20.2.x | 2020-10-08 15:43:06.43971+00:00  | 2020-10-08 20:23:10.023896+00:00 | region=us-east-1,zone=b | true         | true
-   3 | roach-newyork-3:26257 | roach-newyork-3:26257 | v20.2.x | 2020-10-08 15:43:06.894065+00:00 | 2020-10-08 20:23:05.977296+00:00 | region=us-east-1,zone=c | true         | true
-   4 | roach-seattle-1:26257 | roach-seattle-1:26257 | v20.2.x | 2020-10-08 15:43:17.319058+00:00 | 2020-10-08 20:23:07.468981+00:00 | region=us-west-2,zone=a | true         | true
-   5 | roach-seattle-2:26257 | roach-seattle-2:26257 | v20.2.x | 2020-10-08 15:43:18.046842+00:00 | 2020-10-08 20:23:08.202968+00:00 | region=us-west-2,zone=b | true         | true
-   7 | roach-london-2:26257  | roach-london-2:26257  | v20.2.x | 2020-10-08 15:43:21.746067+00:00 | 2020-10-08 20:23:07.547155+00:00 | region=eu-west-1,zone=b | true         | true
-   8 | roach-london-4:26257  | roach-london-4:26257  | v20.2.x | 2020-10-08 20:21:36.196613+00:00 | 2020-10-08 20:23:09.491299+00:00 | region=eu-west-1,zone=a | true         | true
-   9 | roach-london-3:26257  | roach-london-3:26257  | v20.2.x | 2020-10-08 15:43:22.250806+00:00 | 2020-10-08 20:23:08.072601+00:00 | region=eu-west-1,zone=c | true         | true
-  10 | roach-seattle-4:26257 | roach-seattle-4:26257 | v20.2.x | 2020-10-08 19:37:35.190801+00:00 | 2020-10-08 20:23:08.258708+00:00 | region=us-west-2,zone=c | true         | true
-(9 rows)
-```
-
-Our new node `roach-london-4` is up and running, we repaved in a matter of seconds!
+The key to this is: automation.
 
 ## Summary
 
-In this labs we have learned how to backup and restore your data, how to create a schedule and where to look into the Documentation for further features and options.
-
-We also practice the technique of Repaving and, while we worked on Docker, the same principles can be applied to VMs or to Kubernetes Pods.
+In this demo we have learned how to backup and restore your data, how to create a schedule and where to look into the Documentation for further features and options.
