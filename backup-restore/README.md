@@ -733,6 +733,14 @@ SHOW BACKUP '/2022/05/24-191507.78' IN 's3://workshop-us-east-1/local?AUTH=impli
   tpcc          | public             | order_line             | table       | full        | NULL       | 2022-05-24 19:15:07.787368 | 1769535056 | 30006080 |      true
 (32 rows)
 ```
+```sql
+-- this can take 2-3 minutes
+DROP DATABASE tpcc CASCADE;
+
+-- restore backups from multiple regions...
+RESTORE DATABASE tpcc
+FROM LATEST IN ('s3://workshop-us-east-1/local?AUTH=implicit','s3://workshop-us-east-2/local?AUTH=implicit','s3://workshop-us-west-1/local?AUTH=implicit');
+```
 
 Good stuff! You have practiced a lot of Backup & Restore techniques, time to learn something new! In the next session, we'll review **Repaving** for our CockroachDB cluster nodes.
 
