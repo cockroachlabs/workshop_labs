@@ -733,7 +733,7 @@ SHOW BACKUP '/2022/05/24-191507.78' IN 's3://workshop-us-east-1/local?AUTH=impli
   tpcc          | public             | order_line             | table       | full        | NULL       | 2022-05-24 19:15:07.787368 | 1769535056 | 30006080 |      true
 (32 rows)
 ```
-Now lets drop a database and restore from a locality-aware backup
+Now lets drop a database and restore from the locality-aware backups
 
 Note: The first URI in the list has to be the URI specified as the default URI when the backup was created.If you have moved your backups to a different location since the backup was originally taken, the first URI must be the new location of the files originally written to the default location.
 
