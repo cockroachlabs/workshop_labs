@@ -240,7 +240,7 @@ Cost is roughly calculated by:
 Adding keyword `ANALYZE` will both show the plan, in a graphical format, and execute it, too. This will show the query runtime performance
 
 ```sql
-EXPLAIN ANALYZE SELECT ol_number, SUM(ol_quantity)
+EXPLAIN ANALYZE (DISTSQL) SELECT ol_number, SUM(ol_quantity)
 FROM order_line
 WHERE ol_w_id > 30
    AND ol_amount > 9990
