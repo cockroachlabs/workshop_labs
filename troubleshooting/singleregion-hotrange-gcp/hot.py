@@ -122,7 +122,7 @@ def main():
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
 
-    # response = requests.get('http://glenn-bpf-0001.roachprod.crdb.io:26258/_status/raft', verify=False)
+    #response = requests.get('http://glenn--0001.roachprod.crdb.io:26258/_status/raft', verify=False)
     response = requests.get('http://' + options.host + ':' + options.adminport + '/_status/raft', verify=False)
 
     ranges = json.loads(response.content)["ranges"]
