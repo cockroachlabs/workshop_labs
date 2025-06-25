@@ -4,7 +4,7 @@ The following labs will take you through various query tuning scenarios and allo
 
 ## Labs Prerequisites
 
-1. Docker compose
+1. Docker Compose or Podman Compose
 2. Cockroach binary on Mac or Windows
 3. A modern web browser
 4. A commandline client:
@@ -12,8 +12,11 @@ The following labs will take you through various query tuning scenarios and allo
     - Powershell (Windows)
 
 ## Lab 0 - Start up a cluster
-Go to infrastructure/single-region-dockercompose-cluster directory
-Update cockroach version and license information in docker.sh then start Cockroach cluster on docker via docker compose
+1. Go to `infrastructure/single-region-dockercompose-cluster` directory.
+2. Update cockroach version and license information in `docker.sh` then start Cockroach cluster on docker via `docker compose`.
+
+**Note**: You can get a license key from from the "RoachProd Local" section in [Roachprod Tutorial](https://cockroachlabs.atlassian.net/wiki/x/64CbC) (starts with “crl-0-EI32g").
+
 ```bash
 ./docker-up.sh
 ```
@@ -228,7 +231,7 @@ SELECT * FROM inventory limit 10 OFFSET 200000;
 ```
 Question: 
 - Can you read / write to the table now?
-- What if we take down another node? Try it yourself using `docker compose stop us-east[1-4]`. When you like to bring the nodes back online, use ` docker compose up us-east[1-4] --detach`
+- What if we take down another node? Try it yourself using `docker compose stop us-east[1-4]`. When you like to bring the nodes back online, use ` docker compose start us-east[1-4]`
 
 
 ## Final thoughts
